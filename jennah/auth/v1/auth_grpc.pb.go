@@ -22,6 +22,7 @@ const (
 	AuthService_WhoAmI_FullMethodName           = "/jennahapi.auth.v1.AuthService/WhoAmI"
 	AuthService_StartLogin_FullMethodName       = "/jennahapi.auth.v1.AuthService/StartLogin"
 	AuthService_CompleteLogin_FullMethodName    = "/jennahapi.auth.v1.AuthService/CompleteLogin"
+	AuthService_ExchangeCode_FullMethodName     = "/jennahapi.auth.v1.AuthService/ExchangeCode"
 	AuthService_StartDeviceLogin_FullMethodName = "/jennahapi.auth.v1.AuthService/StartDeviceLogin"
 	AuthService_PollDeviceLogin_FullMethodName  = "/jennahapi.auth.v1.AuthService/PollDeviceLogin"
 	AuthService_RefreshToken_FullMethodName     = "/jennahapi.auth.v1.AuthService/RefreshToken"
@@ -54,6 +55,12 @@ type AuthServiceClient interface {
 	// validates state/PKCE, exchanges the code, verifies the provider identity,
 	// upserts the user, and mints jennah tokens. Unauthenticated (allowlist).
 	CompleteLogin(ctx context.Context, in *CompleteLoginRequest, opts ...grpc.CallOption) (*CompleteLoginResponse, error)
+	// Redeems a single-use one-time code (issued by CompleteLogin in CODE
+	// response mode) for the minted jennah tokens. Used by a confidential
+	// server-side client (a BFF) so tokens are never delivered to the browser.
+	// The code is single-use and short-lived. Unauthenticated (the code itself
+	// is the credential; allowlist).
+	ExchangeCode(ctx context.Context, in *ExchangeCodeRequest, opts ...grpc.CallOption) (*ExchangeCodeResponse, error)
 	// Begins the CLI device-code flow. Unauthenticated (allowlist).
 	StartDeviceLogin(ctx context.Context, in *StartDeviceLoginRequest, opts ...grpc.CallOption) (*StartDeviceLoginResponse, error)
 	// Polls a pending device-code login for approval. Unauthenticated (allowlist).
@@ -97,6 +104,16 @@ func (c *authServiceClient) CompleteLogin(ctx context.Context, in *CompleteLogin
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CompleteLoginResponse)
 	err := c.cc.Invoke(ctx, AuthService_CompleteLogin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ExchangeCode(ctx context.Context, in *ExchangeCodeRequest, opts ...grpc.CallOption) (*ExchangeCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExchangeCodeResponse)
+	err := c.cc.Invoke(ctx, AuthService_ExchangeCode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +186,12 @@ type AuthServiceServer interface {
 	// validates state/PKCE, exchanges the code, verifies the provider identity,
 	// upserts the user, and mints jennah tokens. Unauthenticated (allowlist).
 	CompleteLogin(context.Context, *CompleteLoginRequest) (*CompleteLoginResponse, error)
+	// Redeems a single-use one-time code (issued by CompleteLogin in CODE
+	// response mode) for the minted jennah tokens. Used by a confidential
+	// server-side client (a BFF) so tokens are never delivered to the browser.
+	// The code is single-use and short-lived. Unauthenticated (the code itself
+	// is the credential; allowlist).
+	ExchangeCode(context.Context, *ExchangeCodeRequest) (*ExchangeCodeResponse, error)
 	// Begins the CLI device-code flow. Unauthenticated (allowlist).
 	StartDeviceLogin(context.Context, *StartDeviceLoginRequest) (*StartDeviceLoginResponse, error)
 	// Polls a pending device-code login for approval. Unauthenticated (allowlist).
@@ -196,6 +219,9 @@ func (UnimplementedAuthServiceServer) StartLogin(context.Context, *StartLoginReq
 }
 func (UnimplementedAuthServiceServer) CompleteLogin(context.Context, *CompleteLoginRequest) (*CompleteLoginResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CompleteLogin not implemented")
+}
+func (UnimplementedAuthServiceServer) ExchangeCode(context.Context, *ExchangeCodeRequest) (*ExchangeCodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExchangeCode not implemented")
 }
 func (UnimplementedAuthServiceServer) StartDeviceLogin(context.Context, *StartDeviceLoginRequest) (*StartDeviceLoginResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartDeviceLogin not implemented")
@@ -280,6 +306,24 @@ func _AuthService_CompleteLogin_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).CompleteLogin(ctx, req.(*CompleteLoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ExchangeCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExchangeCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ExchangeCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ExchangeCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ExchangeCode(ctx, req.(*ExchangeCodeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -374,6 +418,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompleteLogin",
 			Handler:    _AuthService_CompleteLogin_Handler,
+		},
+		{
+			MethodName: "ExchangeCode",
+			Handler:    _AuthService_ExchangeCode_Handler,
 		},
 		{
 			MethodName: "StartDeviceLogin",
