@@ -11,6 +11,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -293,7 +294,7 @@ func (x PollDeviceLoginResponse_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use PollDeviceLoginResponse_Status.Descriptor instead.
 func (PollDeviceLoginResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{13, 0}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{14, 0}
 }
 
 // One of the caller's enterprise memberships (a row in the Memberships join
@@ -464,6 +465,77 @@ func (x *Identity) GetMemberships() []*Membership {
 	return nil
 }
 
+// Entitlement is the caller's current tier and trial state for the active
+// enterprise, mirrored from the access token so a client can render account
+// status (a trial countdown, an upgrade prompt) without decoding the JWT. Only
+// the trial gate is enforced today; tier is a free-form string (e.g. "trial")
+// while paid tiers are still being defined.
+type Entitlement struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Tier  string                 `protobuf:"bytes,1,opt,name=tier,proto3" json:"tier,omitempty"` // e.g. "trial"
+	// trial_ends_at is the immutable trial deadline; unset when the caller is not
+	// on a trial or has no known deadline.
+	TrialEndsAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=trial_ends_at,json=trialEndsAt,proto3" json:"trial_ends_at,omitempty"`
+	// trial_active is the server's decision: true while the trial is still valid
+	// (or the tier is not a trial), false once it has lapsed. A caller whose
+	// trial has lapsed is blocked from other RPCs, so this is chiefly meaningful
+	// because WhoAmI remains callable to surface exactly this state.
+	TrialActive   bool `protobuf:"varint,3,opt,name=trial_active,json=trialActive,proto3" json:"trial_active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Entitlement) Reset() {
+	*x = Entitlement{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Entitlement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Entitlement) ProtoMessage() {}
+
+func (x *Entitlement) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Entitlement.ProtoReflect.Descriptor instead.
+func (*Entitlement) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Entitlement) GetTier() string {
+	if x != nil {
+		return x.Tier
+	}
+	return ""
+}
+
+func (x *Entitlement) GetTrialEndsAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TrialEndsAt
+	}
+	return nil
+}
+
+func (x *Entitlement) GetTrialActive() bool {
+	if x != nil {
+		return x.TrialActive
+	}
+	return false
+}
+
 // Request message for the AuthService.WhoAmI rpc.
 type WhoAmIRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -473,7 +545,7 @@ type WhoAmIRequest struct {
 
 func (x *WhoAmIRequest) Reset() {
 	*x = WhoAmIRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[2]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -485,7 +557,7 @@ func (x *WhoAmIRequest) String() string {
 func (*WhoAmIRequest) ProtoMessage() {}
 
 func (x *WhoAmIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[2]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -498,20 +570,21 @@ func (x *WhoAmIRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhoAmIRequest.ProtoReflect.Descriptor instead.
 func (*WhoAmIRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{2}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{3}
 }
 
 // Response message for the AuthService.WhoAmI rpc.
 type WhoAmIResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Identity      *Identity              `protobuf:"bytes,1,opt,name=identity,proto3" json:"identity,omitempty"`
+	Entitlement   *Entitlement           `protobuf:"bytes,2,opt,name=entitlement,proto3" json:"entitlement,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WhoAmIResponse) Reset() {
 	*x = WhoAmIResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[3]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -523,7 +596,7 @@ func (x *WhoAmIResponse) String() string {
 func (*WhoAmIResponse) ProtoMessage() {}
 
 func (x *WhoAmIResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[3]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -536,12 +609,19 @@ func (x *WhoAmIResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WhoAmIResponse.ProtoReflect.Descriptor instead.
 func (*WhoAmIResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *WhoAmIResponse) GetIdentity() *Identity {
 	if x != nil {
 		return x.Identity
+	}
+	return nil
+}
+
+func (x *WhoAmIResponse) GetEntitlement() *Entitlement {
+	if x != nil {
+		return x.Entitlement
 	}
 	return nil
 }
@@ -559,7 +639,7 @@ type StartLoginRequest struct {
 
 func (x *StartLoginRequest) Reset() {
 	*x = StartLoginRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[4]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -571,7 +651,7 @@ func (x *StartLoginRequest) String() string {
 func (*StartLoginRequest) ProtoMessage() {}
 
 func (x *StartLoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[4]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -584,7 +664,7 @@ func (x *StartLoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartLoginRequest.ProtoReflect.Descriptor instead.
 func (*StartLoginRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{4}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *StartLoginRequest) GetProvider() Provider {
@@ -626,7 +706,7 @@ type StartLoginResponse struct {
 
 func (x *StartLoginResponse) Reset() {
 	*x = StartLoginResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[5]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -638,7 +718,7 @@ func (x *StartLoginResponse) String() string {
 func (*StartLoginResponse) ProtoMessage() {}
 
 func (x *StartLoginResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[5]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -651,7 +731,7 @@ func (x *StartLoginResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartLoginResponse.ProtoReflect.Descriptor instead.
 func (*StartLoginResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{5}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *StartLoginResponse) GetAuthorizeUrl() string {
@@ -681,7 +761,7 @@ type CompleteLoginRequest struct {
 
 func (x *CompleteLoginRequest) Reset() {
 	*x = CompleteLoginRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[6]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -693,7 +773,7 @@ func (x *CompleteLoginRequest) String() string {
 func (*CompleteLoginRequest) ProtoMessage() {}
 
 func (x *CompleteLoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[6]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +786,7 @@ func (x *CompleteLoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteLoginRequest.ProtoReflect.Descriptor instead.
 func (*CompleteLoginRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CompleteLoginRequest) GetProvider() Provider {
@@ -759,7 +839,7 @@ type CompleteLoginResponse struct {
 
 func (x *CompleteLoginResponse) Reset() {
 	*x = CompleteLoginResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[7]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -771,7 +851,7 @@ func (x *CompleteLoginResponse) String() string {
 func (*CompleteLoginResponse) ProtoMessage() {}
 
 func (x *CompleteLoginResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[7]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -784,7 +864,7 @@ func (x *CompleteLoginResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompleteLoginResponse.ProtoReflect.Descriptor instead.
 func (*CompleteLoginResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{7}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CompleteLoginResponse) GetAccessToken() string {
@@ -846,7 +926,7 @@ type ExchangeCodeRequest struct {
 
 func (x *ExchangeCodeRequest) Reset() {
 	*x = ExchangeCodeRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[8]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -858,7 +938,7 @@ func (x *ExchangeCodeRequest) String() string {
 func (*ExchangeCodeRequest) ProtoMessage() {}
 
 func (x *ExchangeCodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[8]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -871,7 +951,7 @@ func (x *ExchangeCodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExchangeCodeRequest.ProtoReflect.Descriptor instead.
 func (*ExchangeCodeRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{8}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ExchangeCodeRequest) GetCode() string {
@@ -895,7 +975,7 @@ type ExchangeCodeResponse struct {
 
 func (x *ExchangeCodeResponse) Reset() {
 	*x = ExchangeCodeResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[9]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -907,7 +987,7 @@ func (x *ExchangeCodeResponse) String() string {
 func (*ExchangeCodeResponse) ProtoMessage() {}
 
 func (x *ExchangeCodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[9]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -920,7 +1000,7 @@ func (x *ExchangeCodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExchangeCodeResponse.ProtoReflect.Descriptor instead.
 func (*ExchangeCodeResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{9}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ExchangeCodeResponse) GetAccessToken() string {
@@ -968,7 +1048,7 @@ type StartDeviceLoginRequest struct {
 
 func (x *StartDeviceLoginRequest) Reset() {
 	*x = StartDeviceLoginRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[10]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -980,7 +1060,7 @@ func (x *StartDeviceLoginRequest) String() string {
 func (*StartDeviceLoginRequest) ProtoMessage() {}
 
 func (x *StartDeviceLoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[10]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -993,7 +1073,7 @@ func (x *StartDeviceLoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDeviceLoginRequest.ProtoReflect.Descriptor instead.
 func (*StartDeviceLoginRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{10}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StartDeviceLoginRequest) GetProvider() Provider {
@@ -1018,7 +1098,7 @@ type StartDeviceLoginResponse struct {
 
 func (x *StartDeviceLoginResponse) Reset() {
 	*x = StartDeviceLoginResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[11]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1030,7 +1110,7 @@ func (x *StartDeviceLoginResponse) String() string {
 func (*StartDeviceLoginResponse) ProtoMessage() {}
 
 func (x *StartDeviceLoginResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[11]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1043,7 +1123,7 @@ func (x *StartDeviceLoginResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDeviceLoginResponse.ProtoReflect.Descriptor instead.
 func (*StartDeviceLoginResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{11}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *StartDeviceLoginResponse) GetDeviceCode() string {
@@ -1098,7 +1178,7 @@ type PollDeviceLoginRequest struct {
 
 func (x *PollDeviceLoginRequest) Reset() {
 	*x = PollDeviceLoginRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[12]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1190,7 @@ func (x *PollDeviceLoginRequest) String() string {
 func (*PollDeviceLoginRequest) ProtoMessage() {}
 
 func (x *PollDeviceLoginRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[12]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1203,7 @@ func (x *PollDeviceLoginRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollDeviceLoginRequest.ProtoReflect.Descriptor instead.
 func (*PollDeviceLoginRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{12}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PollDeviceLoginRequest) GetDeviceCode() string {
@@ -1147,7 +1227,7 @@ type PollDeviceLoginResponse struct {
 
 func (x *PollDeviceLoginResponse) Reset() {
 	*x = PollDeviceLoginResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[13]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1159,7 +1239,7 @@ func (x *PollDeviceLoginResponse) String() string {
 func (*PollDeviceLoginResponse) ProtoMessage() {}
 
 func (x *PollDeviceLoginResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[13]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1172,7 +1252,7 @@ func (x *PollDeviceLoginResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PollDeviceLoginResponse.ProtoReflect.Descriptor instead.
 func (*PollDeviceLoginResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{13}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *PollDeviceLoginResponse) GetStatus() PollDeviceLoginResponse_Status {
@@ -1224,7 +1304,7 @@ type RefreshTokenRequest struct {
 
 func (x *RefreshTokenRequest) Reset() {
 	*x = RefreshTokenRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[14]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1236,7 +1316,7 @@ func (x *RefreshTokenRequest) String() string {
 func (*RefreshTokenRequest) ProtoMessage() {}
 
 func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[14]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1249,7 +1329,7 @@ func (x *RefreshTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshTokenRequest.ProtoReflect.Descriptor instead.
 func (*RefreshTokenRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{14}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RefreshTokenRequest) GetRefreshToken() string {
@@ -1278,7 +1358,7 @@ type RefreshTokenResponse struct {
 
 func (x *RefreshTokenResponse) Reset() {
 	*x = RefreshTokenResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[15]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1290,7 +1370,7 @@ func (x *RefreshTokenResponse) String() string {
 func (*RefreshTokenResponse) ProtoMessage() {}
 
 func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[15]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1303,7 +1383,7 @@ func (x *RefreshTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RefreshTokenResponse.ProtoReflect.Descriptor instead.
 func (*RefreshTokenResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{15}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RefreshTokenResponse) GetAccessToken() string {
@@ -1337,7 +1417,7 @@ type LogoutRequest struct {
 
 func (x *LogoutRequest) Reset() {
 	*x = LogoutRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[16]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1349,7 +1429,7 @@ func (x *LogoutRequest) String() string {
 func (*LogoutRequest) ProtoMessage() {}
 
 func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[16]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1362,7 +1442,7 @@ func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
 func (*LogoutRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{16}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *LogoutRequest) GetRefreshToken() string {
@@ -1381,7 +1461,7 @@ type LogoutResponse struct {
 
 func (x *LogoutResponse) Reset() {
 	*x = LogoutResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[17]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1393,7 +1473,7 @@ func (x *LogoutResponse) String() string {
 func (*LogoutResponse) ProtoMessage() {}
 
 func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[17]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1406,14 +1486,14 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{17}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{18}
 }
 
 var File_jennah_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x19jennah/auth/v1/auth.proto\x12\x11jennahapi.auth.v1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\"^\n" +
+	"\x19jennah/auth/v1/auth.proto\x12\x11jennahapi.auth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$gnostic/openapi/v3/annotations.proto\"^\n" +
 	"\n" +
 	"Membership\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12+\n" +
@@ -1427,10 +1507,15 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\bprovider\x18\x06 \x01(\x0e2\x1b.jennahapi.auth.v1.ProviderR\bprovider\x12F\n" +
 	"\x10linked_providers\x18\a \x03(\x0e2\x1b.jennahapi.auth.v1.ProviderR\x0flinkedProviders\x120\n" +
 	"\x14active_enterprise_id\x18\b \x01(\tR\x12activeEnterpriseId\x12?\n" +
-	"\vmemberships\x18\t \x03(\v2\x1d.jennahapi.auth.v1.MembershipR\vmemberships\"\x0f\n" +
-	"\rWhoAmIRequest\"I\n" +
+	"\vmemberships\x18\t \x03(\v2\x1d.jennahapi.auth.v1.MembershipR\vmemberships\"\x84\x01\n" +
+	"\vEntitlement\x12\x12\n" +
+	"\x04tier\x18\x01 \x01(\tR\x04tier\x12>\n" +
+	"\rtrial_ends_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vtrialEndsAt\x12!\n" +
+	"\ftrial_active\x18\x03 \x01(\bR\vtrialActive\"\x0f\n" +
+	"\rWhoAmIRequest\"\x8b\x01\n" +
 	"\x0eWhoAmIResponse\x127\n" +
-	"\bidentity\x18\x01 \x01(\v2\x1b.jennahapi.auth.v1.IdentityR\bidentity\"\xf5\x01\n" +
+	"\bidentity\x18\x01 \x01(\v2\x1b.jennahapi.auth.v1.IdentityR\bidentity\x12@\n" +
+	"\ventitlement\x18\x02 \x01(\v2\x1e.jennahapi.auth.v1.EntitlementR\ventitlement\"\xf5\x01\n" +
 	"\x11StartLoginRequest\x127\n" +
 	"\bprovider\x18\x01 \x01(\x0e2\x1b.jennahapi.auth.v1.ProviderR\bprovider\x12>\n" +
 	"\vclient_type\x18\x02 \x01(\x0e2\x1d.jennahapi.auth.v1.ClientTypeR\n" +
@@ -1555,7 +1640,7 @@ func file_jennah_auth_v1_auth_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_auth_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(Provider)(0),                       // 0: jennahapi.auth.v1.Provider
 	(ClientType)(0),                     // 1: jennahapi.auth.v1.ClientType
@@ -1564,59 +1649,63 @@ var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(PollDeviceLoginResponse_Status)(0), // 4: jennahapi.auth.v1.PollDeviceLoginResponse.Status
 	(*Membership)(nil),                  // 5: jennahapi.auth.v1.Membership
 	(*Identity)(nil),                    // 6: jennahapi.auth.v1.Identity
-	(*WhoAmIRequest)(nil),               // 7: jennahapi.auth.v1.WhoAmIRequest
-	(*WhoAmIResponse)(nil),              // 8: jennahapi.auth.v1.WhoAmIResponse
-	(*StartLoginRequest)(nil),           // 9: jennahapi.auth.v1.StartLoginRequest
-	(*StartLoginResponse)(nil),          // 10: jennahapi.auth.v1.StartLoginResponse
-	(*CompleteLoginRequest)(nil),        // 11: jennahapi.auth.v1.CompleteLoginRequest
-	(*CompleteLoginResponse)(nil),       // 12: jennahapi.auth.v1.CompleteLoginResponse
-	(*ExchangeCodeRequest)(nil),         // 13: jennahapi.auth.v1.ExchangeCodeRequest
-	(*ExchangeCodeResponse)(nil),        // 14: jennahapi.auth.v1.ExchangeCodeResponse
-	(*StartDeviceLoginRequest)(nil),     // 15: jennahapi.auth.v1.StartDeviceLoginRequest
-	(*StartDeviceLoginResponse)(nil),    // 16: jennahapi.auth.v1.StartDeviceLoginResponse
-	(*PollDeviceLoginRequest)(nil),      // 17: jennahapi.auth.v1.PollDeviceLoginRequest
-	(*PollDeviceLoginResponse)(nil),     // 18: jennahapi.auth.v1.PollDeviceLoginResponse
-	(*RefreshTokenRequest)(nil),         // 19: jennahapi.auth.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),        // 20: jennahapi.auth.v1.RefreshTokenResponse
-	(*LogoutRequest)(nil),               // 21: jennahapi.auth.v1.LogoutRequest
-	(*LogoutResponse)(nil),              // 22: jennahapi.auth.v1.LogoutResponse
+	(*Entitlement)(nil),                 // 7: jennahapi.auth.v1.Entitlement
+	(*WhoAmIRequest)(nil),               // 8: jennahapi.auth.v1.WhoAmIRequest
+	(*WhoAmIResponse)(nil),              // 9: jennahapi.auth.v1.WhoAmIResponse
+	(*StartLoginRequest)(nil),           // 10: jennahapi.auth.v1.StartLoginRequest
+	(*StartLoginResponse)(nil),          // 11: jennahapi.auth.v1.StartLoginResponse
+	(*CompleteLoginRequest)(nil),        // 12: jennahapi.auth.v1.CompleteLoginRequest
+	(*CompleteLoginResponse)(nil),       // 13: jennahapi.auth.v1.CompleteLoginResponse
+	(*ExchangeCodeRequest)(nil),         // 14: jennahapi.auth.v1.ExchangeCodeRequest
+	(*ExchangeCodeResponse)(nil),        // 15: jennahapi.auth.v1.ExchangeCodeResponse
+	(*StartDeviceLoginRequest)(nil),     // 16: jennahapi.auth.v1.StartDeviceLoginRequest
+	(*StartDeviceLoginResponse)(nil),    // 17: jennahapi.auth.v1.StartDeviceLoginResponse
+	(*PollDeviceLoginRequest)(nil),      // 18: jennahapi.auth.v1.PollDeviceLoginRequest
+	(*PollDeviceLoginResponse)(nil),     // 19: jennahapi.auth.v1.PollDeviceLoginResponse
+	(*RefreshTokenRequest)(nil),         // 20: jennahapi.auth.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),        // 21: jennahapi.auth.v1.RefreshTokenResponse
+	(*LogoutRequest)(nil),               // 22: jennahapi.auth.v1.LogoutRequest
+	(*LogoutResponse)(nil),              // 23: jennahapi.auth.v1.LogoutResponse
+	(*timestamppb.Timestamp)(nil),       // 24: google.protobuf.Timestamp
 }
 var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	3,  // 0: jennahapi.auth.v1.Membership.role:type_name -> jennahapi.auth.v1.Role
 	0,  // 1: jennahapi.auth.v1.Identity.provider:type_name -> jennahapi.auth.v1.Provider
 	0,  // 2: jennahapi.auth.v1.Identity.linked_providers:type_name -> jennahapi.auth.v1.Provider
 	5,  // 3: jennahapi.auth.v1.Identity.memberships:type_name -> jennahapi.auth.v1.Membership
-	6,  // 4: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	0,  // 5: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	1,  // 6: jennahapi.auth.v1.StartLoginRequest.client_type:type_name -> jennahapi.auth.v1.ClientType
-	2,  // 7: jennahapi.auth.v1.StartLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
-	0,  // 8: jennahapi.auth.v1.CompleteLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	6,  // 9: jennahapi.auth.v1.CompleteLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	2,  // 10: jennahapi.auth.v1.CompleteLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
-	0,  // 11: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	4,  // 12: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
-	6,  // 13: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	7,  // 14: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
-	9,  // 15: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
-	11, // 16: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
-	13, // 17: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
-	15, // 18: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
-	17, // 19: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
-	19, // 20: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
-	21, // 21: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
-	8,  // 22: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
-	10, // 23: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
-	12, // 24: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
-	14, // 25: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
-	16, // 26: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
-	18, // 27: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
-	20, // 28: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
-	22, // 29: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
-	22, // [22:30] is the sub-list for method output_type
-	14, // [14:22] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	24, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
+	6,  // 5: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	7,  // 6: jennahapi.auth.v1.WhoAmIResponse.entitlement:type_name -> jennahapi.auth.v1.Entitlement
+	0,  // 7: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
+	1,  // 8: jennahapi.auth.v1.StartLoginRequest.client_type:type_name -> jennahapi.auth.v1.ClientType
+	2,  // 9: jennahapi.auth.v1.StartLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	0,  // 10: jennahapi.auth.v1.CompleteLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
+	6,  // 11: jennahapi.auth.v1.CompleteLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	2,  // 12: jennahapi.auth.v1.CompleteLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	0,  // 13: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
+	4,  // 14: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
+	6,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	8,  // 16: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
+	10, // 17: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
+	12, // 18: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
+	14, // 19: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
+	16, // 20: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
+	18, // 21: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
+	20, // 22: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
+	22, // 23: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
+	9,  // 24: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
+	11, // 25: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
+	13, // 26: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
+	15, // 27: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
+	17, // 28: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
+	19, // 29: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
+	21, // 30: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
+	23, // 31: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
+	24, // [24:32] is the sub-list for method output_type
+	16, // [16:24] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_jennah_auth_v1_auth_proto_init() }
@@ -1630,7 +1719,7 @@ func file_jennah_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_auth_v1_auth_proto_rawDesc), len(file_jennah_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
