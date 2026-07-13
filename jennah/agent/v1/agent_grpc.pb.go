@@ -19,19 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentService_SpawnAgent_FullMethodName   = "/jennahapi.agent.v1.AgentService/SpawnAgent"
-	AgentService_GetAgent_FullMethodName     = "/jennahapi.agent.v1.AgentService/GetAgent"
-	AgentService_ListAgents_FullMethodName   = "/jennahapi.agent.v1.AgentService/ListAgents"
-	AgentService_DestroyAgent_FullMethodName = "/jennahapi.agent.v1.AgentService/DestroyAgent"
+	AgentService_CreateAgent_FullMethodName = "/jennahapi.agent.v1.AgentService/CreateAgent"
+	AgentService_GetAgent_FullMethodName    = "/jennahapi.agent.v1.AgentService/GetAgent"
+	AgentService_ListAgents_FullMethodName  = "/jennahapi.agent.v1.AgentService/ListAgents"
+	AgentService_DeleteAgent_FullMethodName = "/jennahapi.agent.v1.AgentService/DeleteAgent"
 )
 
 // AgentServiceClient is the client API for AgentService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AgentService owns agent-workspace lifecycle: spawning an isolated agent
+// AgentService owns agent-workspace lifecycle: creating an isolated agent
 // context bucket, reading it back, listing an enterprise's agents, and
-// atomically destroying one (with all its memory).
+// atomically deleting one (with all its memory).
 //
 // Every RPC is an EXTERNAL (gateway) RPC — it carries a google.api.http
 // annotation so grpc-gateway publishes it on the public REST surface — and
@@ -39,7 +39,7 @@ const (
 // verified access token, never from the request body or path. Memory-data RPCs
 // (memory/commit, memory/query) live in their own service, added separately.
 type AgentServiceClient interface {
-	// Spawns a new agent workspace under the caller's enterprise. The home region
+	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
 	// the region's data-plane instance and the enterprise's named schema are
@@ -52,9 +52,9 @@ type AgentServiceClient interface {
 	// provisions inline and returns ACTIVE directly; the PROVISIONING status is
 	// the forward-compatible signal for when region/instance creation — which can
 	// take minutes — is made asynchronous.)
-	SpawnAgent(ctx context.Context, in *SpawnAgentRequest, opts ...grpc.CallOption) (*SpawnAgentResponse, error)
+	CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error)
 	// Reads a single agent workspace the caller owns, including its current
-	// lifecycle status. This is the readiness-poll surface for a spawn that is
+	// lifecycle status. This is the readiness-poll surface for a create that is
 	// still provisioning. An agent_instance_id not owned by the caller's
 	// enterprise is treated as not found.
 	GetAgent(ctx context.Context, in *GetAgentRequest, opts ...grpc.CallOption) (*GetAgentResponse, error)
@@ -62,12 +62,12 @@ type AgentServiceClient interface {
 	// page_size/page_token pagination. Scoped to the token's EnterpriseId; never
 	// returns another enterprise's agents.
 	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
-	// Destroys an agent workspace the caller owns with a single tenant-scoped
+	// Deletes an agent workspace the caller owns with a single tenant-scoped
 	// delete that cascades to all of the agent's memory (execution logs, vectors,
 	// graph). Returns an erasure receipt: the commit timestamp and the per-memory-
 	// type row counts removed. An agent_instance_id not owned by the caller's
 	// enterprise is treated as not found.
-	DestroyAgent(ctx context.Context, in *DestroyAgentRequest, opts ...grpc.CallOption) (*DestroyAgentResponse, error)
+	DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*DeleteAgentResponse, error)
 }
 
 type agentServiceClient struct {
@@ -78,10 +78,10 @@ func NewAgentServiceClient(cc grpc.ClientConnInterface) AgentServiceClient {
 	return &agentServiceClient{cc}
 }
 
-func (c *agentServiceClient) SpawnAgent(ctx context.Context, in *SpawnAgentRequest, opts ...grpc.CallOption) (*SpawnAgentResponse, error) {
+func (c *agentServiceClient) CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(SpawnAgentResponse)
-	err := c.cc.Invoke(ctx, AgentService_SpawnAgent_FullMethodName, in, out, cOpts...)
+	out := new(CreateAgentResponse)
+	err := c.cc.Invoke(ctx, AgentService_CreateAgent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,10 +108,10 @@ func (c *agentServiceClient) ListAgents(ctx context.Context, in *ListAgentsReque
 	return out, nil
 }
 
-func (c *agentServiceClient) DestroyAgent(ctx context.Context, in *DestroyAgentRequest, opts ...grpc.CallOption) (*DestroyAgentResponse, error) {
+func (c *agentServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*DeleteAgentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DestroyAgentResponse)
-	err := c.cc.Invoke(ctx, AgentService_DestroyAgent_FullMethodName, in, out, cOpts...)
+	out := new(DeleteAgentResponse)
+	err := c.cc.Invoke(ctx, AgentService_DeleteAgent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -122,9 +122,9 @@ func (c *agentServiceClient) DestroyAgent(ctx context.Context, in *DestroyAgentR
 // All implementations must embed UnimplementedAgentServiceServer
 // for forward compatibility.
 //
-// AgentService owns agent-workspace lifecycle: spawning an isolated agent
+// AgentService owns agent-workspace lifecycle: creating an isolated agent
 // context bucket, reading it back, listing an enterprise's agents, and
-// atomically destroying one (with all its memory).
+// atomically deleting one (with all its memory).
 //
 // Every RPC is an EXTERNAL (gateway) RPC — it carries a google.api.http
 // annotation so grpc-gateway publishes it on the public REST surface — and
@@ -132,7 +132,7 @@ func (c *agentServiceClient) DestroyAgent(ctx context.Context, in *DestroyAgentR
 // verified access token, never from the request body or path. Memory-data RPCs
 // (memory/commit, memory/query) live in their own service, added separately.
 type AgentServiceServer interface {
-	// Spawns a new agent workspace under the caller's enterprise. The home region
+	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
 	// the region's data-plane instance and the enterprise's named schema are
@@ -145,9 +145,9 @@ type AgentServiceServer interface {
 	// provisions inline and returns ACTIVE directly; the PROVISIONING status is
 	// the forward-compatible signal for when region/instance creation — which can
 	// take minutes — is made asynchronous.)
-	SpawnAgent(context.Context, *SpawnAgentRequest) (*SpawnAgentResponse, error)
+	CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error)
 	// Reads a single agent workspace the caller owns, including its current
-	// lifecycle status. This is the readiness-poll surface for a spawn that is
+	// lifecycle status. This is the readiness-poll surface for a create that is
 	// still provisioning. An agent_instance_id not owned by the caller's
 	// enterprise is treated as not found.
 	GetAgent(context.Context, *GetAgentRequest) (*GetAgentResponse, error)
@@ -155,12 +155,12 @@ type AgentServiceServer interface {
 	// page_size/page_token pagination. Scoped to the token's EnterpriseId; never
 	// returns another enterprise's agents.
 	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
-	// Destroys an agent workspace the caller owns with a single tenant-scoped
+	// Deletes an agent workspace the caller owns with a single tenant-scoped
 	// delete that cascades to all of the agent's memory (execution logs, vectors,
 	// graph). Returns an erasure receipt: the commit timestamp and the per-memory-
 	// type row counts removed. An agent_instance_id not owned by the caller's
 	// enterprise is treated as not found.
-	DestroyAgent(context.Context, *DestroyAgentRequest) (*DestroyAgentResponse, error)
+	DeleteAgent(context.Context, *DeleteAgentRequest) (*DeleteAgentResponse, error)
 	mustEmbedUnimplementedAgentServiceServer()
 }
 
@@ -171,8 +171,8 @@ type AgentServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAgentServiceServer struct{}
 
-func (UnimplementedAgentServiceServer) SpawnAgent(context.Context, *SpawnAgentRequest) (*SpawnAgentResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method SpawnAgent not implemented")
+func (UnimplementedAgentServiceServer) CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgent not implemented")
 }
 func (UnimplementedAgentServiceServer) GetAgent(context.Context, *GetAgentRequest) (*GetAgentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAgent not implemented")
@@ -180,8 +180,8 @@ func (UnimplementedAgentServiceServer) GetAgent(context.Context, *GetAgentReques
 func (UnimplementedAgentServiceServer) ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAgents not implemented")
 }
-func (UnimplementedAgentServiceServer) DestroyAgent(context.Context, *DestroyAgentRequest) (*DestroyAgentResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method DestroyAgent not implemented")
+func (UnimplementedAgentServiceServer) DeleteAgent(context.Context, *DeleteAgentRequest) (*DeleteAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteAgent not implemented")
 }
 func (UnimplementedAgentServiceServer) mustEmbedUnimplementedAgentServiceServer() {}
 func (UnimplementedAgentServiceServer) testEmbeddedByValue()                      {}
@@ -204,20 +204,20 @@ func RegisterAgentServiceServer(s grpc.ServiceRegistrar, srv AgentServiceServer)
 	s.RegisterService(&AgentService_ServiceDesc, srv)
 }
 
-func _AgentService_SpawnAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SpawnAgentRequest)
+func _AgentService_CreateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServiceServer).SpawnAgent(ctx, in)
+		return srv.(AgentServiceServer).CreateAgent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AgentService_SpawnAgent_FullMethodName,
+		FullMethod: AgentService_CreateAgent_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServiceServer).SpawnAgent(ctx, req.(*SpawnAgentRequest))
+		return srv.(AgentServiceServer).CreateAgent(ctx, req.(*CreateAgentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -258,20 +258,20 @@ func _AgentService_ListAgents_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AgentService_DestroyAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DestroyAgentRequest)
+func _AgentService_DeleteAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAgentRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServiceServer).DestroyAgent(ctx, in)
+		return srv.(AgentServiceServer).DeleteAgent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AgentService_DestroyAgent_FullMethodName,
+		FullMethod: AgentService_DeleteAgent_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServiceServer).DestroyAgent(ctx, req.(*DestroyAgentRequest))
+		return srv.(AgentServiceServer).DeleteAgent(ctx, req.(*DeleteAgentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -284,8 +284,8 @@ var AgentService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*AgentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SpawnAgent",
-			Handler:    _AgentService_SpawnAgent_Handler,
+			MethodName: "CreateAgent",
+			Handler:    _AgentService_CreateAgent_Handler,
 		},
 		{
 			MethodName: "GetAgent",
@@ -296,8 +296,8 @@ var AgentService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AgentService_ListAgents_Handler,
 		},
 		{
-			MethodName: "DestroyAgent",
-			Handler:    _AgentService_DestroyAgent_Handler,
+			MethodName: "DeleteAgent",
+			Handler:    _AgentService_DeleteAgent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -37,7 +37,7 @@ const (
 	// being created). No data-plane row exists yet; poll GetAgent until ACTIVE.
 	AgentStatus_AGENT_STATUS_PROVISIONING AgentStatus = 4
 	// Provisioning failed; status_detail carries the reason. The caller may retry
-	// SpawnAgent (idempotent on agent_instance_id) or destroy the failed record.
+	// CreateAgent (idempotent on agent_instance_id) or delete the failed record.
 	AgentStatus_AGENT_STATUS_FAILED AgentStatus = 5
 )
 
@@ -187,8 +187,8 @@ func (x *AgentInstance) GetStatusDetail() string {
 	return ""
 }
 
-// Request message for the AgentService.SpawnAgent rpc.
-type SpawnAgentRequest struct {
+// Request message for the AgentService.CreateAgent rpc.
+type CreateAgentRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // caller-chosen id, unique within the enterprise
 	AgentName       string                 `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
@@ -199,20 +199,20 @@ type SpawnAgentRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SpawnAgentRequest) Reset() {
-	*x = SpawnAgentRequest{}
+func (x *CreateAgentRequest) Reset() {
+	*x = CreateAgentRequest{}
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SpawnAgentRequest) String() string {
+func (x *CreateAgentRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SpawnAgentRequest) ProtoMessage() {}
+func (*CreateAgentRequest) ProtoMessage() {}
 
-func (x *SpawnAgentRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateAgentRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -224,54 +224,54 @@ func (x *SpawnAgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SpawnAgentRequest.ProtoReflect.Descriptor instead.
-func (*SpawnAgentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateAgentRequest.ProtoReflect.Descriptor instead.
+func (*CreateAgentRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SpawnAgentRequest) GetAgentInstanceId() string {
+func (x *CreateAgentRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
 	}
 	return ""
 }
 
-func (x *SpawnAgentRequest) GetAgentName() string {
+func (x *CreateAgentRequest) GetAgentName() string {
 	if x != nil {
 		return x.AgentName
 	}
 	return ""
 }
 
-func (x *SpawnAgentRequest) GetRegion() string {
+func (x *CreateAgentRequest) GetRegion() string {
 	if x != nil {
 		return x.Region
 	}
 	return ""
 }
 
-// Response message for the AgentService.SpawnAgent rpc.
-type SpawnAgentResponse struct {
+// Response message for the AgentService.CreateAgent rpc.
+type CreateAgentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Agent         *AgentInstance         `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SpawnAgentResponse) Reset() {
-	*x = SpawnAgentResponse{}
+func (x *CreateAgentResponse) Reset() {
+	*x = CreateAgentResponse{}
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SpawnAgentResponse) String() string {
+func (x *CreateAgentResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SpawnAgentResponse) ProtoMessage() {}
+func (*CreateAgentResponse) ProtoMessage() {}
 
-func (x *SpawnAgentResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateAgentResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -283,12 +283,12 @@ func (x *SpawnAgentResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SpawnAgentResponse.ProtoReflect.Descriptor instead.
-func (*SpawnAgentResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateAgentResponse.ProtoReflect.Descriptor instead.
+func (*CreateAgentResponse) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SpawnAgentResponse) GetAgent() *AgentInstance {
+func (x *CreateAgentResponse) GetAgent() *AgentInstance {
 	if x != nil {
 		return x.Agent
 	}
@@ -491,28 +491,28 @@ func (x *ListAgentsResponse) GetNextPageToken() string {
 	return ""
 }
 
-// Request message for the AgentService.DestroyAgent rpc.
-type DestroyAgentRequest struct {
+// Request message for the AgentService.DeleteAgent rpc.
+type DeleteAgentRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // path parameter
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
-func (x *DestroyAgentRequest) Reset() {
-	*x = DestroyAgentRequest{}
+func (x *DeleteAgentRequest) Reset() {
+	*x = DeleteAgentRequest{}
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DestroyAgentRequest) String() string {
+func (x *DeleteAgentRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DestroyAgentRequest) ProtoMessage() {}
+func (*DeleteAgentRequest) ProtoMessage() {}
 
-func (x *DestroyAgentRequest) ProtoReflect() protoreflect.Message {
+func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -524,23 +524,23 @@ func (x *DestroyAgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DestroyAgentRequest.ProtoReflect.Descriptor instead.
-func (*DestroyAgentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use DeleteAgentRequest.ProtoReflect.Descriptor instead.
+func (*DeleteAgentRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *DestroyAgentRequest) GetAgentInstanceId() string {
+func (x *DeleteAgentRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
 	}
 	return ""
 }
 
-// Response message for the AgentService.DestroyAgent rpc.
+// Response message for the AgentService.DeleteAgent rpc.
 //
 // The erasure receipt: a commit timestamp plus how many rows were removed per
 // memory type, so a caller can evidence a complete, atomic erasure.
-type DestroyAgentResponse struct {
+type DeleteAgentResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	DeletedAt        *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"` // cascade-delete commit timestamp
 	ExecutionLogRows int64                  `protobuf:"varint,2,opt,name=execution_log_rows,json=executionLogRows,proto3" json:"execution_log_rows,omitempty"`
@@ -551,20 +551,20 @@ type DestroyAgentResponse struct {
 	sizeCache        protoimpl.SizeCache
 }
 
-func (x *DestroyAgentResponse) Reset() {
-	*x = DestroyAgentResponse{}
+func (x *DeleteAgentResponse) Reset() {
+	*x = DeleteAgentResponse{}
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DestroyAgentResponse) String() string {
+func (x *DeleteAgentResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DestroyAgentResponse) ProtoMessage() {}
+func (*DeleteAgentResponse) ProtoMessage() {}
 
-func (x *DestroyAgentResponse) ProtoReflect() protoreflect.Message {
+func (x *DeleteAgentResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_jennah_agent_v1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -576,40 +576,40 @@ func (x *DestroyAgentResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DestroyAgentResponse.ProtoReflect.Descriptor instead.
-func (*DestroyAgentResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use DeleteAgentResponse.ProtoReflect.Descriptor instead.
+func (*DeleteAgentResponse) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *DestroyAgentResponse) GetDeletedAt() *timestamppb.Timestamp {
+func (x *DeleteAgentResponse) GetDeletedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.DeletedAt
 	}
 	return nil
 }
 
-func (x *DestroyAgentResponse) GetExecutionLogRows() int64 {
+func (x *DeleteAgentResponse) GetExecutionLogRows() int64 {
 	if x != nil {
 		return x.ExecutionLogRows
 	}
 	return 0
 }
 
-func (x *DestroyAgentResponse) GetVectorRows() int64 {
+func (x *DeleteAgentResponse) GetVectorRows() int64 {
 	if x != nil {
 		return x.VectorRows
 	}
 	return 0
 }
 
-func (x *DestroyAgentResponse) GetGraphNodeRows() int64 {
+func (x *DeleteAgentResponse) GetGraphNodeRows() int64 {
 	if x != nil {
 		return x.GraphNodeRows
 	}
 	return 0
 }
 
-func (x *DestroyAgentResponse) GetGraphEdgeRows() int64 {
+func (x *DeleteAgentResponse) GetGraphEdgeRows() int64 {
 	if x != nil {
 		return x.GraphEdgeRows
 	}
@@ -630,13 +630,13 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"\x06status\x18\x05 \x01(\x0e2\x1f.jennahapi.agent.v1.AgentStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12#\n" +
-	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"v\n" +
-	"\x11SpawnAgentRequest\x12*\n" +
+	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"w\n" +
+	"\x12CreateAgentRequest\x12*\n" +
 	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12\x1d\n" +
 	"\n" +
 	"agent_name\x18\x02 \x01(\tR\tagentName\x12\x16\n" +
-	"\x06region\x18\x03 \x01(\tR\x06region\"M\n" +
-	"\x12SpawnAgentResponse\x127\n" +
+	"\x06region\x18\x03 \x01(\tR\x06region\"N\n" +
+	"\x13CreateAgentResponse\x127\n" +
 	"\x05agent\x18\x01 \x01(\v2!.jennahapi.agent.v1.AgentInstanceR\x05agent\"=\n" +
 	"\x0fGetAgentRequest\x12*\n" +
 	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\"K\n" +
@@ -648,10 +648,10 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\"w\n" +
 	"\x12ListAgentsResponse\x129\n" +
 	"\x06agents\x18\x01 \x03(\v2!.jennahapi.agent.v1.AgentInstanceR\x06agents\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"A\n" +
-	"\x13DestroyAgentRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\"\xf0\x01\n" +
-	"\x14DestroyAgentResponse\x129\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"@\n" +
+	"\x12DeleteAgentRequest\x12*\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\"\xef\x01\n" +
+	"\x13DeleteAgentResponse\x129\n" +
 	"\n" +
 	"deleted_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
@@ -666,15 +666,14 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"\x16AGENT_STATUS_COMPLETED\x10\x03\x12\x1d\n" +
 	"\x19AGENT_STATUS_PROVISIONING\x10\x04\x12\x17\n" +
 	"\x13AGENT_STATUS_FAILED\x10\x052\xfe\x03\n" +
-	"\fAgentService\x12r\n" +
-	"\n" +
-	"SpawnAgent\x12%.jennahapi.agent.v1.SpawnAgentRequest\x1a&.jennahapi.agent.v1.SpawnAgentResponse\"\x15\x82\xd3\xe4\x93\x02\x0f:\x01*\"\n" +
+	"\fAgentService\x12u\n" +
+	"\vCreateAgent\x12&.jennahapi.agent.v1.CreateAgentRequest\x1a'.jennahapi.agent.v1.CreateAgentResponse\"\x15\x82\xd3\xe4\x93\x02\x0f:\x01*\"\n" +
 	"/v1/agents\x12}\n" +
 	"\bGetAgent\x12#.jennahapi.agent.v1.GetAgentRequest\x1a$.jennahapi.agent.v1.GetAgentResponse\"&\x82\xd3\xe4\x93\x02 \x12\x1e/v1/agents/{agent_instance_id}\x12o\n" +
 	"\n" +
 	"ListAgents\x12%.jennahapi.agent.v1.ListAgentsRequest\x1a&.jennahapi.agent.v1.ListAgentsResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
-	"/v1/agents\x12\x89\x01\n" +
-	"\fDestroyAgent\x12'.jennahapi.agent.v1.DestroyAgentRequest\x1a(.jennahapi.agent.v1.DestroyAgentResponse\"&\x82\xd3\xe4\x93\x02 *\x1e/v1/agents/{agent_instance_id}B)Z'github.com/alphauslabs/jennah-api/agentb\x06proto3"
+	"/v1/agents\x12\x86\x01\n" +
+	"\vDeleteAgent\x12&.jennahapi.agent.v1.DeleteAgentRequest\x1a'.jennahapi.agent.v1.DeleteAgentResponse\"&\x82\xd3\xe4\x93\x02 *\x1e/v1/agents/{agent_instance_id}B)Z'github.com/alphauslabs/jennah-api/agentb\x06proto3"
 
 var (
 	file_jennah_agent_v1_agent_proto_rawDescOnce sync.Once
@@ -693,31 +692,31 @@ var file_jennah_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_jennah_agent_v1_agent_proto_goTypes = []any{
 	(AgentStatus)(0),              // 0: jennahapi.agent.v1.AgentStatus
 	(*AgentInstance)(nil),         // 1: jennahapi.agent.v1.AgentInstance
-	(*SpawnAgentRequest)(nil),     // 2: jennahapi.agent.v1.SpawnAgentRequest
-	(*SpawnAgentResponse)(nil),    // 3: jennahapi.agent.v1.SpawnAgentResponse
+	(*CreateAgentRequest)(nil),    // 2: jennahapi.agent.v1.CreateAgentRequest
+	(*CreateAgentResponse)(nil),   // 3: jennahapi.agent.v1.CreateAgentResponse
 	(*GetAgentRequest)(nil),       // 4: jennahapi.agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),      // 5: jennahapi.agent.v1.GetAgentResponse
 	(*ListAgentsRequest)(nil),     // 6: jennahapi.agent.v1.ListAgentsRequest
 	(*ListAgentsResponse)(nil),    // 7: jennahapi.agent.v1.ListAgentsResponse
-	(*DestroyAgentRequest)(nil),   // 8: jennahapi.agent.v1.DestroyAgentRequest
-	(*DestroyAgentResponse)(nil),  // 9: jennahapi.agent.v1.DestroyAgentResponse
+	(*DeleteAgentRequest)(nil),    // 8: jennahapi.agent.v1.DeleteAgentRequest
+	(*DeleteAgentResponse)(nil),   // 9: jennahapi.agent.v1.DeleteAgentResponse
 	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
 }
 var file_jennah_agent_v1_agent_proto_depIdxs = []int32{
 	0,  // 0: jennahapi.agent.v1.AgentInstance.status:type_name -> jennahapi.agent.v1.AgentStatus
 	10, // 1: jennahapi.agent.v1.AgentInstance.created_at:type_name -> google.protobuf.Timestamp
-	1,  // 2: jennahapi.agent.v1.SpawnAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
+	1,  // 2: jennahapi.agent.v1.CreateAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
 	1,  // 3: jennahapi.agent.v1.GetAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
 	1,  // 4: jennahapi.agent.v1.ListAgentsResponse.agents:type_name -> jennahapi.agent.v1.AgentInstance
-	10, // 5: jennahapi.agent.v1.DestroyAgentResponse.deleted_at:type_name -> google.protobuf.Timestamp
-	2,  // 6: jennahapi.agent.v1.AgentService.SpawnAgent:input_type -> jennahapi.agent.v1.SpawnAgentRequest
+	10, // 5: jennahapi.agent.v1.DeleteAgentResponse.deleted_at:type_name -> google.protobuf.Timestamp
+	2,  // 6: jennahapi.agent.v1.AgentService.CreateAgent:input_type -> jennahapi.agent.v1.CreateAgentRequest
 	4,  // 7: jennahapi.agent.v1.AgentService.GetAgent:input_type -> jennahapi.agent.v1.GetAgentRequest
 	6,  // 8: jennahapi.agent.v1.AgentService.ListAgents:input_type -> jennahapi.agent.v1.ListAgentsRequest
-	8,  // 9: jennahapi.agent.v1.AgentService.DestroyAgent:input_type -> jennahapi.agent.v1.DestroyAgentRequest
-	3,  // 10: jennahapi.agent.v1.AgentService.SpawnAgent:output_type -> jennahapi.agent.v1.SpawnAgentResponse
+	8,  // 9: jennahapi.agent.v1.AgentService.DeleteAgent:input_type -> jennahapi.agent.v1.DeleteAgentRequest
+	3,  // 10: jennahapi.agent.v1.AgentService.CreateAgent:output_type -> jennahapi.agent.v1.CreateAgentResponse
 	5,  // 11: jennahapi.agent.v1.AgentService.GetAgent:output_type -> jennahapi.agent.v1.GetAgentResponse
 	7,  // 12: jennahapi.agent.v1.AgentService.ListAgents:output_type -> jennahapi.agent.v1.ListAgentsResponse
-	9,  // 13: jennahapi.agent.v1.AgentService.DestroyAgent:output_type -> jennahapi.agent.v1.DestroyAgentResponse
+	9,  // 13: jennahapi.agent.v1.AgentService.DeleteAgent:output_type -> jennahapi.agent.v1.DeleteAgentResponse
 	10, // [10:14] is the sub-list for method output_type
 	6,  // [6:10] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
