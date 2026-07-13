@@ -37,7 +37,7 @@ const (
 // annotation so grpc-gateway publishes it on the public REST surface — and
 // every RPC is AUTHENTICATED: the caller's EnterpriseId is taken from the
 // verified access token, never from the request body or path. Memory-data RPCs
-// (memory/commit, memory/query) live in their own service, added separately.
+// (memory:commit, memory:query) live in their own service, added separately.
 type AgentServiceClient interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
@@ -130,7 +130,7 @@ func (c *agentServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentReq
 // annotation so grpc-gateway publishes it on the public REST surface — and
 // every RPC is AUTHENTICATED: the caller's EnterpriseId is taken from the
 // verified access token, never from the request body or path. Memory-data RPCs
-// (memory/commit, memory/query) live in their own service, added separately.
+// (memory:commit, memory:query) live in their own service, added separately.
 type AgentServiceServer interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
