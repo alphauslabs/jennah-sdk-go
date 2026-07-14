@@ -27,6 +27,9 @@ const (
 	AuthService_PollDeviceLogin_FullMethodName  = "/jennahapi.auth.v1.AuthService/PollDeviceLogin"
 	AuthService_RefreshToken_FullMethodName     = "/jennahapi.auth.v1.AuthService/RefreshToken"
 	AuthService_Logout_FullMethodName           = "/jennahapi.auth.v1.AuthService/Logout"
+	AuthService_CreateApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/CreateApiKey"
+	AuthService_ListApiKeys_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListApiKeys"
+	AuthService_RevokeApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/RevokeApiKey"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -35,11 +38,13 @@ const (
 //
 // Auth service definition.
 //
-// Only WhoAmI is exposed on the grpc-gateway REST surface (it carries a
-// google.api.http annotation). Every other RPC here is INTERNAL: it has no
-// HTTP annotation, so grpc-gateway emits no route for it and it is reachable
-// only over the backend's internal gRPC listener (127.0.0.1:8080), which is
-// where jennah-proxy's hand-written /auth/* handlers dial it. Do NOT add a
+// Two RPC groups carry a google.api.http annotation and are therefore EXTERNAL
+// (published on the grpc-gateway REST surface): WhoAmI, and the API-key
+// management RPCs (CreateApiKey / ListApiKeys / RevokeApiKey under
+// /auth/v1/apikeys). Every other RPC here is INTERNAL: it has no HTTP
+// annotation, so grpc-gateway emits no route for it and it is reachable only
+// over the backend's internal gRPC listener (127.0.0.1:8080), which is where
+// jennah-proxy's hand-written /auth/* handlers dial it. Do NOT add a
 // google.api.http annotation to the login/device/token RPCs — doing so would
 // publish them on the public REST surface.
 type AuthServiceClient interface {
@@ -70,6 +75,26 @@ type AuthServiceClient interface {
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	// Revokes the session behind a refresh token. Authenticated.
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
+	// Mints a new API key for the caller's active enterprise. External (gateway)
+	// RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN, resolved live from the
+	// Memberships table (never trusted from a claim). The plaintext secret is
+	// returned exactly once, in this response, and is NOT retrievable afterward —
+	// only its sha256 hash is stored. The key resolves to a ROLE_MEMBER-equivalent
+	// service principal scoped to the enterprise.
+	CreateApiKey(ctx context.Context, in *CreateApiKeyRequest, opts ...grpc.CallOption) (*CreateApiKeyResponse, error)
+	// Lists the caller enterprise's API keys as non-secret metadata only (never
+	// the secret or its hash), most-recent first, with page_size/page_token
+	// pagination. External (gateway) RPC. Authenticated; scoped to the token's
+	// active enterprise.
+	ListApiKeys(ctx context.Context, in *ListApiKeysRequest, opts ...grpc.CallOption) (*ListApiKeysResponse, error)
+	// Revokes an API key the caller's enterprise owns, taking effect on the next
+	// request (validation is a per-request lookup, so there is no TTL lag).
+	// External (gateway) RPC, modeled as a custom method (POST ...:revoke) rather
+	// than DELETE because it does not remove the resource — the row is retained
+	// with RevokedAt set, so the key stays listable as revoked. Authenticated AND
+	// gated to ROLE_ROOT/ROLE_ADMIN. A key_id not owned by the caller's active
+	// enterprise is treated as not found.
+	RevokeApiKey(ctx context.Context, in *RevokeApiKeyRequest, opts ...grpc.CallOption) (*RevokeApiKeyResponse, error)
 }
 
 type authServiceClient struct {
@@ -160,17 +185,49 @@ func (c *authServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts 
 	return out, nil
 }
 
+func (c *authServiceClient) CreateApiKey(ctx context.Context, in *CreateApiKeyRequest, opts ...grpc.CallOption) (*CreateApiKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateApiKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_CreateApiKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListApiKeys(ctx context.Context, in *ListApiKeysRequest, opts ...grpc.CallOption) (*ListApiKeysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListApiKeysResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListApiKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeApiKey(ctx context.Context, in *RevokeApiKeyRequest, opts ...grpc.CallOption) (*RevokeApiKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeApiKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_RevokeApiKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
 // Auth service definition.
 //
-// Only WhoAmI is exposed on the grpc-gateway REST surface (it carries a
-// google.api.http annotation). Every other RPC here is INTERNAL: it has no
-// HTTP annotation, so grpc-gateway emits no route for it and it is reachable
-// only over the backend's internal gRPC listener (127.0.0.1:8080), which is
-// where jennah-proxy's hand-written /auth/* handlers dial it. Do NOT add a
+// Two RPC groups carry a google.api.http annotation and are therefore EXTERNAL
+// (published on the grpc-gateway REST surface): WhoAmI, and the API-key
+// management RPCs (CreateApiKey / ListApiKeys / RevokeApiKey under
+// /auth/v1/apikeys). Every other RPC here is INTERNAL: it has no HTTP
+// annotation, so grpc-gateway emits no route for it and it is reachable only
+// over the backend's internal gRPC listener (127.0.0.1:8080), which is where
+// jennah-proxy's hand-written /auth/* handlers dial it. Do NOT add a
 // google.api.http annotation to the login/device/token RPCs — doing so would
 // publish them on the public REST surface.
 type AuthServiceServer interface {
@@ -201,6 +258,26 @@ type AuthServiceServer interface {
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	// Revokes the session behind a refresh token. Authenticated.
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
+	// Mints a new API key for the caller's active enterprise. External (gateway)
+	// RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN, resolved live from the
+	// Memberships table (never trusted from a claim). The plaintext secret is
+	// returned exactly once, in this response, and is NOT retrievable afterward —
+	// only its sha256 hash is stored. The key resolves to a ROLE_MEMBER-equivalent
+	// service principal scoped to the enterprise.
+	CreateApiKey(context.Context, *CreateApiKeyRequest) (*CreateApiKeyResponse, error)
+	// Lists the caller enterprise's API keys as non-secret metadata only (never
+	// the secret or its hash), most-recent first, with page_size/page_token
+	// pagination. External (gateway) RPC. Authenticated; scoped to the token's
+	// active enterprise.
+	ListApiKeys(context.Context, *ListApiKeysRequest) (*ListApiKeysResponse, error)
+	// Revokes an API key the caller's enterprise owns, taking effect on the next
+	// request (validation is a per-request lookup, so there is no TTL lag).
+	// External (gateway) RPC, modeled as a custom method (POST ...:revoke) rather
+	// than DELETE because it does not remove the resource — the row is retained
+	// with RevokedAt set, so the key stays listable as revoked. Authenticated AND
+	// gated to ROLE_ROOT/ROLE_ADMIN. A key_id not owned by the caller's active
+	// enterprise is treated as not found.
+	RevokeApiKey(context.Context, *RevokeApiKeyRequest) (*RevokeApiKeyResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -234,6 +311,15 @@ func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshToke
 }
 func (UnimplementedAuthServiceServer) Logout(context.Context, *LogoutRequest) (*LogoutResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Logout not implemented")
+}
+func (UnimplementedAuthServiceServer) CreateApiKey(context.Context, *CreateApiKeyRequest) (*CreateApiKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateApiKey not implemented")
+}
+func (UnimplementedAuthServiceServer) ListApiKeys(context.Context, *ListApiKeysRequest) (*ListApiKeysResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListApiKeys not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeApiKey(context.Context, *RevokeApiKeyRequest) (*RevokeApiKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeApiKey not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -400,6 +486,60 @@ func _AuthService_Logout_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_CreateApiKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateApiKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CreateApiKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CreateApiKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CreateApiKey(ctx, req.(*CreateApiKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListApiKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListApiKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListApiKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListApiKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListApiKeys(ctx, req.(*ListApiKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeApiKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeApiKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeApiKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RevokeApiKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeApiKey(ctx, req.(*RevokeApiKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -438,6 +578,18 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Logout",
 			Handler:    _AuthService_Logout_Handler,
+		},
+		{
+			MethodName: "CreateApiKey",
+			Handler:    _AuthService_CreateApiKey_Handler,
+		},
+		{
+			MethodName: "ListApiKeys",
+			Handler:    _AuthService_ListApiKeys_Handler,
+		},
+		{
+			MethodName: "RevokeApiKey",
+			Handler:    _AuthService_RevokeApiKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

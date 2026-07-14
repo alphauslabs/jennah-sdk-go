@@ -1489,6 +1489,431 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{18}
 }
 
+// Non-secret metadata for a single API key. The raw secret is NEVER carried
+// here — it is returned only once, in CreateApiKeyResponse. `prefix` is a
+// non-secret display fragment (e.g. the last 4 characters) for identifying a
+// key in listings and logs.
+type ApiKey struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	KeyId string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"` // stable id (used in the revoke path)
+	// Enterprise that owns this key, resolved from the caller's token. Echoed for
+	// clarity; it is never accepted from a request body.
+	EnterpriseId    string                 `protobuf:"bytes,2,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
+	Label           string                 `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`                                                // human-readable label
+	Prefix          string                 `protobuf:"bytes,4,opt,name=prefix,proto3" json:"prefix,omitempty"`                                              // non-secret display fragment (last 4)
+	CreatedByUserId string                 `protobuf:"bytes,5,opt,name=created_by_user_id,json=createdByUserId,proto3" json:"created_by_user_id,omitempty"` // user who minted the key (attribution)
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                       // server-assigned commit timestamp
+	// Best-effort last-use time; unset if the key has never been used. May lag
+	// slightly under load (the update is out of band).
+	LastUsedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_used_at,json=lastUsedAt,proto3" json:"last_used_at,omitempty"`
+	// Absolute expiry; unset means the key never expires.
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Revocation time; unset while the key is active.
+	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ApiKey) Reset() {
+	*x = ApiKey{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ApiKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiKey) ProtoMessage() {}
+
+func (x *ApiKey) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiKey.ProtoReflect.Descriptor instead.
+func (*ApiKey) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ApiKey) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+func (x *ApiKey) GetEnterpriseId() string {
+	if x != nil {
+		return x.EnterpriseId
+	}
+	return ""
+}
+
+func (x *ApiKey) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *ApiKey) GetPrefix() string {
+	if x != nil {
+		return x.Prefix
+	}
+	return ""
+}
+
+func (x *ApiKey) GetCreatedByUserId() string {
+	if x != nil {
+		return x.CreatedByUserId
+	}
+	return ""
+}
+
+func (x *ApiKey) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *ApiKey) GetLastUsedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUsedAt
+	}
+	return nil
+}
+
+func (x *ApiKey) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *ApiKey) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
+// Request message for the AuthService.CreateApiKey rpc.
+type CreateApiKeyRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Label string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"` // human-readable label for the key
+	// Optional absolute expiry. When unset the key never expires.
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateApiKeyRequest) Reset() {
+	*x = CreateApiKeyRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateApiKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateApiKeyRequest) ProtoMessage() {}
+
+func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateApiKeyRequest.ProtoReflect.Descriptor instead.
+func (*CreateApiKeyRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CreateApiKeyRequest) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CreateApiKeyRequest) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+// Response message for the AuthService.CreateApiKey rpc.
+//
+// `secret` is the full plaintext key (prefixed `jennah_sk_`), returned exactly
+// once — it cannot be retrieved again, so the caller must store it now. `key`
+// holds the non-secret metadata for the same key.
+type CreateApiKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"` // one-time plaintext key: "jennah_sk_..."
+	Key           *ApiKey                `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`       // non-secret metadata for the created key
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateApiKeyResponse) Reset() {
+	*x = CreateApiKeyResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateApiKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateApiKeyResponse) ProtoMessage() {}
+
+func (x *CreateApiKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateApiKeyResponse.ProtoReflect.Descriptor instead.
+func (*CreateApiKeyResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *CreateApiKeyResponse) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *CreateApiKeyResponse) GetKey() *ApiKey {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+// Request message for the AuthService.ListApiKeys rpc.
+type ListApiKeysRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`   // max keys to return; server picks a default when 0
+	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"` // next_page_token from a prior response; empty for the first page
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListApiKeysRequest) Reset() {
+	*x = ListApiKeysRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListApiKeysRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListApiKeysRequest) ProtoMessage() {}
+
+func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListApiKeysRequest.ProtoReflect.Descriptor instead.
+func (*ListApiKeysRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ListApiKeysRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListApiKeysRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// Response message for the AuthService.ListApiKeys rpc.
+type ListApiKeysResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []*ApiKey              `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`                                          // non-secret metadata only
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"` // empty when there are no more pages
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListApiKeysResponse) Reset() {
+	*x = ListApiKeysResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListApiKeysResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListApiKeysResponse) ProtoMessage() {}
+
+func (x *ListApiKeysResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListApiKeysResponse.ProtoReflect.Descriptor instead.
+func (*ListApiKeysResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ListApiKeysResponse) GetKeys() []*ApiKey {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+func (x *ListApiKeysResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+// Request message for the AuthService.RevokeApiKey rpc.
+type RevokeApiKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyId         string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"` // path parameter; must belong to the caller's active enterprise
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeApiKeyRequest) Reset() {
+	*x = RevokeApiKeyRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeApiKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeApiKeyRequest) ProtoMessage() {}
+
+func (x *RevokeApiKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeApiKeyRequest.ProtoReflect.Descriptor instead.
+func (*RevokeApiKeyRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *RevokeApiKeyRequest) GetKeyId() string {
+	if x != nil {
+		return x.KeyId
+	}
+	return ""
+}
+
+// Response message for the AuthService.RevokeApiKey rpc.
+type RevokeApiKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"` // revocation commit timestamp
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeApiKeyResponse) Reset() {
+	*x = RevokeApiKeyResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeApiKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeApiKeyResponse) ProtoMessage() {}
+
+func (x *RevokeApiKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeApiKeyResponse.ProtoReflect.Descriptor instead.
+func (*RevokeApiKeyResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *RevokeApiKeyResponse) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
 var File_jennah_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_jennah_auth_v1_auth_proto_rawDesc = "" +
@@ -1586,7 +2011,40 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"expires_in\x18\x03 \x01(\x03R\texpiresIn\"4\n" +
 	"\rLogoutRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
-	"\x0eLogoutResponse*N\n" +
+	"\x0eLogoutResponse\"\x8e\x03\n" +
+	"\x06ApiKey\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12#\n" +
+	"\renterprise_id\x18\x02 \x01(\tR\fenterpriseId\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x16\n" +
+	"\x06prefix\x18\x04 \x01(\tR\x06prefix\x12+\n" +
+	"\x12created_by_user_id\x18\x05 \x01(\tR\x0fcreatedByUserId\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12<\n" +
+	"\flast_used_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"lastUsedAt\x129\n" +
+	"\n" +
+	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
+	"\n" +
+	"revoked_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\"f\n" +
+	"\x13CreateApiKeyRequest\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x129\n" +
+	"\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"[\n" +
+	"\x14CreateApiKeyResponse\x12\x16\n" +
+	"\x06secret\x18\x01 \x01(\tR\x06secret\x12+\n" +
+	"\x03key\x18\x02 \x01(\v2\x19.jennahapi.auth.v1.ApiKeyR\x03key\"P\n" +
+	"\x12ListApiKeysRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"l\n" +
+	"\x13ListApiKeysResponse\x12-\n" +
+	"\x04keys\x18\x01 \x03(\v2\x19.jennahapi.auth.v1.ApiKeyR\x04keys\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\",\n" +
+	"\x13RevokeApiKeyRequest\x12\x15\n" +
+	"\x06key_id\x18\x01 \x01(\tR\x05keyId\"Q\n" +
+	"\x14RevokeApiKeyResponse\x129\n" +
+	"\n" +
+	"revoked_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt*N\n" +
 	"\bProvider\x12\x18\n" +
 	"\x14PROVIDER_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fPROVIDER_GOOGLE\x10\x01\x12\x13\n" +
@@ -1605,7 +2063,7 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\tROLE_ROOT\x10\x01\x12\x0e\n" +
 	"\n" +
 	"ROLE_ADMIN\x10\x02\x12\x0f\n" +
-	"\vROLE_MEMBER\x10\x032\x9c\x06\n" +
+	"\vROLE_MEMBER\x10\x032\x9e\t\n" +
 	"\vAuthService\x12f\n" +
 	"\x06WhoAmI\x12 .jennahapi.auth.v1.WhoAmIRequest\x1a!.jennahapi.auth.v1.WhoAmIResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/auth/v1/whoami\x12Y\n" +
 	"\n" +
@@ -1615,7 +2073,10 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x10StartDeviceLogin\x12*.jennahapi.auth.v1.StartDeviceLoginRequest\x1a+.jennahapi.auth.v1.StartDeviceLoginResponse\x12h\n" +
 	"\x0fPollDeviceLogin\x12).jennahapi.auth.v1.PollDeviceLoginRequest\x1a*.jennahapi.auth.v1.PollDeviceLoginResponse\x12_\n" +
 	"\fRefreshToken\x12&.jennahapi.auth.v1.RefreshTokenRequest\x1a'.jennahapi.auth.v1.RefreshTokenResponse\x12M\n" +
-	"\x06Logout\x12 .jennahapi.auth.v1.LogoutRequest\x1a!.jennahapi.auth.v1.LogoutResponseB\xab\t\xbaG\xff\b\x12\x8b\b\n" +
+	"\x06Logout\x12 .jennahapi.auth.v1.LogoutRequest\x1a!.jennahapi.auth.v1.LogoutResponse\x12|\n" +
+	"\fCreateApiKey\x12&.jennahapi.auth.v1.CreateApiKeyRequest\x1a'.jennahapi.auth.v1.CreateApiKeyResponse\"\x1b\x82\xd3\xe4\x93\x02\x15:\x01*\"\x10/auth/v1/apikeys\x12v\n" +
+	"\vListApiKeys\x12%.jennahapi.auth.v1.ListApiKeysRequest\x1a&.jennahapi.auth.v1.ListApiKeysResponse\"\x18\x82\xd3\xe4\x93\x02\x12\x12\x10/auth/v1/apikeys\x12\x89\x01\n" +
+	"\fRevokeApiKey\x12&.jennahapi.auth.v1.RevokeApiKeyRequest\x1a'.jennahapi.auth.v1.RevokeApiKeyResponse\"(\x82\xd3\xe4\x93\x02\"\" /auth/v1/apikeys/{key_id}:revokeB\xab\t\xbaG\xff\b\x12\x8b\b\n" +
 	"\x14Jennah API reference\x12\xee\aJennah API is a RESTful API that can be accessed by an HTTP client such as `curl`, or any HTTP library which is part of most modern programming languages. This API reference is autogenerated from [protocol buffers](https://developers.google.com/protocol-buffers) defined in this [repository](https://github.com/alphauslabs/jennah-api), together with our supported client libraries. See the official [documentation](https://alphauslabs.github.io/docs/blueapi/overview/) for more information.\n" +
 	"\n" +
 	"You may encounter the following feature maturity indicators:\n" +
@@ -1640,7 +2101,7 @@ func file_jennah_auth_v1_auth_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_auth_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(Provider)(0),                       // 0: jennahapi.auth.v1.Provider
 	(ClientType)(0),                     // 1: jennahapi.auth.v1.ClientType
@@ -1666,14 +2127,21 @@ var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(*RefreshTokenResponse)(nil),        // 21: jennahapi.auth.v1.RefreshTokenResponse
 	(*LogoutRequest)(nil),               // 22: jennahapi.auth.v1.LogoutRequest
 	(*LogoutResponse)(nil),              // 23: jennahapi.auth.v1.LogoutResponse
-	(*timestamppb.Timestamp)(nil),       // 24: google.protobuf.Timestamp
+	(*ApiKey)(nil),                      // 24: jennahapi.auth.v1.ApiKey
+	(*CreateApiKeyRequest)(nil),         // 25: jennahapi.auth.v1.CreateApiKeyRequest
+	(*CreateApiKeyResponse)(nil),        // 26: jennahapi.auth.v1.CreateApiKeyResponse
+	(*ListApiKeysRequest)(nil),          // 27: jennahapi.auth.v1.ListApiKeysRequest
+	(*ListApiKeysResponse)(nil),         // 28: jennahapi.auth.v1.ListApiKeysResponse
+	(*RevokeApiKeyRequest)(nil),         // 29: jennahapi.auth.v1.RevokeApiKeyRequest
+	(*RevokeApiKeyResponse)(nil),        // 30: jennahapi.auth.v1.RevokeApiKeyResponse
+	(*timestamppb.Timestamp)(nil),       // 31: google.protobuf.Timestamp
 }
 var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	3,  // 0: jennahapi.auth.v1.Membership.role:type_name -> jennahapi.auth.v1.Role
 	0,  // 1: jennahapi.auth.v1.Identity.provider:type_name -> jennahapi.auth.v1.Provider
 	0,  // 2: jennahapi.auth.v1.Identity.linked_providers:type_name -> jennahapi.auth.v1.Provider
 	5,  // 3: jennahapi.auth.v1.Identity.memberships:type_name -> jennahapi.auth.v1.Membership
-	24, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
+	31, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
 	6,  // 5: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
 	7,  // 6: jennahapi.auth.v1.WhoAmIResponse.entitlement:type_name -> jennahapi.auth.v1.Entitlement
 	0,  // 7: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
@@ -1685,27 +2153,41 @@ var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	0,  // 13: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
 	4,  // 14: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
 	6,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	8,  // 16: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
-	10, // 17: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
-	12, // 18: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
-	14, // 19: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
-	16, // 20: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
-	18, // 21: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
-	20, // 22: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
-	22, // 23: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
-	9,  // 24: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
-	11, // 25: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
-	13, // 26: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
-	15, // 27: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
-	17, // 28: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
-	19, // 29: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
-	21, // 30: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
-	23, // 31: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
-	24, // [24:32] is the sub-list for method output_type
-	16, // [16:24] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	31, // 16: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
+	31, // 17: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
+	31, // 18: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
+	31, // 19: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
+	31, // 20: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	24, // 21: jennahapi.auth.v1.CreateApiKeyResponse.key:type_name -> jennahapi.auth.v1.ApiKey
+	24, // 22: jennahapi.auth.v1.ListApiKeysResponse.keys:type_name -> jennahapi.auth.v1.ApiKey
+	31, // 23: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
+	8,  // 24: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
+	10, // 25: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
+	12, // 26: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
+	14, // 27: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
+	16, // 28: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
+	18, // 29: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
+	20, // 30: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
+	22, // 31: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
+	25, // 32: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
+	27, // 33: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
+	29, // 34: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
+	9,  // 35: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
+	11, // 36: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
+	13, // 37: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
+	15, // 38: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
+	17, // 39: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
+	19, // 40: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
+	21, // 41: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
+	23, // 42: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
+	26, // 43: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
+	28, // 44: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
+	30, // 45: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
+	35, // [35:46] is the sub-list for method output_type
+	24, // [24:35] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_jennah_auth_v1_auth_proto_init() }
@@ -1719,7 +2201,7 @@ func file_jennah_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_auth_v1_auth_proto_rawDesc), len(file_jennah_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   19,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
