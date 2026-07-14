@@ -28,13 +28,13 @@ type AgentStatus int32
 
 const (
 	AgentStatus_AGENT_STATUS_UNSPECIFIED AgentStatus = 0
-	// Ready for use: the region and enterprise schema are provisioned and the
+	// Ready for use: the region's data-plane instance is provisioned and the
 	// AgentInstances row exists in the data plane.
 	AgentStatus_AGENT_STATUS_ACTIVE    AgentStatus = 1
 	AgentStatus_AGENT_STATUS_PAUSED    AgentStatus = 2
 	AgentStatus_AGENT_STATUS_COMPLETED AgentStatus = 3
-	// Provisioning is still in flight (region instance and/or enterprise schema
-	// being created). No data-plane row exists yet; poll GetAgent until ACTIVE.
+	// Provisioning is still in flight (the region's data-plane instance is being
+	// created). No data-plane row exists yet; poll GetAgent until ACTIVE.
 	AgentStatus_AGENT_STATUS_PROVISIONING AgentStatus = 4
 	// Provisioning failed; status_detail carries the reason. The caller may retry
 	// CreateAgent (idempotent on agent_instance_id) or delete the failed record.

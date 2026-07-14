@@ -42,8 +42,9 @@ type AgentServiceClient interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
-	// the region's data-plane instance and the enterprise's named schema are
-	// provisioned on first use. The EnterpriseId is taken from the token, never
+	// the region's data-plane instance is provisioned on first use (its tables are
+	// created once per database, and tenancy is row-level — the AgentInstances row
+	// is keyed by EnterpriseId). The EnterpriseId is taken from the token, never
 	// the body.
 	//
 	// Returns the workspace synchronously. When provisioning is still in flight
@@ -135,8 +136,9 @@ type AgentServiceServer interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
-	// the region's data-plane instance and the enterprise's named schema are
-	// provisioned on first use. The EnterpriseId is taken from the token, never
+	// the region's data-plane instance is provisioned on first use (its tables are
+	// created once per database, and tenancy is row-level — the AgentInstances row
+	// is keyed by EnterpriseId). The EnterpriseId is taken from the token, never
 	// the body.
 	//
 	// Returns the workspace synchronously. When provisioning is still in flight

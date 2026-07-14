@@ -44,9 +44,11 @@ const (
 // google.api.http annotation so grpc-gateway publishes it on the public REST
 // surface — and every RPC is AUTHENTICATED: the caller's EnterpriseId is taken
 // from the verified access token, and the AgentInstanceId from the route path.
-// Neither is ever read from the request body. Every access is qualified by the
-// enterprise's named schema and clamped to the (EnterpriseId, AgentInstanceId)
-// slice; caller-supplied GQL is clamped before execution and cannot widen it.
+// Neither is ever read from the request body. Every access is clamped to the
+// (EnterpriseId, AgentInstanceId) slice by a mandatory bound predicate — tenancy
+// is row-level in the data plane's default schema, so EnterpriseId binds as a
+// parameter and no schema identifier is interpolated; caller-supplied GQL is
+// clamped before execution and cannot widen it.
 type MemoryServiceClient interface {
 	// Applies a multi-section memory step in a SINGLE Spanner read-write
 	// transaction: an optional execution-log step, an optional set of vector
@@ -116,9 +118,11 @@ func (c *memoryServiceClient) QueryMemory(ctx context.Context, in *QueryMemoryRe
 // google.api.http annotation so grpc-gateway publishes it on the public REST
 // surface — and every RPC is AUTHENTICATED: the caller's EnterpriseId is taken
 // from the verified access token, and the AgentInstanceId from the route path.
-// Neither is ever read from the request body. Every access is qualified by the
-// enterprise's named schema and clamped to the (EnterpriseId, AgentInstanceId)
-// slice; caller-supplied GQL is clamped before execution and cannot widen it.
+// Neither is ever read from the request body. Every access is clamped to the
+// (EnterpriseId, AgentInstanceId) slice by a mandatory bound predicate — tenancy
+// is row-level in the data plane's default schema, so EnterpriseId binds as a
+// parameter and no schema identifier is interpolated; caller-supplied GQL is
+// clamped before execution and cannot widen it.
 type MemoryServiceServer interface {
 	// Applies a multi-section memory step in a SINGLE Spanner read-write
 	// transaction: an optional execution-log step, an optional set of vector
