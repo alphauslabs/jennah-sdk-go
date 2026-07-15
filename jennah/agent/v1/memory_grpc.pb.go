@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MemoryService_CommitMemory_FullMethodName = "/jennahapi.agent.v1.MemoryService/CommitMemory"
-	MemoryService_QueryMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/QueryMemory"
+	MemoryService_CommitMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/CommitMemory"
+	MemoryService_QueryMemory_FullMethodName   = "/jennahapi.agent.v1.MemoryService/QueryMemory"
+	MemoryService_InspectMemory_FullMethodName = "/jennahapi.agent.v1.MemoryService/InspectMemory"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -32,13 +33,16 @@ const (
 // data an agent accumulates inside a workspace: execution-log steps, vector
 // (semantic) chunks, and property-graph nodes/edges.
 //
-// The surface is deliberately just two RPCs — CommitMemory (write) and
-// QueryMemory (read) — each spanning one or more memory SECTIONS
-// (execution-log, vector, graph). A request carrying a single section is the
-// degenerate case and behaves identically to that section run alone; the
-// per-type SDK conveniences (logs.create, vectors.upsert/search, graph.query)
-// are thin single-section wrappers over these two RPCs and map to no other
-// route.
+// The surface is a small set of RPCs — CommitMemory (write) and QueryMemory
+// (read by anchor) plus InspectMemory (read by listing) — each spanning one or
+// more memory SECTIONS (execution-log, vector, graph). A request carrying a
+// single section is the degenerate case and behaves identically to that section
+// run alone; the per-type SDK conveniences (logs.create, vectors.upsert/search,
+// graph.query) are thin single-section wrappers over CommitMemory/QueryMemory
+// and map to no other route. QueryMemory retrieves by an anchor — a semantic
+// query or a graph start pattern — whereas InspectMemory lists the stored rows
+// WITHOUT an anchor, for debugging and inspection, and never returns embedding
+// vectors.
 //
 // Like AgentService, every RPC is an EXTERNAL (gateway) RPC — it carries a
 // google.api.http annotation so grpc-gateway publishes it on the public REST
@@ -68,6 +72,15 @@ type MemoryServiceClient interface {
 	// instant. Every section is clamped to the caller's (EnterpriseId,
 	// AgentInstanceId) slice.
 	QueryMemory(ctx context.Context, in *QueryMemoryRequest, opts ...grpc.CallOption) (*QueryMemoryResponse, error)
+	// Lists the stored rows of one or more memory sections WITHOUT a query anchor,
+	// for debugging and inspection: the vector chunks (content only — embedding
+	// vectors are never returned), the graph nodes and edges, and the recent
+	// execution-log steps. Unlike QueryMemory it takes no semantic query or graph
+	// start pattern; each requested section is simply enumerated within the
+	// caller's (EnterpriseId, AgentInstanceId) slice, up to a per-section limit,
+	// at ONE read snapshot so every section observes the same instant. This is a
+	// read-only diagnostic surface, not a retrieval path.
+	InspectMemory(ctx context.Context, in *InspectMemoryRequest, opts ...grpc.CallOption) (*InspectMemoryResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -98,6 +111,16 @@ func (c *memoryServiceClient) QueryMemory(ctx context.Context, in *QueryMemoryRe
 	return out, nil
 }
 
+func (c *memoryServiceClient) InspectMemory(ctx context.Context, in *InspectMemoryRequest, opts ...grpc.CallOption) (*InspectMemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InspectMemoryResponse)
+	err := c.cc.Invoke(ctx, MemoryService_InspectMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MemoryServiceServer is the server API for MemoryService service.
 // All implementations must embed UnimplementedMemoryServiceServer
 // for forward compatibility.
@@ -107,13 +130,16 @@ func (c *memoryServiceClient) QueryMemory(ctx context.Context, in *QueryMemoryRe
 // data an agent accumulates inside a workspace: execution-log steps, vector
 // (semantic) chunks, and property-graph nodes/edges.
 //
-// The surface is deliberately just two RPCs — CommitMemory (write) and
-// QueryMemory (read) — each spanning one or more memory SECTIONS
-// (execution-log, vector, graph). A request carrying a single section is the
-// degenerate case and behaves identically to that section run alone; the
-// per-type SDK conveniences (logs.create, vectors.upsert/search, graph.query)
-// are thin single-section wrappers over these two RPCs and map to no other
-// route.
+// The surface is a small set of RPCs — CommitMemory (write) and QueryMemory
+// (read by anchor) plus InspectMemory (read by listing) — each spanning one or
+// more memory SECTIONS (execution-log, vector, graph). A request carrying a
+// single section is the degenerate case and behaves identically to that section
+// run alone; the per-type SDK conveniences (logs.create, vectors.upsert/search,
+// graph.query) are thin single-section wrappers over CommitMemory/QueryMemory
+// and map to no other route. QueryMemory retrieves by an anchor — a semantic
+// query or a graph start pattern — whereas InspectMemory lists the stored rows
+// WITHOUT an anchor, for debugging and inspection, and never returns embedding
+// vectors.
 //
 // Like AgentService, every RPC is an EXTERNAL (gateway) RPC — it carries a
 // google.api.http annotation so grpc-gateway publishes it on the public REST
@@ -143,6 +169,15 @@ type MemoryServiceServer interface {
 	// instant. Every section is clamped to the caller's (EnterpriseId,
 	// AgentInstanceId) slice.
 	QueryMemory(context.Context, *QueryMemoryRequest) (*QueryMemoryResponse, error)
+	// Lists the stored rows of one or more memory sections WITHOUT a query anchor,
+	// for debugging and inspection: the vector chunks (content only — embedding
+	// vectors are never returned), the graph nodes and edges, and the recent
+	// execution-log steps. Unlike QueryMemory it takes no semantic query or graph
+	// start pattern; each requested section is simply enumerated within the
+	// caller's (EnterpriseId, AgentInstanceId) slice, up to a per-section limit,
+	// at ONE read snapshot so every section observes the same instant. This is a
+	// read-only diagnostic surface, not a retrieval path.
+	InspectMemory(context.Context, *InspectMemoryRequest) (*InspectMemoryResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -158,6 +193,9 @@ func (UnimplementedMemoryServiceServer) CommitMemory(context.Context, *CommitMem
 }
 func (UnimplementedMemoryServiceServer) QueryMemory(context.Context, *QueryMemoryRequest) (*QueryMemoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueryMemory not implemented")
+}
+func (UnimplementedMemoryServiceServer) InspectMemory(context.Context, *InspectMemoryRequest) (*InspectMemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InspectMemory not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -216,6 +254,24 @@ func _MemoryService_QueryMemory_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_InspectMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InspectMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).InspectMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_InspectMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).InspectMemory(ctx, req.(*InspectMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -230,6 +286,10 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "QueryMemory",
 			Handler:    _MemoryService_QueryMemory_Handler,
+		},
+		{
+			MethodName: "InspectMemory",
+			Handler:    _MemoryService_InspectMemory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
