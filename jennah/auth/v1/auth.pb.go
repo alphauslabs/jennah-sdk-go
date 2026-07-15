@@ -1490,9 +1490,9 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 }
 
 // Non-secret metadata for a single API key. The raw secret is NEVER carried
-// here — it is returned only once, in CreateApiKeyResponse. `prefix` is a
-// non-secret display fragment (e.g. the last 4 characters) for identifying a
-// key in listings and logs.
+// here — it is returned only once, in CreateApiKeyResponse. `last4` is a
+// non-secret display fragment (the last 4 characters) for identifying a key in
+// listings and logs.
 type ApiKey struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	KeyId string                 `protobuf:"bytes,1,opt,name=key_id,json=keyId,proto3" json:"key_id,omitempty"` // stable id (used in the revoke path)
@@ -1500,7 +1500,7 @@ type ApiKey struct {
 	// clarity; it is never accepted from a request body.
 	EnterpriseId    string                 `protobuf:"bytes,2,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
 	Label           string                 `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`                                                // human-readable label
-	Prefix          string                 `protobuf:"bytes,4,opt,name=prefix,proto3" json:"prefix,omitempty"`                                              // non-secret display fragment (last 4)
+	Last4           string                 `protobuf:"bytes,4,opt,name=last4,proto3" json:"last4,omitempty"`                                                // non-secret display fragment (last 4 chars)
 	CreatedByUserId string                 `protobuf:"bytes,5,opt,name=created_by_user_id,json=createdByUserId,proto3" json:"created_by_user_id,omitempty"` // user who minted the key (attribution)
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                       // server-assigned commit timestamp
 	// Best-effort last-use time; unset if the key has never been used. May lag
@@ -1565,9 +1565,9 @@ func (x *ApiKey) GetLabel() string {
 	return ""
 }
 
-func (x *ApiKey) GetPrefix() string {
+func (x *ApiKey) GetLast4() string {
 	if x != nil {
-		return x.Prefix
+		return x.Last4
 	}
 	return ""
 }
@@ -2011,12 +2011,12 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"expires_in\x18\x03 \x01(\x03R\texpiresIn\"4\n" +
 	"\rLogoutRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
-	"\x0eLogoutResponse\"\x8e\x03\n" +
+	"\x0eLogoutResponse\"\x8c\x03\n" +
 	"\x06ApiKey\x12\x15\n" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12#\n" +
 	"\renterprise_id\x18\x02 \x01(\tR\fenterpriseId\x12\x14\n" +
-	"\x05label\x18\x03 \x01(\tR\x05label\x12\x16\n" +
-	"\x06prefix\x18\x04 \x01(\tR\x06prefix\x12+\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x14\n" +
+	"\x05last4\x18\x04 \x01(\tR\x05last4\x12+\n" +
 	"\x12created_by_user_id\x18\x05 \x01(\tR\x0fcreatedByUserId\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12<\n" +
