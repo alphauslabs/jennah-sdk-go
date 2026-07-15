@@ -418,10 +418,14 @@ func (x *GraphWrite) GetEdges() []*GraphEdge {
 }
 
 type GraphNode struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // caller-chosen; unique within the agent slice
-	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	Properties    *structpb.Struct       `protobuf:"bytes,3,opt,name=properties,proto3" json:"properties,omitempty"` // free-form JSON properties
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	NodeId     string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // caller-chosen; unique within the agent slice
+	Label      string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	Properties *structpb.Struct       `protobuf:"bytes,3,opt,name=properties,proto3" json:"properties,omitempty"` // free-form JSON properties
+	// Output-only: the row's last-write commit timestamp, populated when the node
+	// is read back via InspectMemory. Nodes are written create-or-replace, so this
+	// is the last write, not first creation. Ignored on CommitMemory.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -477,6 +481,13 @@ func (x *GraphNode) GetProperties() *structpb.Struct {
 	return nil
 }
 
+func (x *GraphNode) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
 type GraphEdge struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	EdgeId           string                 `protobuf:"bytes,1,opt,name=edge_id,json=edgeId,proto3" json:"edge_id,omitempty"`                     // caller-chosen; unique within the agent slice
@@ -484,8 +495,12 @@ type GraphEdge struct {
 	TargetNodeId     string                 `protobuf:"bytes,3,opt,name=target_node_id,json=targetNodeId,proto3" json:"target_node_id,omitempty"` // must reference a GraphNode in the same slice
 	RelationshipType string                 `protobuf:"bytes,4,opt,name=relationship_type,json=relationshipType,proto3" json:"relationship_type,omitempty"`
 	Properties       *structpb.Struct       `protobuf:"bytes,5,opt,name=properties,proto3" json:"properties,omitempty"` // free-form JSON properties
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Output-only: the row's last-write commit timestamp, populated when the edge
+	// is read back via InspectMemory. Edges are written create-or-replace, so this
+	// is the last write, not first creation. Ignored on CommitMemory.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GraphEdge) Reset() {
@@ -549,6 +564,13 @@ func (x *GraphEdge) GetRelationshipType() string {
 func (x *GraphEdge) GetProperties() *structpb.Struct {
 	if x != nil {
 		return x.Properties
+	}
+	return nil
+}
+
+func (x *GraphEdge) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
 	}
 	return nil
 }
@@ -1783,9 +1805,12 @@ func (x *VectorInspectResult) GetChunks() []*VectorChunkInfo {
 // A stored vector chunk WITHOUT its embedding. The embedding column is
 // deliberately omitted: it is large and carries no debugging value in a listing.
 type VectorChunkInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChunkId       string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"`
-	RawContent    string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ChunkId    string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"`
+	RawContent string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
+	// Output-only: the chunk's last-write commit timestamp. Chunks are upserted, so
+	// this is the last write, not first creation.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1832,6 +1857,13 @@ func (x *VectorChunkInfo) GetRawContent() string {
 		return x.RawContent
 	}
 	return ""
+}
+
+func (x *VectorChunkInfo) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
 }
 
 // Graph listing result: the stored nodes and edges themselves (reusing the same
@@ -1915,13 +1947,15 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\n" +
 	"GraphWrite\x123\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x1d.jennahapi.agent.v1.GraphNodeR\x05nodes\x123\n" +
-	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"s\n" +
+	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"\xae\x01\n" +
 	"\tGraphNode\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x127\n" +
 	"\n" +
 	"properties\x18\x03 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"properties\"\xd6\x01\n" +
+	"properties\x129\n" +
+	"\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x91\x02\n" +
 	"\tGraphEdge\x12\x17\n" +
 	"\aedge_id\x18\x01 \x01(\tR\x06edgeId\x12$\n" +
 	"\x0esource_node_id\x18\x02 \x01(\tR\fsourceNodeId\x12$\n" +
@@ -1929,7 +1963,9 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x11relationship_type\x18\x04 \x01(\tR\x10relationshipType\x127\n" +
 	"\n" +
 	"properties\x18\x05 \x01(\v2\x17.google.protobuf.StructR\n" +
-	"properties\"\xfc\x01\n" +
+	"properties\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xfc\x01\n" +
 	"\x14CommitMemoryResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
@@ -2010,11 +2046,13 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x03log\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.LogResultR\x03log\x12A\n" +
 	"\x0eread_timestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"R\n" +
 	"\x13VectorInspectResult\x12;\n" +
-	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"M\n" +
+	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\x88\x01\n" +
 	"\x0fVectorChunkInfo\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
-	"rawContent\"~\n" +
+	"rawContent\x129\n" +
+	"\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"~\n" +
 	"\x12GraphInspectResult\x123\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x1d.jennahapi.agent.v1.GraphNodeR\x05nodes\x123\n" +
 	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges*x\n" +
@@ -2089,52 +2127,55 @@ var file_jennah_agent_v1_memory_proto_depIdxs = []int32{
 	6,  // 4: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
 	7,  // 5: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
 	31, // 6: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
-	31, // 7: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
-	30, // 8: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	10, // 9: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
-	11, // 10: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
-	15, // 11: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
-	0,  // 12: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
-	30, // 13: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	12, // 14: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	13, // 15: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
-	14, // 16: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
-	1,  // 17: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
-	12, // 18: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	32, // 19: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
-	30, // 20: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
-	17, // 21: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
-	19, // 22: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
-	20, // 23: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	21, // 24: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
-	30, // 25: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	18, // 26: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
-	31, // 27: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
-	3,  // 28: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	31, // 29: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
-	23, // 30: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
-	24, // 31: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
-	25, // 32: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
-	30, // 33: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	30, // 34: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
-	27, // 35: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
-	29, // 36: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
-	20, // 37: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	30, // 38: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	28, // 39: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
-	6,  // 40: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	7,  // 41: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	2,  // 42: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
-	9,  // 43: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
-	22, // 44: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
-	8,  // 45: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
-	16, // 46: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
-	26, // 47: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
-	45, // [45:48] is the sub-list for method output_type
-	42, // [42:45] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	30, // 7: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
+	31, // 8: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
+	30, // 9: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
+	30, // 10: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	10, // 11: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
+	11, // 12: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
+	15, // 13: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
+	0,  // 14: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
+	30, // 15: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	12, // 16: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	13, // 17: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
+	14, // 18: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
+	1,  // 19: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
+	12, // 20: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	32, // 21: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
+	30, // 22: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
+	17, // 23: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
+	19, // 24: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
+	20, // 25: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	21, // 26: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
+	30, // 27: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	18, // 28: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
+	31, // 29: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
+	3,  // 30: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	31, // 31: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
+	23, // 32: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
+	24, // 33: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
+	25, // 34: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
+	30, // 35: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	30, // 36: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
+	27, // 37: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
+	29, // 38: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
+	20, // 39: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	30, // 40: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	28, // 41: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
+	30, // 42: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 43: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	7,  // 44: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	2,  // 45: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
+	9,  // 46: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
+	22, // 47: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
+	8,  // 48: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
+	16, // 49: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
+	26, // 50: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
+	48, // [48:51] is the sub-list for method output_type
+	45, // [45:48] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_memory_proto_init() }
