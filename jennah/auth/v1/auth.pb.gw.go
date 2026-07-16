@@ -169,7 +169,7 @@ func RegisterAuthServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/WhoAmI", runtime.WithHTTPPathPattern("/auth/v1/whoami"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/WhoAmI", runtime.WithHTTPPathPattern("/v1/whoami"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -189,7 +189,7 @@ func RegisterAuthServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/CreateApiKey", runtime.WithHTTPPathPattern("/auth/v1/apikeys"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/CreateApiKey", runtime.WithHTTPPathPattern("/v1/apikeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -209,7 +209,7 @@ func RegisterAuthServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/ListApiKeys", runtime.WithHTTPPathPattern("/auth/v1/apikeys"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/ListApiKeys", runtime.WithHTTPPathPattern("/v1/apikeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -229,7 +229,7 @@ func RegisterAuthServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/RevokeApiKey", runtime.WithHTTPPathPattern("/auth/v1/apikeys/{key_id}:revoke"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/RevokeApiKey", runtime.WithHTTPPathPattern("/v1/apikeys/{key_id}:revoke"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -287,7 +287,7 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/WhoAmI", runtime.WithHTTPPathPattern("/auth/v1/whoami"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/WhoAmI", runtime.WithHTTPPathPattern("/v1/whoami"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -304,7 +304,7 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/CreateApiKey", runtime.WithHTTPPathPattern("/auth/v1/apikeys"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/CreateApiKey", runtime.WithHTTPPathPattern("/v1/apikeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -321,7 +321,7 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/ListApiKeys", runtime.WithHTTPPathPattern("/auth/v1/apikeys"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/ListApiKeys", runtime.WithHTTPPathPattern("/v1/apikeys"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -338,7 +338,7 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/RevokeApiKey", runtime.WithHTTPPathPattern("/auth/v1/apikeys/{key_id}:revoke"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/RevokeApiKey", runtime.WithHTTPPathPattern("/v1/apikeys/{key_id}:revoke"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -355,10 +355,10 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 }
 
 var (
-	pattern_AuthService_WhoAmI_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"auth", "v1", "whoami"}, ""))
-	pattern_AuthService_CreateApiKey_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"auth", "v1", "apikeys"}, ""))
-	pattern_AuthService_ListApiKeys_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"auth", "v1", "apikeys"}, ""))
-	pattern_AuthService_RevokeApiKey_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"auth", "v1", "apikeys", "key_id"}, "revoke"))
+	pattern_AuthService_WhoAmI_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "whoami"}, ""))
+	pattern_AuthService_CreateApiKey_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "apikeys"}, ""))
+	pattern_AuthService_ListApiKeys_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "apikeys"}, ""))
+	pattern_AuthService_RevokeApiKey_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "apikeys", "key_id"}, "revoke"))
 )
 
 var (
