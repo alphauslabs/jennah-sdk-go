@@ -36,17 +36,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Auth service definition.
-//
-// Two RPC groups carry a google.api.http annotation and are therefore EXTERNAL
-// (published on the grpc-gateway REST surface): WhoAmI, and the API-key
-// management RPCs (CreateApiKey / ListApiKeys / RevokeApiKey under
-// /auth/v1/apikeys). Every other RPC here is INTERNAL: it has no HTTP
-// annotation, so grpc-gateway emits no route for it and it is reachable only
-// over the backend's internal gRPC listener (127.0.0.1:8080), which is where
-// jennah-proxy's hand-written /auth/* handlers dial it. Do NOT add a
-// google.api.http annotation to the login/device/token RPCs — doing so would
-// publish them on the public REST surface.
+// AuthService service definition.
 type AuthServiceClient interface {
 	// Gets information about the caller. External (gateway) RPC. Requires a valid
 	// jennah access token; returns the resolved caller identity.
@@ -219,17 +209,7 @@ func (c *authServiceClient) RevokeApiKey(ctx context.Context, in *RevokeApiKeyRe
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
-// Auth service definition.
-//
-// Two RPC groups carry a google.api.http annotation and are therefore EXTERNAL
-// (published on the grpc-gateway REST surface): WhoAmI, and the API-key
-// management RPCs (CreateApiKey / ListApiKeys / RevokeApiKey under
-// /auth/v1/apikeys). Every other RPC here is INTERNAL: it has no HTTP
-// annotation, so grpc-gateway emits no route for it and it is reachable only
-// over the backend's internal gRPC listener (127.0.0.1:8080), which is where
-// jennah-proxy's hand-written /auth/* handlers dial it. Do NOT add a
-// google.api.http annotation to the login/device/token RPCs — doing so would
-// publish them on the public REST surface.
+// AuthService service definition.
 type AuthServiceServer interface {
 	// Gets information about the caller. External (gateway) RPC. Requires a valid
 	// jennah access token; returns the resolved caller identity.

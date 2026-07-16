@@ -29,15 +29,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AgentService owns agent-workspace lifecycle: creating an isolated agent
-// context bucket, reading it back, listing an enterprise's agents, and
-// atomically deleting one (with all its memory).
-//
-// Every RPC is an EXTERNAL (gateway) RPC — it carries a google.api.http
-// annotation so grpc-gateway publishes it on the public REST surface — and
-// every RPC is AUTHENTICATED: the caller's EnterpriseId is taken from the
-// verified access token, never from the request body or path. Memory-data RPCs
-// (memory:commit, memory:query) live in their own service, added separately.
+// AgentService service definition.
 type AgentServiceClient interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
@@ -123,15 +115,7 @@ func (c *agentServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentReq
 // All implementations must embed UnimplementedAgentServiceServer
 // for forward compatibility.
 //
-// AgentService owns agent-workspace lifecycle: creating an isolated agent
-// context bucket, reading it back, listing an enterprise's agents, and
-// atomically deleting one (with all its memory).
-//
-// Every RPC is an EXTERNAL (gateway) RPC — it carries a google.api.http
-// annotation so grpc-gateway publishes it on the public REST surface — and
-// every RPC is AUTHENTICATED: the caller's EnterpriseId is taken from the
-// verified access token, never from the request body or path. Memory-data RPCs
-// (memory:commit, memory:query) live in their own service, added separately.
+// AgentService service definition.
 type AgentServiceServer interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
