@@ -28,32 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// MemoryService is the unified memory-data plane for an agent workspace. Where
-// AgentService (agent.proto) owns workspace lifecycle, MemoryService owns the
-// data an agent accumulates inside a workspace: execution-log steps, vector
-// (semantic) chunks, and property-graph nodes/edges.
-//
-// The surface is a small set of RPCs — CommitMemory (write) and QueryMemory
-// (read by anchor) plus InspectMemory (read by listing) — each spanning one or
-// more memory SECTIONS (execution-log, vector, graph). A request carrying a
-// single section is the degenerate case and behaves identically to that section
-// run alone; the per-type SDK conveniences (logs.create, vectors.upsert/search,
-// graph.query) are thin single-section wrappers over CommitMemory/QueryMemory
-// and map to no other route. QueryMemory retrieves by an anchor — a semantic
-// query or a graph start pattern — whereas InspectMemory lists the stored rows
-// WITHOUT an anchor, for debugging and inspection, and never returns embedding
-// vectors.
-//
-// Like AgentService, every RPC is an EXTERNAL (gateway) RPC — it carries a
-// google.api.http annotation so grpc-gateway publishes it on the public REST
-// surface — and every RPC is AUTHENTICATED: the caller's EnterpriseId is taken
-// from the verified access token, and the AgentInstanceId from the route path.
-// Neither is ever read from the request body. Every access is clamped to the
-// (EnterpriseId, AgentInstanceId) slice by a mandatory bound predicate — tenancy
-// is row-level in the data plane's default schema, so EnterpriseId binds as a
-// parameter and no schema identifier is interpolated; the graph section is a
-// structured traversal from which the gateway builds the GQL server-side, so
-// the clamp is always present and the slice cannot be widened.
+// MemoryService is the unified memory-data plane for an agent workspace.
 type MemoryServiceClient interface {
 	// Applies a multi-section memory step in a SINGLE Spanner read-write
 	// transaction: an optional execution-log step, an optional set of vector
@@ -125,32 +100,7 @@ func (c *memoryServiceClient) InspectMemory(ctx context.Context, in *InspectMemo
 // All implementations must embed UnimplementedMemoryServiceServer
 // for forward compatibility.
 //
-// MemoryService is the unified memory-data plane for an agent workspace. Where
-// AgentService (agent.proto) owns workspace lifecycle, MemoryService owns the
-// data an agent accumulates inside a workspace: execution-log steps, vector
-// (semantic) chunks, and property-graph nodes/edges.
-//
-// The surface is a small set of RPCs — CommitMemory (write) and QueryMemory
-// (read by anchor) plus InspectMemory (read by listing) — each spanning one or
-// more memory SECTIONS (execution-log, vector, graph). A request carrying a
-// single section is the degenerate case and behaves identically to that section
-// run alone; the per-type SDK conveniences (logs.create, vectors.upsert/search,
-// graph.query) are thin single-section wrappers over CommitMemory/QueryMemory
-// and map to no other route. QueryMemory retrieves by an anchor — a semantic
-// query or a graph start pattern — whereas InspectMemory lists the stored rows
-// WITHOUT an anchor, for debugging and inspection, and never returns embedding
-// vectors.
-//
-// Like AgentService, every RPC is an EXTERNAL (gateway) RPC — it carries a
-// google.api.http annotation so grpc-gateway publishes it on the public REST
-// surface — and every RPC is AUTHENTICATED: the caller's EnterpriseId is taken
-// from the verified access token, and the AgentInstanceId from the route path.
-// Neither is ever read from the request body. Every access is clamped to the
-// (EnterpriseId, AgentInstanceId) slice by a mandatory bound predicate — tenancy
-// is row-level in the data plane's default schema, so EnterpriseId binds as a
-// parameter and no schema identifier is interpolated; the graph section is a
-// structured traversal from which the gateway builds the GQL server-side, so
-// the clamp is always present and the slice cannot be widened.
+// MemoryService is the unified memory-data plane for an agent workspace.
 type MemoryServiceServer interface {
 	// Applies a multi-section memory step in a SINGLE Spanner read-write
 	// transaction: an optional execution-log step, an optional set of vector
