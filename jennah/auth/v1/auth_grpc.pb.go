@@ -30,6 +30,13 @@ const (
 	AuthService_CreateApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/CreateApiKey"
 	AuthService_ListApiKeys_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListApiKeys"
 	AuthService_RevokeApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/RevokeApiKey"
+	AuthService_InviteMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/InviteMember"
+	AuthService_ListInvitations_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListInvitations"
+	AuthService_RevokeInvitation_FullMethodName = "/jennahapi.auth.v1.AuthService/RevokeInvitation"
+	AuthService_AcceptInvitation_FullMethodName = "/jennahapi.auth.v1.AuthService/AcceptInvitation"
+	AuthService_ListMembers_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListMembers"
+	AuthService_ChangeMemberRole_FullMethodName = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
+	AuthService_RemoveMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/RemoveMember"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -85,6 +92,51 @@ type AuthServiceClient interface {
 	// gated to ROLE_ROOT/ROLE_ADMIN. A key_id not owned by the caller's active
 	// enterprise is treated as not found.
 	RevokeApiKey(ctx context.Context, in *RevokeApiKeyRequest, opts ...grpc.CallOption) (*RevokeApiKeyResponse, error)
+	// Invites a person by email into the caller's active enterprise, granting
+	// ROLE_ADMIN or ROLE_MEMBER (never ROLE_ROOT). External (gateway) RPC.
+	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN (resolved live from the
+	// Memberships table). Membership is NOT granted by email match: this only
+	// creates a pending invitation bound to a single-use token, returned exactly
+	// once in the response for the inviter to share — the grant happens when the
+	// invitee accepts (AcceptInvitation) while signed in. Rejects an email already
+	// a member and a second pending invite for the same email.
+	InviteMember(ctx context.Context, in *InviteMemberRequest, opts ...grpc.CallOption) (*InviteMemberResponse, error)
+	// Lists the caller enterprise's pending invitations as non-secret metadata
+	// (never any token value), most-recent first. External (gateway) RPC.
+	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN.
+	ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error)
+	// Revokes a pending invitation so its token can never be accepted. Modeled as
+	// a custom method (POST ...:revoke) rather than DELETE because the row is
+	// retained with status INVITATION_STATUS_REVOKED, so it stays listable.
+	// External (gateway) RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN. An
+	// invitation_id not in the caller's active enterprise is treated as not found.
+	RevokeInvitation(ctx context.Context, in *RevokeInvitationRequest, opts ...grpc.CallOption) (*RevokeInvitationResponse, error)
+	// Accepts an invitation, granting the authenticated caller membership in the
+	// invitation's enterprise with the invited role. External (gateway) RPC.
+	// Authenticated as ANY caller: the target enterprise comes from the invitation
+	// (not the caller's token), the single-use token is the capability, and the
+	// caller's email need NOT match the invitation's. Already-a-member is a no-op
+	// success. The caller's current access token stays scoped to their previous
+	// enterprise; to operate in the newly joined one they call RefreshToken with
+	// enterprise_id set.
+	AcceptInvitation(ctx context.Context, in *AcceptInvitationRequest, opts ...grpc.CallOption) (*AcceptInvitationResponse, error)
+	// Lists the members of the caller's active enterprise (user id, email, role,
+	// join time), oldest first. External (gateway) RPC. Authenticated; visible to
+	// any member (a team roster is not sensitive within the enterprise).
+	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
+	// Changes a member's role to ROLE_ADMIN or ROLE_MEMBER within the caller's
+	// active enterprise. External (gateway) RPC. Authenticated AND gated to
+	// ROLE_ROOT/ROLE_ADMIN. The enterprise's ROLE_ROOT cannot be changed and
+	// ROLE_ROOT is never grantable.
+	ChangeMemberRole(ctx context.Context, in *ChangeMemberRoleRequest, opts ...grpc.CallOption) (*ChangeMemberRoleResponse, error)
+	// Removes a member from the caller's active enterprise, deleting their
+	// Memberships row and revoking their refresh sessions scoped to it (so no new
+	// access token can be minted for it; an already-issued one lasts until it
+	// expires). External (gateway) RPC. Authenticated AND gated to
+	// ROLE_ROOT/ROLE_ADMIN (a member MAY remove themselves — leave). The
+	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
+	// active enterprise is treated as not found.
+	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
 }
 
 type authServiceClient struct {
@@ -205,6 +257,76 @@ func (c *authServiceClient) RevokeApiKey(ctx context.Context, in *RevokeApiKeyRe
 	return out, nil
 }
 
+func (c *authServiceClient) InviteMember(ctx context.Context, in *InviteMemberRequest, opts ...grpc.CallOption) (*InviteMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InviteMemberResponse)
+	err := c.cc.Invoke(ctx, AuthService_InviteMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListInvitationsResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListInvitations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeInvitation(ctx context.Context, in *RevokeInvitationRequest, opts ...grpc.CallOption) (*RevokeInvitationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeInvitationResponse)
+	err := c.cc.Invoke(ctx, AuthService_RevokeInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) AcceptInvitation(ctx context.Context, in *AcceptInvitationRequest, opts ...grpc.CallOption) (*AcceptInvitationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AcceptInvitationResponse)
+	err := c.cc.Invoke(ctx, AuthService_AcceptInvitation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMembersResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListMembers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ChangeMemberRole(ctx context.Context, in *ChangeMemberRoleRequest, opts ...grpc.CallOption) (*ChangeMemberRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ChangeMemberRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_ChangeMemberRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveMemberResponse)
+	err := c.cc.Invoke(ctx, AuthService_RemoveMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -258,6 +380,51 @@ type AuthServiceServer interface {
 	// gated to ROLE_ROOT/ROLE_ADMIN. A key_id not owned by the caller's active
 	// enterprise is treated as not found.
 	RevokeApiKey(context.Context, *RevokeApiKeyRequest) (*RevokeApiKeyResponse, error)
+	// Invites a person by email into the caller's active enterprise, granting
+	// ROLE_ADMIN or ROLE_MEMBER (never ROLE_ROOT). External (gateway) RPC.
+	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN (resolved live from the
+	// Memberships table). Membership is NOT granted by email match: this only
+	// creates a pending invitation bound to a single-use token, returned exactly
+	// once in the response for the inviter to share — the grant happens when the
+	// invitee accepts (AcceptInvitation) while signed in. Rejects an email already
+	// a member and a second pending invite for the same email.
+	InviteMember(context.Context, *InviteMemberRequest) (*InviteMemberResponse, error)
+	// Lists the caller enterprise's pending invitations as non-secret metadata
+	// (never any token value), most-recent first. External (gateway) RPC.
+	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN.
+	ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error)
+	// Revokes a pending invitation so its token can never be accepted. Modeled as
+	// a custom method (POST ...:revoke) rather than DELETE because the row is
+	// retained with status INVITATION_STATUS_REVOKED, so it stays listable.
+	// External (gateway) RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN. An
+	// invitation_id not in the caller's active enterprise is treated as not found.
+	RevokeInvitation(context.Context, *RevokeInvitationRequest) (*RevokeInvitationResponse, error)
+	// Accepts an invitation, granting the authenticated caller membership in the
+	// invitation's enterprise with the invited role. External (gateway) RPC.
+	// Authenticated as ANY caller: the target enterprise comes from the invitation
+	// (not the caller's token), the single-use token is the capability, and the
+	// caller's email need NOT match the invitation's. Already-a-member is a no-op
+	// success. The caller's current access token stays scoped to their previous
+	// enterprise; to operate in the newly joined one they call RefreshToken with
+	// enterprise_id set.
+	AcceptInvitation(context.Context, *AcceptInvitationRequest) (*AcceptInvitationResponse, error)
+	// Lists the members of the caller's active enterprise (user id, email, role,
+	// join time), oldest first. External (gateway) RPC. Authenticated; visible to
+	// any member (a team roster is not sensitive within the enterprise).
+	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
+	// Changes a member's role to ROLE_ADMIN or ROLE_MEMBER within the caller's
+	// active enterprise. External (gateway) RPC. Authenticated AND gated to
+	// ROLE_ROOT/ROLE_ADMIN. The enterprise's ROLE_ROOT cannot be changed and
+	// ROLE_ROOT is never grantable.
+	ChangeMemberRole(context.Context, *ChangeMemberRoleRequest) (*ChangeMemberRoleResponse, error)
+	// Removes a member from the caller's active enterprise, deleting their
+	// Memberships row and revoking their refresh sessions scoped to it (so no new
+	// access token can be minted for it; an already-issued one lasts until it
+	// expires). External (gateway) RPC. Authenticated AND gated to
+	// ROLE_ROOT/ROLE_ADMIN (a member MAY remove themselves — leave). The
+	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
+	// active enterprise is treated as not found.
+	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -300,6 +467,27 @@ func (UnimplementedAuthServiceServer) ListApiKeys(context.Context, *ListApiKeysR
 }
 func (UnimplementedAuthServiceServer) RevokeApiKey(context.Context, *RevokeApiKeyRequest) (*RevokeApiKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeApiKey not implemented")
+}
+func (UnimplementedAuthServiceServer) InviteMember(context.Context, *InviteMemberRequest) (*InviteMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method InviteMember not implemented")
+}
+func (UnimplementedAuthServiceServer) ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListInvitations not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeInvitation(context.Context, *RevokeInvitationRequest) (*RevokeInvitationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeInvitation not implemented")
+}
+func (UnimplementedAuthServiceServer) AcceptInvitation(context.Context, *AcceptInvitationRequest) (*AcceptInvitationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcceptInvitation not implemented")
+}
+func (UnimplementedAuthServiceServer) ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMembers not implemented")
+}
+func (UnimplementedAuthServiceServer) ChangeMemberRole(context.Context, *ChangeMemberRoleRequest) (*ChangeMemberRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ChangeMemberRole not implemented")
+}
+func (UnimplementedAuthServiceServer) RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveMember not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -520,6 +708,132 @@ func _AuthService_RevokeApiKey_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_InviteMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InviteMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).InviteMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_InviteMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).InviteMember(ctx, req.(*InviteMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListInvitations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListInvitationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListInvitations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListInvitations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListInvitations(ctx, req.(*ListInvitationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RevokeInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeInvitation(ctx, req.(*RevokeInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_AcceptInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcceptInvitationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).AcceptInvitation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_AcceptInvitation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).AcceptInvitation(ctx, req.(*AcceptInvitationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMembersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListMembers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListMembers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListMembers(ctx, req.(*ListMembersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ChangeMemberRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ChangeMemberRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ChangeMemberRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ChangeMemberRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ChangeMemberRole(ctx, req.(*ChangeMemberRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RemoveMember_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveMemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RemoveMember(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RemoveMember_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RemoveMember(ctx, req.(*RemoveMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -570,6 +884,34 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeApiKey",
 			Handler:    _AuthService_RevokeApiKey_Handler,
+		},
+		{
+			MethodName: "InviteMember",
+			Handler:    _AuthService_InviteMember_Handler,
+		},
+		{
+			MethodName: "ListInvitations",
+			Handler:    _AuthService_ListInvitations_Handler,
+		},
+		{
+			MethodName: "RevokeInvitation",
+			Handler:    _AuthService_RevokeInvitation_Handler,
+		},
+		{
+			MethodName: "AcceptInvitation",
+			Handler:    _AuthService_AcceptInvitation_Handler,
+		},
+		{
+			MethodName: "ListMembers",
+			Handler:    _AuthService_ListMembers_Handler,
+		},
+		{
+			MethodName: "ChangeMemberRole",
+			Handler:    _AuthService_ChangeMemberRole_Handler,
+		},
+		{
+			MethodName: "RemoveMember",
+			Handler:    _AuthService_RemoveMember_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
