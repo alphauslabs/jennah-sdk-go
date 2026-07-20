@@ -37,6 +37,7 @@ const (
 	AuthService_ListMembers_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListMembers"
 	AuthService_ChangeMemberRole_FullMethodName = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
 	AuthService_RemoveMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/RemoveMember"
+	AuthService_UpdateEnterprise_FullMethodName = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -137,6 +138,12 @@ type AuthServiceClient interface {
 	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
 	// active enterprise is treated as not found.
 	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
+	// Updates mutable fields of the caller's active enterprise (currently just its
+	// display name). External (gateway) RPC. Authenticated AND gated to
+	// ROLE_ROOT/ROLE_ADMIN (resolved live from the Memberships table). The target
+	// is always the caller's active enterprise (from the token), never a path/body
+	// id, mirroring ListMembers/ChangeMemberRole.
+	UpdateEnterprise(ctx context.Context, in *UpdateEnterpriseRequest, opts ...grpc.CallOption) (*UpdateEnterpriseResponse, error)
 }
 
 type authServiceClient struct {
@@ -327,6 +334,16 @@ func (c *authServiceClient) RemoveMember(ctx context.Context, in *RemoveMemberRe
 	return out, nil
 }
 
+func (c *authServiceClient) UpdateEnterprise(ctx context.Context, in *UpdateEnterpriseRequest, opts ...grpc.CallOption) (*UpdateEnterpriseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateEnterpriseResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateEnterprise_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -425,6 +442,12 @@ type AuthServiceServer interface {
 	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
 	// active enterprise is treated as not found.
 	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
+	// Updates mutable fields of the caller's active enterprise (currently just its
+	// display name). External (gateway) RPC. Authenticated AND gated to
+	// ROLE_ROOT/ROLE_ADMIN (resolved live from the Memberships table). The target
+	// is always the caller's active enterprise (from the token), never a path/body
+	// id, mirroring ListMembers/ChangeMemberRole.
+	UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -488,6 +511,9 @@ func (UnimplementedAuthServiceServer) ChangeMemberRole(context.Context, *ChangeM
 }
 func (UnimplementedAuthServiceServer) RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveMember not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEnterprise not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -834,6 +860,24 @@ func _AuthService_RemoveMember_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_UpdateEnterprise_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEnterpriseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateEnterprise(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateEnterprise_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateEnterprise(ctx, req.(*UpdateEnterpriseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -912,6 +956,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveMember",
 			Handler:    _AuthService_RemoveMember_Handler,
+		},
+		{
+			MethodName: "UpdateEnterprise",
+			Handler:    _AuthService_UpdateEnterprise_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
