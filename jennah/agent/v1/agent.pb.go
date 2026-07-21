@@ -193,6 +193,7 @@ type Region struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                 // Jennah region id, e.g. "us-central-1"
 	IsDefault     bool                   `protobuf:"varint,2,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"` // true for the region CreateAgent uses when `region` is omitted
+	Location      string                 `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`                     // free-form human-readable location, e.g. "Tokyo, Japan"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -239,6 +240,13 @@ func (x *Region) GetIsDefault() bool {
 		return x.IsDefault
 	}
 	return false
+}
+
+func (x *Region) GetLocation() string {
+	if x != nil {
+		return x.Location
+	}
+	return ""
 }
 
 // Request message for the AgentService.ListRegions rpc. No parameters: the
@@ -775,11 +783,12 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"\x06status\x18\x05 \x01(\x0e2\x1f.jennahapi.agent.v1.AgentStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12#\n" +
-	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"7\n" +
+	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"S\n" +
 	"\x06Region\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
-	"is_default\x18\x02 \x01(\bR\tisDefault\"\x14\n" +
+	"is_default\x18\x02 \x01(\bR\tisDefault\x12\x1a\n" +
+	"\blocation\x18\x03 \x01(\tR\blocation\"\x14\n" +
 	"\x12ListRegionsRequest\"r\n" +
 	"\x13ListRegionsResponse\x124\n" +
 	"\aregions\x18\x01 \x03(\v2\x1a.jennahapi.agent.v1.RegionR\aregions\x12%\n" +
