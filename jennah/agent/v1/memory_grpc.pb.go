@@ -22,6 +22,7 @@ const (
 	MemoryService_CommitMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/CommitMemory"
 	MemoryService_QueryMemory_FullMethodName   = "/jennahapi.agent.v1.MemoryService/QueryMemory"
 	MemoryService_InspectMemory_FullMethodName = "/jennahapi.agent.v1.MemoryService/InspectMemory"
+	MemoryService_SupersedeEdge_FullMethodName = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -56,6 +57,18 @@ type MemoryServiceClient interface {
 	// at ONE read snapshot so every section observes the same instant. This is a
 	// read-only diagnostic surface, not a retrieval path.
 	InspectMemory(ctx context.Context, in *InspectMemoryRequest, opts ...grpc.CallOption) (*InspectMemoryResponse, error)
+	// Replaces a currently-held graph fact WITHOUT destroying it (add-temporal-
+	// graph). In one read-write transaction it closes the prior edge's valid-time
+	// window (its invalid_at becomes the new edge's valid_at, its transaction-time
+	// start preserved) and inserts the replacement edge in the same
+	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and
+	// an open window (unless new_edge.invalid_at is set). The prior edge stays
+	// queryable as history via an as_of graph query. Supersession is caller-driven:
+	// the platform never infers which facts conflict. new_edge.valid_at (the
+	// supersession boundary) is REQUIRED and new_edge.edge_id must differ from
+	// prior_edge_id; an unknown prior edge is NotFound and a reused new edge_id is
+	// AlreadyExists. This is the graph.supersede surface in the SDK.
+	SupersedeEdge(ctx context.Context, in *SupersedeEdgeRequest, opts ...grpc.CallOption) (*SupersedeEdgeResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -96,6 +109,16 @@ func (c *memoryServiceClient) InspectMemory(ctx context.Context, in *InspectMemo
 	return out, nil
 }
 
+func (c *memoryServiceClient) SupersedeEdge(ctx context.Context, in *SupersedeEdgeRequest, opts ...grpc.CallOption) (*SupersedeEdgeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SupersedeEdgeResponse)
+	err := c.cc.Invoke(ctx, MemoryService_SupersedeEdge_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MemoryServiceServer is the server API for MemoryService service.
 // All implementations must embed UnimplementedMemoryServiceServer
 // for forward compatibility.
@@ -128,6 +151,18 @@ type MemoryServiceServer interface {
 	// at ONE read snapshot so every section observes the same instant. This is a
 	// read-only diagnostic surface, not a retrieval path.
 	InspectMemory(context.Context, *InspectMemoryRequest) (*InspectMemoryResponse, error)
+	// Replaces a currently-held graph fact WITHOUT destroying it (add-temporal-
+	// graph). In one read-write transaction it closes the prior edge's valid-time
+	// window (its invalid_at becomes the new edge's valid_at, its transaction-time
+	// start preserved) and inserts the replacement edge in the same
+	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and
+	// an open window (unless new_edge.invalid_at is set). The prior edge stays
+	// queryable as history via an as_of graph query. Supersession is caller-driven:
+	// the platform never infers which facts conflict. new_edge.valid_at (the
+	// supersession boundary) is REQUIRED and new_edge.edge_id must differ from
+	// prior_edge_id; an unknown prior edge is NotFound and a reused new edge_id is
+	// AlreadyExists. This is the graph.supersede surface in the SDK.
+	SupersedeEdge(context.Context, *SupersedeEdgeRequest) (*SupersedeEdgeResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -146,6 +181,9 @@ func (UnimplementedMemoryServiceServer) QueryMemory(context.Context, *QueryMemor
 }
 func (UnimplementedMemoryServiceServer) InspectMemory(context.Context, *InspectMemoryRequest) (*InspectMemoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method InspectMemory not implemented")
+}
+func (UnimplementedMemoryServiceServer) SupersedeEdge(context.Context, *SupersedeEdgeRequest) (*SupersedeEdgeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SupersedeEdge not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -222,6 +260,24 @@ func _MemoryService_InspectMemory_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_SupersedeEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SupersedeEdgeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).SupersedeEdge(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_SupersedeEdge_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).SupersedeEdge(ctx, req.(*SupersedeEdgeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -240,6 +296,10 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InspectMemory",
 			Handler:    _MemoryService_InspectMemory_Handler,
+		},
+		{
+			MethodName: "SupersedeEdge",
+			Handler:    _MemoryService_SupersedeEdge_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
