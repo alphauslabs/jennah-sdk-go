@@ -1571,7 +1571,12 @@ type ApiKey struct {
 	// Absolute expiry; unset means the key never expires.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	// Revocation time; unset while the key is active.
-	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	RevokedAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
+	// RBAC permission scope the key authenticates with: the concrete
+	// "group.resource:action" permissions it holds, fixed at creation. Empty means
+	// the key carries no explicit scope and resolves to the member-equivalent
+	// default. Management-class permissions never appear here.
+	Scopes        []string `protobuf:"bytes,10,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1669,6 +1674,13 @@ func (x *ApiKey) GetRevokedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *ApiKey) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
+}
+
 // Request message for the AuthService.CreateApiKey rpc.
 //
 // The new key is bound to the caller's active enterprise — the enterprise_id
@@ -1681,7 +1693,13 @@ type CreateApiKeyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Label string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"` // human-readable label for the key
 	// Optional absolute expiry. When unset the key never expires.
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Optional RBAC scope: the concrete "group.resource:action" permissions the
+	// key may exercise. Each MUST be a subset of the caller's own effective
+	// permissions (anti-escalation) and MUST NOT be a management-class permission
+	// (a key can never manage keys, members, roles, or enterprise settings). When
+	// empty, the key defaults to the member-equivalent data-plane scope.
+	Scopes        []string `protobuf:"bytes,3,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1726,6 +1744,13 @@ func (x *CreateApiKeyRequest) GetLabel() string {
 func (x *CreateApiKeyRequest) GetExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *CreateApiKeyRequest) GetScopes() []string {
+	if x != nil {
+		return x.Scopes
 	}
 	return nil
 }
@@ -2090,11 +2115,17 @@ func (x *Invitation) GetExpiresAt() *timestamppb.Timestamp {
 
 // A member of an enterprise, for ListMembers.
 type Member struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`            // jennah user id
-	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`                            // the member's primary email
-	Role          Role                   `protobuf:"varint,3,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"` // role within the enterprise
-	JoinedAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"`      // Memberships row creation time
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	UserId string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // jennah user id
+	Email  string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`                 // the member's primary email
+	// Built-in role within the enterprise. ROLE_UNSPECIFIED when the member holds
+	// a custom role instead — see custom_role_id.
+	Role     Role                   `protobuf:"varint,3,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"`
+	JoinedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"` // Memberships row creation time
+	// Set when the member holds a custom RBAC role rather than a built-in one; it
+	// is the assigned role's id (join against ListRoles for its name/permissions).
+	// Empty for a built-in role, where `role` carries the assignment.
+	CustomRoleId  string `protobuf:"bytes,5,opt,name=custom_role_id,json=customRoleId,proto3" json:"custom_role_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2155,6 +2186,13 @@ func (x *Member) GetJoinedAt() *timestamppb.Timestamp {
 		return x.JoinedAt
 	}
 	return nil
+}
+
+func (x *Member) GetCustomRoleId() string {
+	if x != nil {
+		return x.CustomRoleId
+	}
+	return ""
 }
 
 // Request message for the AuthService.InviteMember rpc.
@@ -2672,10 +2710,18 @@ func (x *ListMembersResponse) GetNextPageToken() string {
 }
 
 // Request message for the AuthService.ChangeMemberRole rpc.
+//
+// Assign either a built-in role (via `role`) or a custom RBAC role (via
+// `custom_role_id`). When `custom_role_id` is non-empty it takes precedence and
+// `role` is ignored; the id must name a custom role defined in the caller's
+// active enterprise, and the caller may assign it only if it grants no
+// permission the caller lacks (assignment anti-escalation). ROLE_ROOT is never
+// assignable by either field.
 type ChangeMemberRoleRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`            // path parameter; a member of the caller's active enterprise
-	Role          Role                   `protobuf:"varint,2,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"` // ROLE_ADMIN or ROLE_MEMBER (ROLE_ROOT is rejected)
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`                     // path parameter; a member of the caller's active enterprise
+	Role          Role                   `protobuf:"varint,2,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"`          // built-in target: ROLE_ADMIN or ROLE_MEMBER (ROLE_ROOT is rejected)
+	CustomRoleId  string                 `protobuf:"bytes,3,opt,name=custom_role_id,json=customRoleId,proto3" json:"custom_role_id,omitempty"` // optional: a custom role id in the active enterprise; takes precedence over `role`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2722,6 +2768,13 @@ func (x *ChangeMemberRoleRequest) GetRole() Role {
 		return x.Role
 	}
 	return Role_ROLE_UNSPECIFIED
+}
+
+func (x *ChangeMemberRoleRequest) GetCustomRoleId() string {
+	if x != nil {
+		return x.CustomRoleId
+	}
+	return ""
 }
 
 // Response message for the AuthService.ChangeMemberRole rpc.
@@ -2997,6 +3050,742 @@ func (x *UpdateEnterpriseResponse) GetEnterprise() *Enterprise {
 	return nil
 }
 
+// A single entry in the RBAC permission catalog. `id` is the canonical
+// "group.resource:action" string (the value used in role grants and API-key
+// scopes); group/resource/action are its parsed parts, for grouping in a UI.
+type Permission struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // e.g. "agent.agents:create"
+	Group    string                 `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`       // e.g. "agent"
+	Resource string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"` // e.g. "agents"
+	Action   string                 `protobuf:"bytes,4,opt,name=action,proto3" json:"action,omitempty"`     // e.g. "create"
+	// True for a management-class permission (administrative; never grantable to
+	// an API key). False for a data-plane permission.
+	Management    bool `protobuf:"varint,5,opt,name=management,proto3" json:"management,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Permission) Reset() {
+	*x = Permission{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Permission) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Permission) ProtoMessage() {}
+
+func (x *Permission) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Permission.ProtoReflect.Descriptor instead.
+func (*Permission) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *Permission) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Permission) GetGroup() string {
+	if x != nil {
+		return x.Group
+	}
+	return ""
+}
+
+func (x *Permission) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *Permission) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *Permission) GetManagement() bool {
+	if x != nil {
+		return x.Management
+	}
+	return false
+}
+
+// A custom, enterprise-scoped RBAC role: a named subset of the permission
+// catalog. Built-in roles (root/admin/member) are code-defined and are NOT
+// represented by this message.
+type CustomRole struct {
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RoleId string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"` // stable id (used in assignment and the role path)
+	// Enterprise that owns the role, from the caller's token. Echoed for clarity;
+	// never accepted from a request body.
+	EnterpriseId  string                 `protobuf:"bytes,2,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                            // unique within the enterprise; must not shadow a built-in role
+	Permissions   []string               `protobuf:"bytes,4,rep,name=permissions,proto3" json:"permissions,omitempty"`              // explicit "group.resource:action" grants (no wildcards)
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // server-assigned commit timestamp
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // last modification; unset until first update
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CustomRole) Reset() {
+	*x = CustomRole{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomRole) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomRole) ProtoMessage() {}
+
+func (x *CustomRole) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomRole.ProtoReflect.Descriptor instead.
+func (*CustomRole) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *CustomRole) GetRoleId() string {
+	if x != nil {
+		return x.RoleId
+	}
+	return ""
+}
+
+func (x *CustomRole) GetEnterpriseId() string {
+	if x != nil {
+		return x.EnterpriseId
+	}
+	return ""
+}
+
+func (x *CustomRole) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CustomRole) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+func (x *CustomRole) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *CustomRole) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+// Request message for the AuthService.ListPermissions rpc.
+type ListPermissionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPermissionsRequest) Reset() {
+	*x = ListPermissionsRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPermissionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPermissionsRequest) ProtoMessage() {}
+
+func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPermissionsRequest.ProtoReflect.Descriptor instead.
+func (*ListPermissionsRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{47}
+}
+
+// Response message for the AuthService.ListPermissions rpc.
+type ListPermissionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Permissions   []*Permission          `protobuf:"bytes,1,rep,name=permissions,proto3" json:"permissions,omitempty"` // the full catalog
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPermissionsResponse) Reset() {
+	*x = ListPermissionsResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPermissionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPermissionsResponse) ProtoMessage() {}
+
+func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPermissionsResponse.ProtoReflect.Descriptor instead.
+func (*ListPermissionsResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *ListPermissionsResponse) GetPermissions() []*Permission {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+// Request message for the AuthService.CreateRole rpc. The role is created in the
+// caller's active enterprise (from the token); there is no enterprise field.
+type CreateRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`               // unique within the enterprise; must not shadow a built-in role
+	Permissions   []string               `protobuf:"bytes,2,rep,name=permissions,proto3" json:"permissions,omitempty"` // explicit "group.resource:action" grants (no wildcards)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateRoleRequest) Reset() {
+	*x = CreateRoleRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateRoleRequest) ProtoMessage() {}
+
+func (x *CreateRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateRoleRequest.ProtoReflect.Descriptor instead.
+func (*CreateRoleRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *CreateRoleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateRoleRequest) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+// Response message for the AuthService.CreateRole rpc.
+type CreateRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Role          *CustomRole            `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"` // the created role
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateRoleResponse) Reset() {
+	*x = CreateRoleResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateRoleResponse) ProtoMessage() {}
+
+func (x *CreateRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateRoleResponse.ProtoReflect.Descriptor instead.
+func (*CreateRoleResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *CreateRoleResponse) GetRole() *CustomRole {
+	if x != nil {
+		return x.Role
+	}
+	return nil
+}
+
+// Request message for the AuthService.ListRoles rpc.
+type ListRolesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	PageSize      int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`   // max roles to return; server picks a default when 0
+	PageToken     string                 `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"` // next_page_token from a prior response; empty for the first page
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRolesRequest) Reset() {
+	*x = ListRolesRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRolesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRolesRequest) ProtoMessage() {}
+
+func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRolesRequest.ProtoReflect.Descriptor instead.
+func (*ListRolesRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *ListRolesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListRolesRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// Response message for the AuthService.ListRoles rpc.
+type ListRolesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Roles         []*CustomRole          `protobuf:"bytes,1,rep,name=roles,proto3" json:"roles,omitempty"`                                        // custom roles only
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"` // empty when there are no more pages
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRolesResponse) Reset() {
+	*x = ListRolesResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRolesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRolesResponse) ProtoMessage() {}
+
+func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRolesResponse.ProtoReflect.Descriptor instead.
+func (*ListRolesResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListRolesResponse) GetRoles() []*CustomRole {
+	if x != nil {
+		return x.Roles
+	}
+	return nil
+}
+
+func (x *ListRolesResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+// Request message for the AuthService.GetRole rpc.
+type GetRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleId        string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"` // path parameter; must belong to the caller's active enterprise
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRoleRequest) Reset() {
+	*x = GetRoleRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRoleRequest) ProtoMessage() {}
+
+func (x *GetRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRoleRequest.ProtoReflect.Descriptor instead.
+func (*GetRoleRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *GetRoleRequest) GetRoleId() string {
+	if x != nil {
+		return x.RoleId
+	}
+	return ""
+}
+
+// Response message for the AuthService.GetRole rpc.
+type GetRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Role          *CustomRole            `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRoleResponse) Reset() {
+	*x = GetRoleResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRoleResponse) ProtoMessage() {}
+
+func (x *GetRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRoleResponse.ProtoReflect.Descriptor instead.
+func (*GetRoleResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *GetRoleResponse) GetRole() *CustomRole {
+	if x != nil {
+		return x.Role
+	}
+	return nil
+}
+
+// Request message for the AuthService.UpdateRole rpc. Replaces the role's name
+// and permission set (full replacement, not a merge).
+type UpdateRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleId        string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"` // path parameter; must belong to the caller's active enterprise
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                   // unique within the enterprise; must not shadow a built-in role
+	Permissions   []string               `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`     // explicit "group.resource:action" grants (no wildcards)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateRoleRequest) Reset() {
+	*x = UpdateRoleRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateRoleRequest) ProtoMessage() {}
+
+func (x *UpdateRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateRoleRequest.ProtoReflect.Descriptor instead.
+func (*UpdateRoleRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *UpdateRoleRequest) GetRoleId() string {
+	if x != nil {
+		return x.RoleId
+	}
+	return ""
+}
+
+func (x *UpdateRoleRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateRoleRequest) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
+// Response message for the AuthService.UpdateRole rpc.
+type UpdateRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Role          *CustomRole            `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"` // the updated role
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateRoleResponse) Reset() {
+	*x = UpdateRoleResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateRoleResponse) ProtoMessage() {}
+
+func (x *UpdateRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateRoleResponse.ProtoReflect.Descriptor instead.
+func (*UpdateRoleResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *UpdateRoleResponse) GetRole() *CustomRole {
+	if x != nil {
+		return x.Role
+	}
+	return nil
+}
+
+// Request message for the AuthService.DeleteRole rpc.
+type DeleteRoleRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoleId        string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"` // path parameter; must belong to the caller's active enterprise
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRoleRequest) Reset() {
+	*x = DeleteRoleRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRoleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRoleRequest) ProtoMessage() {}
+
+func (x *DeleteRoleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRoleRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRoleRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *DeleteRoleRequest) GetRoleId() string {
+	if x != nil {
+		return x.RoleId
+	}
+	return ""
+}
+
+// Response message for the AuthService.DeleteRole rpc.
+type DeleteRoleResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRoleResponse) Reset() {
+	*x = DeleteRoleResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRoleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRoleResponse) ProtoMessage() {}
+
+func (x *DeleteRoleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRoleResponse.ProtoReflect.Descriptor instead.
+func (*DeleteRoleResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{58}
+}
+
 var File_jennah_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_jennah_auth_v1_auth_proto_rawDesc = "" +
@@ -3095,7 +3884,7 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"expires_in\x18\x03 \x01(\x03R\texpiresIn\"4\n" +
 	"\rLogoutRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
-	"\x0eLogoutResponse\"\x8c\x03\n" +
+	"\x0eLogoutResponse\"\xa4\x03\n" +
 	"\x06ApiKey\x12\x15\n" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12#\n" +
 	"\renterprise_id\x18\x02 \x01(\tR\fenterpriseId\x12\x14\n" +
@@ -3109,11 +3898,14 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
 	"\n" +
-	"revoked_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\"f\n" +
+	"revoked_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\x12\x16\n" +
+	"\x06scopes\x18\n" +
+	" \x03(\tR\x06scopes\"~\n" +
 	"\x13CreateApiKeyRequest\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x129\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"[\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x16\n" +
+	"\x06scopes\x18\x03 \x03(\tR\x06scopes\"[\n" +
 	"\x14CreateApiKeyResponse\x12\x16\n" +
 	"\x06secret\x18\x01 \x01(\tR\x06secret\x12+\n" +
 	"\x03key\x18\x02 \x01(\v2\x19.jennahapi.auth.v1.ApiKeyR\x03key\"P\n" +
@@ -3140,12 +3932,13 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\x9d\x01\n" +
+	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\xc3\x01\n" +
 	"\x06Member\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12+\n" +
 	"\x04role\x18\x03 \x01(\x0e2\x17.jennahapi.auth.v1.RoleR\x04role\x127\n" +
-	"\tjoined_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bjoinedAt\"X\n" +
+	"\tjoined_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\bjoinedAt\x12$\n" +
+	"\x0ecustom_role_id\x18\x05 \x01(\tR\fcustomRoleId\"X\n" +
 	"\x13InviteMemberRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12+\n" +
 	"\x04role\x18\x02 \x01(\x0e2\x17.jennahapi.auth.v1.RoleR\x04role\"k\n" +
@@ -3176,10 +3969,11 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\"r\n" +
 	"\x13ListMembersResponse\x123\n" +
 	"\amembers\x18\x01 \x03(\v2\x19.jennahapi.auth.v1.MemberR\amembers\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"_\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\x85\x01\n" +
 	"\x17ChangeMemberRoleRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12+\n" +
-	"\x04role\x18\x02 \x01(\x0e2\x17.jennahapi.auth.v1.RoleR\x04role\"M\n" +
+	"\x04role\x18\x02 \x01(\x0e2\x17.jennahapi.auth.v1.RoleR\x04role\x12$\n" +
+	"\x0ecustom_role_id\x18\x03 \x01(\tR\fcustomRoleId\"M\n" +
 	"\x18ChangeMemberRoleResponse\x121\n" +
 	"\x06member\x18\x01 \x01(\v2\x19.jennahapi.auth.v1.MemberR\x06member\".\n" +
 	"\x13RemoveMemberRequest\x12\x17\n" +
@@ -3194,7 +3988,54 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x18UpdateEnterpriseResponse\x12=\n" +
 	"\n" +
 	"enterprise\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.EnterpriseR\n" +
-	"enterprise*N\n" +
+	"enterprise\"\x86\x01\n" +
+	"\n" +
+	"Permission\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05group\x18\x02 \x01(\tR\x05group\x12\x1a\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12\x16\n" +
+	"\x06action\x18\x04 \x01(\tR\x06action\x12\x1e\n" +
+	"\n" +
+	"management\x18\x05 \x01(\bR\n" +
+	"management\"\xf6\x01\n" +
+	"\n" +
+	"CustomRole\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12#\n" +
+	"\renterprise_id\x18\x02 \x01(\tR\fenterpriseId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vpermissions\x18\x04 \x03(\tR\vpermissions\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x18\n" +
+	"\x16ListPermissionsRequest\"Z\n" +
+	"\x17ListPermissionsResponse\x12?\n" +
+	"\vpermissions\x18\x01 \x03(\v2\x1d.jennahapi.auth.v1.PermissionR\vpermissions\"I\n" +
+	"\x11CreateRoleRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vpermissions\x18\x02 \x03(\tR\vpermissions\"G\n" +
+	"\x12CreateRoleResponse\x121\n" +
+	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\"N\n" +
+	"\x10ListRolesRequest\x12\x1b\n" +
+	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"p\n" +
+	"\x11ListRolesResponse\x123\n" +
+	"\x05roles\x18\x01 \x03(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x05roles\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\")\n" +
+	"\x0eGetRoleRequest\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\tR\x06roleId\"D\n" +
+	"\x0fGetRoleResponse\x121\n" +
+	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\"b\n" +
+	"\x11UpdateRoleRequest\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"G\n" +
+	"\x12UpdateRoleResponse\x121\n" +
+	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\",\n" +
+	"\x11DeleteRoleRequest\x12\x17\n" +
+	"\arole_id\x18\x01 \x01(\tR\x06roleId\"\x14\n" +
+	"\x12DeleteRoleResponse*N\n" +
 	"\bProvider\x12\x18\n" +
 	"\x14PROVIDER_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fPROVIDER_GOOGLE\x10\x01\x12\x13\n" +
@@ -3218,7 +4059,7 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x1dINVITATION_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19INVITATION_STATUS_PENDING\x10\x01\x12\x1e\n" +
 	"\x1aINVITATION_STATUS_ACCEPTED\x10\x02\x12\x1d\n" +
-	"\x19INVITATION_STATUS_REVOKED\x10\x032\xce\x11\n" +
+	"\x19INVITATION_STATUS_REVOKED\x10\x032\x90\x17\n" +
 	"\vAuthService\x12a\n" +
 	"\x06WhoAmI\x12 .jennahapi.auth.v1.WhoAmIRequest\x1a!.jennahapi.auth.v1.WhoAmIResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
 	"/v1/whoami\x12Y\n" +
@@ -3240,7 +4081,16 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\vListMembers\x12%.jennahapi.auth.v1.ListMembersRequest\x1a&.jennahapi.auth.v1.ListMembersResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/members\x12\x95\x01\n" +
 	"\x10ChangeMemberRole\x12*.jennahapi.auth.v1.ChangeMemberRoleRequest\x1a+.jennahapi.auth.v1.ChangeMemberRoleResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/v1/members/{user_id}:setRole\x12~\n" +
 	"\fRemoveMember\x12&.jennahapi.auth.v1.RemoveMemberRequest\x1a'.jennahapi.auth.v1.RemoveMemberResponse\"\x1d\x82\xd3\xe4\x93\x02\x17*\x15/v1/members/{user_id}\x12\x86\x01\n" +
-	"\x10UpdateEnterprise\x12*.jennahapi.auth.v1.UpdateEnterpriseRequest\x1a+.jennahapi.auth.v1.UpdateEnterpriseResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*2\x0e/v1/enterpriseB\xc7\b\xbaG\x9b\b\x12\xf8\a\n" +
+	"\x10UpdateEnterprise\x12*.jennahapi.auth.v1.UpdateEnterpriseRequest\x1a+.jennahapi.auth.v1.UpdateEnterpriseResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*2\x0e/v1/enterprise\x12\x81\x01\n" +
+	"\x0fListPermissions\x12).jennahapi.auth.v1.ListPermissionsRequest\x1a*.jennahapi.auth.v1.ListPermissionsResponse\"\x17\x82\xd3\xe4\x93\x02\x11\x12\x0f/v1/permissions\x12o\n" +
+	"\n" +
+	"CreateRole\x12$.jennahapi.auth.v1.CreateRoleRequest\x1a%.jennahapi.auth.v1.CreateRoleResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/roles\x12i\n" +
+	"\tListRoles\x12#.jennahapi.auth.v1.ListRolesRequest\x1a$.jennahapi.auth.v1.ListRolesResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/roles\x12m\n" +
+	"\aGetRole\x12!.jennahapi.auth.v1.GetRoleRequest\x1a\".jennahapi.auth.v1.GetRoleResponse\"\x1b\x82\xd3\xe4\x93\x02\x15\x12\x13/v1/roles/{role_id}\x12y\n" +
+	"\n" +
+	"UpdateRole\x12$.jennahapi.auth.v1.UpdateRoleRequest\x1a%.jennahapi.auth.v1.UpdateRoleResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*2\x13/v1/roles/{role_id}\x12v\n" +
+	"\n" +
+	"DeleteRole\x12$.jennahapi.auth.v1.DeleteRoleRequest\x1a%.jennahapi.auth.v1.DeleteRoleResponse\"\x1b\x82\xd3\xe4\x93\x02\x15*\x13/v1/roles/{role_id}B\xc7\b\xbaG\x9b\b\x12\xf8\a\n" +
 	"\x14Jennah API reference\x12\xdb\aJennah API is a RESTful API that can be accessed by an HTTP client such as `curl`, or any HTTP library which is part of most modern programming languages. This API reference is autogenerated from [protocol buffers](https://developers.google.com/protocol-buffers) defined in this [repository](https://github.com/alphauslabs/jennah-api), together with our supported client libraries. See the official [documentation](https://jennah.nightblue.io/docs/) for more information.\n" +
 	"\n" +
 	"You may encounter the following feature maturity indicators:\n" +
@@ -3264,7 +4114,7 @@ func file_jennah_auth_v1_auth_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_auth_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(Provider)(0),                       // 0: jennahapi.auth.v1.Provider
 	(ClientType)(0),                     // 1: jennahapi.auth.v1.ClientType
@@ -3317,14 +4167,28 @@ var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(*Enterprise)(nil),                  // 48: jennahapi.auth.v1.Enterprise
 	(*UpdateEnterpriseRequest)(nil),     // 49: jennahapi.auth.v1.UpdateEnterpriseRequest
 	(*UpdateEnterpriseResponse)(nil),    // 50: jennahapi.auth.v1.UpdateEnterpriseResponse
-	(*timestamppb.Timestamp)(nil),       // 51: google.protobuf.Timestamp
+	(*Permission)(nil),                  // 51: jennahapi.auth.v1.Permission
+	(*CustomRole)(nil),                  // 52: jennahapi.auth.v1.CustomRole
+	(*ListPermissionsRequest)(nil),      // 53: jennahapi.auth.v1.ListPermissionsRequest
+	(*ListPermissionsResponse)(nil),     // 54: jennahapi.auth.v1.ListPermissionsResponse
+	(*CreateRoleRequest)(nil),           // 55: jennahapi.auth.v1.CreateRoleRequest
+	(*CreateRoleResponse)(nil),          // 56: jennahapi.auth.v1.CreateRoleResponse
+	(*ListRolesRequest)(nil),            // 57: jennahapi.auth.v1.ListRolesRequest
+	(*ListRolesResponse)(nil),           // 58: jennahapi.auth.v1.ListRolesResponse
+	(*GetRoleRequest)(nil),              // 59: jennahapi.auth.v1.GetRoleRequest
+	(*GetRoleResponse)(nil),             // 60: jennahapi.auth.v1.GetRoleResponse
+	(*UpdateRoleRequest)(nil),           // 61: jennahapi.auth.v1.UpdateRoleRequest
+	(*UpdateRoleResponse)(nil),          // 62: jennahapi.auth.v1.UpdateRoleResponse
+	(*DeleteRoleRequest)(nil),           // 63: jennahapi.auth.v1.DeleteRoleRequest
+	(*DeleteRoleResponse)(nil),          // 64: jennahapi.auth.v1.DeleteRoleResponse
+	(*timestamppb.Timestamp)(nil),       // 65: google.protobuf.Timestamp
 }
 var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	3,  // 0: jennahapi.auth.v1.Membership.role:type_name -> jennahapi.auth.v1.Role
 	0,  // 1: jennahapi.auth.v1.Identity.provider:type_name -> jennahapi.auth.v1.Provider
 	0,  // 2: jennahapi.auth.v1.Identity.linked_providers:type_name -> jennahapi.auth.v1.Provider
 	6,  // 3: jennahapi.auth.v1.Identity.memberships:type_name -> jennahapi.auth.v1.Membership
-	51, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
+	65, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
 	7,  // 5: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
 	8,  // 6: jennahapi.auth.v1.WhoAmIResponse.entitlement:type_name -> jennahapi.auth.v1.Entitlement
 	0,  // 7: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
@@ -3336,20 +4200,20 @@ var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	0,  // 13: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
 	5,  // 14: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
 	7,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	51, // 16: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
-	51, // 17: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
-	51, // 18: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
-	51, // 19: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
-	51, // 20: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	65, // 16: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
+	65, // 17: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
+	65, // 18: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
+	65, // 19: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
+	65, // 20: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
 	25, // 21: jennahapi.auth.v1.CreateApiKeyResponse.key:type_name -> jennahapi.auth.v1.ApiKey
 	25, // 22: jennahapi.auth.v1.ListApiKeysResponse.keys:type_name -> jennahapi.auth.v1.ApiKey
-	51, // 23: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
+	65, // 23: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
 	3,  // 24: jennahapi.auth.v1.Invitation.role:type_name -> jennahapi.auth.v1.Role
 	4,  // 25: jennahapi.auth.v1.Invitation.status:type_name -> jennahapi.auth.v1.InvitationStatus
-	51, // 26: jennahapi.auth.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	51, // 27: jennahapi.auth.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	65, // 26: jennahapi.auth.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	65, // 27: jennahapi.auth.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
 	3,  // 28: jennahapi.auth.v1.Member.role:type_name -> jennahapi.auth.v1.Role
-	51, // 29: jennahapi.auth.v1.Member.joined_at:type_name -> google.protobuf.Timestamp
+	65, // 29: jennahapi.auth.v1.Member.joined_at:type_name -> google.protobuf.Timestamp
 	3,  // 30: jennahapi.auth.v1.InviteMemberRequest.role:type_name -> jennahapi.auth.v1.Role
 	32, // 31: jennahapi.auth.v1.InviteMemberResponse.invitation:type_name -> jennahapi.auth.v1.Invitation
 	32, // 32: jennahapi.auth.v1.ListInvitationsResponse.invitations:type_name -> jennahapi.auth.v1.Invitation
@@ -3358,49 +4222,68 @@ var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	3,  // 35: jennahapi.auth.v1.ChangeMemberRoleRequest.role:type_name -> jennahapi.auth.v1.Role
 	33, // 36: jennahapi.auth.v1.ChangeMemberRoleResponse.member:type_name -> jennahapi.auth.v1.Member
 	48, // 37: jennahapi.auth.v1.UpdateEnterpriseResponse.enterprise:type_name -> jennahapi.auth.v1.Enterprise
-	9,  // 38: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
-	11, // 39: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
-	13, // 40: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
-	15, // 41: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
-	17, // 42: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
-	19, // 43: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
-	21, // 44: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
-	23, // 45: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
-	26, // 46: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
-	28, // 47: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
-	30, // 48: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
-	34, // 49: jennahapi.auth.v1.AuthService.InviteMember:input_type -> jennahapi.auth.v1.InviteMemberRequest
-	36, // 50: jennahapi.auth.v1.AuthService.ListInvitations:input_type -> jennahapi.auth.v1.ListInvitationsRequest
-	38, // 51: jennahapi.auth.v1.AuthService.RevokeInvitation:input_type -> jennahapi.auth.v1.RevokeInvitationRequest
-	40, // 52: jennahapi.auth.v1.AuthService.AcceptInvitation:input_type -> jennahapi.auth.v1.AcceptInvitationRequest
-	42, // 53: jennahapi.auth.v1.AuthService.ListMembers:input_type -> jennahapi.auth.v1.ListMembersRequest
-	44, // 54: jennahapi.auth.v1.AuthService.ChangeMemberRole:input_type -> jennahapi.auth.v1.ChangeMemberRoleRequest
-	46, // 55: jennahapi.auth.v1.AuthService.RemoveMember:input_type -> jennahapi.auth.v1.RemoveMemberRequest
-	49, // 56: jennahapi.auth.v1.AuthService.UpdateEnterprise:input_type -> jennahapi.auth.v1.UpdateEnterpriseRequest
-	10, // 57: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
-	12, // 58: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
-	14, // 59: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
-	16, // 60: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
-	18, // 61: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
-	20, // 62: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
-	22, // 63: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
-	24, // 64: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
-	27, // 65: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
-	29, // 66: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
-	31, // 67: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
-	35, // 68: jennahapi.auth.v1.AuthService.InviteMember:output_type -> jennahapi.auth.v1.InviteMemberResponse
-	37, // 69: jennahapi.auth.v1.AuthService.ListInvitations:output_type -> jennahapi.auth.v1.ListInvitationsResponse
-	39, // 70: jennahapi.auth.v1.AuthService.RevokeInvitation:output_type -> jennahapi.auth.v1.RevokeInvitationResponse
-	41, // 71: jennahapi.auth.v1.AuthService.AcceptInvitation:output_type -> jennahapi.auth.v1.AcceptInvitationResponse
-	43, // 72: jennahapi.auth.v1.AuthService.ListMembers:output_type -> jennahapi.auth.v1.ListMembersResponse
-	45, // 73: jennahapi.auth.v1.AuthService.ChangeMemberRole:output_type -> jennahapi.auth.v1.ChangeMemberRoleResponse
-	47, // 74: jennahapi.auth.v1.AuthService.RemoveMember:output_type -> jennahapi.auth.v1.RemoveMemberResponse
-	50, // 75: jennahapi.auth.v1.AuthService.UpdateEnterprise:output_type -> jennahapi.auth.v1.UpdateEnterpriseResponse
-	57, // [57:76] is the sub-list for method output_type
-	38, // [38:57] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	65, // 38: jennahapi.auth.v1.CustomRole.created_at:type_name -> google.protobuf.Timestamp
+	65, // 39: jennahapi.auth.v1.CustomRole.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 40: jennahapi.auth.v1.ListPermissionsResponse.permissions:type_name -> jennahapi.auth.v1.Permission
+	52, // 41: jennahapi.auth.v1.CreateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	52, // 42: jennahapi.auth.v1.ListRolesResponse.roles:type_name -> jennahapi.auth.v1.CustomRole
+	52, // 43: jennahapi.auth.v1.GetRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	52, // 44: jennahapi.auth.v1.UpdateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	9,  // 45: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
+	11, // 46: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
+	13, // 47: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
+	15, // 48: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
+	17, // 49: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
+	19, // 50: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
+	21, // 51: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
+	23, // 52: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
+	26, // 53: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
+	28, // 54: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
+	30, // 55: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
+	34, // 56: jennahapi.auth.v1.AuthService.InviteMember:input_type -> jennahapi.auth.v1.InviteMemberRequest
+	36, // 57: jennahapi.auth.v1.AuthService.ListInvitations:input_type -> jennahapi.auth.v1.ListInvitationsRequest
+	38, // 58: jennahapi.auth.v1.AuthService.RevokeInvitation:input_type -> jennahapi.auth.v1.RevokeInvitationRequest
+	40, // 59: jennahapi.auth.v1.AuthService.AcceptInvitation:input_type -> jennahapi.auth.v1.AcceptInvitationRequest
+	42, // 60: jennahapi.auth.v1.AuthService.ListMembers:input_type -> jennahapi.auth.v1.ListMembersRequest
+	44, // 61: jennahapi.auth.v1.AuthService.ChangeMemberRole:input_type -> jennahapi.auth.v1.ChangeMemberRoleRequest
+	46, // 62: jennahapi.auth.v1.AuthService.RemoveMember:input_type -> jennahapi.auth.v1.RemoveMemberRequest
+	49, // 63: jennahapi.auth.v1.AuthService.UpdateEnterprise:input_type -> jennahapi.auth.v1.UpdateEnterpriseRequest
+	53, // 64: jennahapi.auth.v1.AuthService.ListPermissions:input_type -> jennahapi.auth.v1.ListPermissionsRequest
+	55, // 65: jennahapi.auth.v1.AuthService.CreateRole:input_type -> jennahapi.auth.v1.CreateRoleRequest
+	57, // 66: jennahapi.auth.v1.AuthService.ListRoles:input_type -> jennahapi.auth.v1.ListRolesRequest
+	59, // 67: jennahapi.auth.v1.AuthService.GetRole:input_type -> jennahapi.auth.v1.GetRoleRequest
+	61, // 68: jennahapi.auth.v1.AuthService.UpdateRole:input_type -> jennahapi.auth.v1.UpdateRoleRequest
+	63, // 69: jennahapi.auth.v1.AuthService.DeleteRole:input_type -> jennahapi.auth.v1.DeleteRoleRequest
+	10, // 70: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
+	12, // 71: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
+	14, // 72: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
+	16, // 73: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
+	18, // 74: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
+	20, // 75: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
+	22, // 76: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
+	24, // 77: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
+	27, // 78: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
+	29, // 79: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
+	31, // 80: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
+	35, // 81: jennahapi.auth.v1.AuthService.InviteMember:output_type -> jennahapi.auth.v1.InviteMemberResponse
+	37, // 82: jennahapi.auth.v1.AuthService.ListInvitations:output_type -> jennahapi.auth.v1.ListInvitationsResponse
+	39, // 83: jennahapi.auth.v1.AuthService.RevokeInvitation:output_type -> jennahapi.auth.v1.RevokeInvitationResponse
+	41, // 84: jennahapi.auth.v1.AuthService.AcceptInvitation:output_type -> jennahapi.auth.v1.AcceptInvitationResponse
+	43, // 85: jennahapi.auth.v1.AuthService.ListMembers:output_type -> jennahapi.auth.v1.ListMembersResponse
+	45, // 86: jennahapi.auth.v1.AuthService.ChangeMemberRole:output_type -> jennahapi.auth.v1.ChangeMemberRoleResponse
+	47, // 87: jennahapi.auth.v1.AuthService.RemoveMember:output_type -> jennahapi.auth.v1.RemoveMemberResponse
+	50, // 88: jennahapi.auth.v1.AuthService.UpdateEnterprise:output_type -> jennahapi.auth.v1.UpdateEnterpriseResponse
+	54, // 89: jennahapi.auth.v1.AuthService.ListPermissions:output_type -> jennahapi.auth.v1.ListPermissionsResponse
+	56, // 90: jennahapi.auth.v1.AuthService.CreateRole:output_type -> jennahapi.auth.v1.CreateRoleResponse
+	58, // 91: jennahapi.auth.v1.AuthService.ListRoles:output_type -> jennahapi.auth.v1.ListRolesResponse
+	60, // 92: jennahapi.auth.v1.AuthService.GetRole:output_type -> jennahapi.auth.v1.GetRoleResponse
+	62, // 93: jennahapi.auth.v1.AuthService.UpdateRole:output_type -> jennahapi.auth.v1.UpdateRoleResponse
+	64, // 94: jennahapi.auth.v1.AuthService.DeleteRole:output_type -> jennahapi.auth.v1.DeleteRoleResponse
+	70, // [70:95] is the sub-list for method output_type
+	45, // [45:70] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_jennah_auth_v1_auth_proto_init() }
@@ -3414,7 +4297,7 @@ func file_jennah_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_auth_v1_auth_proto_rawDesc), len(file_jennah_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   45,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

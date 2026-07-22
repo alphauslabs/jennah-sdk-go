@@ -38,6 +38,12 @@ const (
 	AuthService_ChangeMemberRole_FullMethodName = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
 	AuthService_RemoveMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/RemoveMember"
 	AuthService_UpdateEnterprise_FullMethodName = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
+	AuthService_ListPermissions_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListPermissions"
+	AuthService_CreateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/CreateRole"
+	AuthService_ListRoles_FullMethodName        = "/jennahapi.auth.v1.AuthService/ListRoles"
+	AuthService_GetRole_FullMethodName          = "/jennahapi.auth.v1.AuthService/GetRole"
+	AuthService_UpdateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/UpdateRole"
+	AuthService_DeleteRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/DeleteRole"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -144,6 +150,36 @@ type AuthServiceClient interface {
 	// is always the caller's active enterprise (from the token), never a path/body
 	// id, mirroring ListMembers/ChangeMemberRole.
 	UpdateEnterprise(ctx context.Context, in *UpdateEnterpriseRequest, opts ...grpc.CallOption) (*UpdateEnterpriseResponse, error)
+	// Lists the fixed permission catalog: every grantable "group.resource:action"
+	// permission and whether it is management-class. External (gateway) RPC.
+	// Authenticated, but requires no specific permission — the catalog is
+	// non-sensitive metadata any member (or the console) may read to discover what
+	// is grantable.
+	ListPermissions(ctx context.Context, in *ListPermissionsRequest, opts ...grpc.CallOption) (*ListPermissionsResponse, error)
+	// Defines a custom role in the caller's active enterprise: a named, explicit
+	// subset of the permission catalog. External (gateway) RPC. Authenticated AND
+	// requires the "iam.roles:manage" permission. The caller may grant only
+	// permissions they themselves hold (anti-escalation); the name must not
+	// collide with a built-in role (root/admin/member) and must be unique in the
+	// enterprise; wildcards are rejected (grants enumerate concrete permissions).
+	CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error)
+	// Lists the caller enterprise's custom roles (built-in roles are not returned;
+	// they are code-defined and universal). External (gateway) RPC. Authenticated
+	// AND requires the "iam.roles:read" permission.
+	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
+	// Gets one custom role by id, scoped to the caller's active enterprise.
+	// External (gateway) RPC. Authenticated AND requires the "iam.roles:read"
+	// permission.
+	GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error)
+	// Replaces a custom role's name and permission set. External (gateway) RPC.
+	// Authenticated AND requires the "iam.roles:manage" permission, with the same
+	// anti-escalation and naming rules as CreateRole.
+	UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error)
+	// Deletes a custom role. External (gateway) RPC. Authenticated AND requires the
+	// "iam.roles:manage" permission. Hard-fails with FAILED_PRECONDITION when the
+	// role is still assigned to any member — those members must be reassigned
+	// first, so a live membership can never dangle.
+	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*DeleteRoleResponse, error)
 }
 
 type authServiceClient struct {
@@ -344,6 +380,66 @@ func (c *authServiceClient) UpdateEnterprise(ctx context.Context, in *UpdateEnte
 	return out, nil
 }
 
+func (c *authServiceClient) ListPermissions(ctx context.Context, in *ListPermissionsRequest, opts ...grpc.CallOption) (*ListPermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPermissionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListPermissions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) CreateRole(ctx context.Context, in *CreateRoleRequest, opts ...grpc.CallOption) (*CreateRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_CreateRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRolesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetRole(ctx context.Context, in *GetRoleRequest, opts ...grpc.CallOption) (*GetRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*DeleteRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteRoleResponse)
+	err := c.cc.Invoke(ctx, AuthService_DeleteRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -448,6 +544,36 @@ type AuthServiceServer interface {
 	// is always the caller's active enterprise (from the token), never a path/body
 	// id, mirroring ListMembers/ChangeMemberRole.
 	UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error)
+	// Lists the fixed permission catalog: every grantable "group.resource:action"
+	// permission and whether it is management-class. External (gateway) RPC.
+	// Authenticated, but requires no specific permission — the catalog is
+	// non-sensitive metadata any member (or the console) may read to discover what
+	// is grantable.
+	ListPermissions(context.Context, *ListPermissionsRequest) (*ListPermissionsResponse, error)
+	// Defines a custom role in the caller's active enterprise: a named, explicit
+	// subset of the permission catalog. External (gateway) RPC. Authenticated AND
+	// requires the "iam.roles:manage" permission. The caller may grant only
+	// permissions they themselves hold (anti-escalation); the name must not
+	// collide with a built-in role (root/admin/member) and must be unique in the
+	// enterprise; wildcards are rejected (grants enumerate concrete permissions).
+	CreateRole(context.Context, *CreateRoleRequest) (*CreateRoleResponse, error)
+	// Lists the caller enterprise's custom roles (built-in roles are not returned;
+	// they are code-defined and universal). External (gateway) RPC. Authenticated
+	// AND requires the "iam.roles:read" permission.
+	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
+	// Gets one custom role by id, scoped to the caller's active enterprise.
+	// External (gateway) RPC. Authenticated AND requires the "iam.roles:read"
+	// permission.
+	GetRole(context.Context, *GetRoleRequest) (*GetRoleResponse, error)
+	// Replaces a custom role's name and permission set. External (gateway) RPC.
+	// Authenticated AND requires the "iam.roles:manage" permission, with the same
+	// anti-escalation and naming rules as CreateRole.
+	UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error)
+	// Deletes a custom role. External (gateway) RPC. Authenticated AND requires the
+	// "iam.roles:manage" permission. Hard-fails with FAILED_PRECONDITION when the
+	// role is still assigned to any member — those members must be reassigned
+	// first, so a live membership can never dangle.
+	DeleteRole(context.Context, *DeleteRoleRequest) (*DeleteRoleResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -514,6 +640,24 @@ func (UnimplementedAuthServiceServer) RemoveMember(context.Context, *RemoveMembe
 }
 func (UnimplementedAuthServiceServer) UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEnterprise not implemented")
+}
+func (UnimplementedAuthServiceServer) ListPermissions(context.Context, *ListPermissionsRequest) (*ListPermissionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPermissions not implemented")
+}
+func (UnimplementedAuthServiceServer) CreateRole(context.Context, *CreateRoleRequest) (*CreateRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRole not implemented")
+}
+func (UnimplementedAuthServiceServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
+}
+func (UnimplementedAuthServiceServer) GetRole(context.Context, *GetRoleRequest) (*GetRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRole not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRole not implemented")
+}
+func (UnimplementedAuthServiceServer) DeleteRole(context.Context, *DeleteRoleRequest) (*DeleteRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRole not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -878,6 +1022,114 @@ func _AuthService_UpdateEnterprise_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_ListPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPermissionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListPermissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListPermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListPermissions(ctx, req.(*ListPermissionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_CreateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CreateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CreateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CreateRole(ctx, req.(*CreateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListRoles(ctx, req.(*ListRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetRole(ctx, req.(*GetRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_UpdateRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateRole(ctx, req.(*UpdateRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_DeleteRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).DeleteRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_DeleteRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).DeleteRole(ctx, req.(*DeleteRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -960,6 +1212,30 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateEnterprise",
 			Handler:    _AuthService_UpdateEnterprise_Handler,
+		},
+		{
+			MethodName: "ListPermissions",
+			Handler:    _AuthService_ListPermissions_Handler,
+		},
+		{
+			MethodName: "CreateRole",
+			Handler:    _AuthService_CreateRole_Handler,
+		},
+		{
+			MethodName: "ListRoles",
+			Handler:    _AuthService_ListRoles_Handler,
+		},
+		{
+			MethodName: "GetRole",
+			Handler:    _AuthService_GetRole_Handler,
+		},
+		{
+			MethodName: "UpdateRole",
+			Handler:    _AuthService_UpdateRole_Handler,
+		},
+		{
+			MethodName: "DeleteRole",
+			Handler:    _AuthService_DeleteRole_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
