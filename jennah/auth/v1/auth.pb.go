@@ -359,8 +359,12 @@ type Membership struct {
 	EnterpriseId   string                 `protobuf:"bytes,1,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
 	Role           Role                   `protobuf:"varint,2,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"`
 	EnterpriseName string                 `protobuf:"bytes,3,opt,name=enterprise_name,json=enterpriseName,proto3" json:"enterprise_name,omitempty"` // enterprise display name; may be empty
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set when the caller holds a custom RBAC role in this enterprise rather than a
+	// built-in one; it is the assigned role's id (join against ListRoles for its
+	// name/permissions). Empty for a built-in role, where `role` carries it.
+	CustomRoleId  string `protobuf:"bytes,4,opt,name=custom_role_id,json=customRoleId,proto3" json:"custom_role_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Membership) Reset() {
@@ -410,6 +414,13 @@ func (x *Membership) GetRole() Role {
 func (x *Membership) GetEnterpriseName() string {
 	if x != nil {
 		return x.EnterpriseName
+	}
+	return ""
+}
+
+func (x *Membership) GetCustomRoleId() string {
+	if x != nil {
+		return x.CustomRoleId
 	}
 	return ""
 }
@@ -3790,12 +3801,13 @@ var File_jennah_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x19jennah/auth/v1/auth.proto\x12\x11jennahapi.auth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$gnostic/openapi/v3/annotations.proto\"\x87\x01\n" +
+	"\x19jennah/auth/v1/auth.proto\x12\x11jennahapi.auth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$gnostic/openapi/v3/annotations.proto\"\xad\x01\n" +
 	"\n" +
 	"Membership\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12+\n" +
 	"\x04role\x18\x02 \x01(\x0e2\x17.jennahapi.auth.v1.RoleR\x04role\x12'\n" +
-	"\x0fenterprise_name\x18\x03 \x01(\tR\x0eenterpriseName\"\x82\x03\n" +
+	"\x0fenterprise_name\x18\x03 \x01(\tR\x0eenterpriseName\x12$\n" +
+	"\x0ecustom_role_id\x18\x04 \x01(\tR\fcustomRoleId\"\x82\x03\n" +
 	"\bIdentity\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12%\n" +
