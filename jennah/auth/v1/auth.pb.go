@@ -648,9 +648,15 @@ func (*WhoAmIRequest) Descriptor() ([]byte, []int) {
 
 // Response message for the AuthService.WhoAmI rpc.
 type WhoAmIResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Identity      *Identity              `protobuf:"bytes,1,opt,name=identity,proto3" json:"identity,omitempty"`
-	Entitlement   *Entitlement           `protobuf:"bytes,2,opt,name=entitlement,proto3" json:"entitlement,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Identity    *Identity              `protobuf:"bytes,1,opt,name=identity,proto3" json:"identity,omitempty"`
+	Entitlement *Entitlement           `protobuf:"bytes,2,opt,name=entitlement,proto3" json:"entitlement,omitempty"`
+	// The caller's effective permissions in the active enterprise, resolved
+	// server-side from their membership role (built-in or custom) — never from the
+	// token. Each is a concrete "group.resource:action" catalog grant. Empty when
+	// auth/RBAC is not configured. A client uses this to enable/disable admin
+	// controls precisely, instead of inferring capability from the built-in role.
+	Permissions   []string `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -695,6 +701,13 @@ func (x *WhoAmIResponse) GetIdentity() *Identity {
 func (x *WhoAmIResponse) GetEntitlement() *Entitlement {
 	if x != nil {
 		return x.Entitlement
+	}
+	return nil
+}
+
+func (x *WhoAmIResponse) GetPermissions() []string {
+	if x != nil {
+		return x.Permissions
 	}
 	return nil
 }
@@ -3822,10 +3835,11 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x04tier\x18\x01 \x01(\tR\x04tier\x12>\n" +
 	"\rtrial_ends_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vtrialEndsAt\x12!\n" +
 	"\ftrial_active\x18\x03 \x01(\bR\vtrialActive\"\x0f\n" +
-	"\rWhoAmIRequest\"\x8b\x01\n" +
+	"\rWhoAmIRequest\"\xad\x01\n" +
 	"\x0eWhoAmIResponse\x127\n" +
 	"\bidentity\x18\x01 \x01(\v2\x1b.jennahapi.auth.v1.IdentityR\bidentity\x12@\n" +
-	"\ventitlement\x18\x02 \x01(\v2\x1e.jennahapi.auth.v1.EntitlementR\ventitlement\"\xf5\x01\n" +
+	"\ventitlement\x18\x02 \x01(\v2\x1e.jennahapi.auth.v1.EntitlementR\ventitlement\x12 \n" +
+	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"\xf5\x01\n" +
 	"\x11StartLoginRequest\x127\n" +
 	"\bprovider\x18\x01 \x01(\x0e2\x1b.jennahapi.auth.v1.ProviderR\bprovider\x12>\n" +
 	"\vclient_type\x18\x02 \x01(\x0e2\x1d.jennahapi.auth.v1.ClientTypeR\n" +
