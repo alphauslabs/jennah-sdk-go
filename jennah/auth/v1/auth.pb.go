@@ -1670,6 +1670,13 @@ func (x *ApiKey) GetRevokedAt() *timestamppb.Timestamp {
 }
 
 // Request message for the AuthService.CreateApiKey rpc.
+//
+// The new key is bound to the caller's active enterprise — the enterprise_id
+// scope of the access token used to make the call. There is intentionally no
+// enterprise field here: a member belonging to more than one enterprise mints
+// a key for whichever enterprise their token is currently scoped to. To target
+// a different enterprise they belong to, they first switch scope via
+// RefreshToken (enterprise_id) and then call CreateApiKey.
 type CreateApiKeyRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Label string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"` // human-readable label for the key
