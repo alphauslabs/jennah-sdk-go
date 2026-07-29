@@ -37,6 +37,7 @@ const (
 	AuthService_ListMembers_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListMembers"
 	AuthService_ChangeMemberRole_FullMethodName = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
 	AuthService_RemoveMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/RemoveMember"
+	AuthService_TransferRoot_FullMethodName     = "/jennahapi.auth.v1.AuthService/TransferRoot"
 	AuthService_UpdateEnterprise_FullMethodName = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
 	AuthService_ListPermissions_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListPermissions"
 	AuthService_CreateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/CreateRole"
@@ -144,6 +145,18 @@ type AuthServiceClient interface {
 	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
 	// active enterprise is treated as not found.
 	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
+	// Transfers the caller's active enterprise's ROLE_ROOT to another member of
+	// that enterprise: the target becomes ROLE_ROOT and the caller becomes
+	// ROLE_ADMIN, atomically. External (gateway) RPC. Authenticated AND authorized
+	// by identity — ONLY the enterprise's current ROLE_ROOT may call it. Holding
+	// every permission is not sufficient: a ROLE_ADMIN (whose permission set is
+	// identical to ROLE_ROOT's) is refused, and so is an API-key caller. This is
+	// the only authority ROLE_ROOT holds that ROLE_ADMIN does not, and the only way
+	// ROLE_ROOT ever moves — it remains non-grantable by ChangeMemberRole and by
+	// invitation. The target must already be a live member (a user_id, never an
+	// email); no membership is created and no pending offer is minted. Takes effect
+	// without re-minting a token, because roles are resolved live server-side.
+	TransferRoot(ctx context.Context, in *TransferRootRequest, opts ...grpc.CallOption) (*TransferRootResponse, error)
 	// Updates mutable fields of the caller's active enterprise (currently just its
 	// display name). External (gateway) RPC. Authenticated AND gated to
 	// ROLE_ROOT/ROLE_ADMIN (resolved live from the Memberships table). The target
@@ -370,6 +383,16 @@ func (c *authServiceClient) RemoveMember(ctx context.Context, in *RemoveMemberRe
 	return out, nil
 }
 
+func (c *authServiceClient) TransferRoot(ctx context.Context, in *TransferRootRequest, opts ...grpc.CallOption) (*TransferRootResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TransferRootResponse)
+	err := c.cc.Invoke(ctx, AuthService_TransferRoot_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authServiceClient) UpdateEnterprise(ctx context.Context, in *UpdateEnterpriseRequest, opts ...grpc.CallOption) (*UpdateEnterpriseResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateEnterpriseResponse)
@@ -538,6 +561,18 @@ type AuthServiceServer interface {
 	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
 	// active enterprise is treated as not found.
 	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
+	// Transfers the caller's active enterprise's ROLE_ROOT to another member of
+	// that enterprise: the target becomes ROLE_ROOT and the caller becomes
+	// ROLE_ADMIN, atomically. External (gateway) RPC. Authenticated AND authorized
+	// by identity — ONLY the enterprise's current ROLE_ROOT may call it. Holding
+	// every permission is not sufficient: a ROLE_ADMIN (whose permission set is
+	// identical to ROLE_ROOT's) is refused, and so is an API-key caller. This is
+	// the only authority ROLE_ROOT holds that ROLE_ADMIN does not, and the only way
+	// ROLE_ROOT ever moves — it remains non-grantable by ChangeMemberRole and by
+	// invitation. The target must already be a live member (a user_id, never an
+	// email); no membership is created and no pending offer is minted. Takes effect
+	// without re-minting a token, because roles are resolved live server-side.
+	TransferRoot(context.Context, *TransferRootRequest) (*TransferRootResponse, error)
 	// Updates mutable fields of the caller's active enterprise (currently just its
 	// display name). External (gateway) RPC. Authenticated AND gated to
 	// ROLE_ROOT/ROLE_ADMIN (resolved live from the Memberships table). The target
@@ -637,6 +672,9 @@ func (UnimplementedAuthServiceServer) ChangeMemberRole(context.Context, *ChangeM
 }
 func (UnimplementedAuthServiceServer) RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveMember not implemented")
+}
+func (UnimplementedAuthServiceServer) TransferRoot(context.Context, *TransferRootRequest) (*TransferRootResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TransferRoot not implemented")
 }
 func (UnimplementedAuthServiceServer) UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEnterprise not implemented")
@@ -1004,6 +1042,24 @@ func _AuthService_RemoveMember_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_TransferRoot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransferRootRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).TransferRoot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_TransferRoot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).TransferRoot(ctx, req.(*TransferRootRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AuthService_UpdateEnterprise_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateEnterpriseRequest)
 	if err := dec(in); err != nil {
@@ -1208,6 +1264,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveMember",
 			Handler:    _AuthService_RemoveMember_Handler,
+		},
+		{
+			MethodName: "TransferRoot",
+			Handler:    _AuthService_TransferRoot_Handler,
 		},
 		{
 			MethodName: "UpdateEnterprise",
