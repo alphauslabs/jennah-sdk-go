@@ -33,11 +33,12 @@ const (
 // attaches an external subscription to an enterprise, and the internal
 // provider-driven registration RPC the public HTTP edge calls.
 //
-// There is deliberately NO notification RPC. AWS Marketplace delivers agreement
-// and license events to the seller account's own EventBridge bus, so the backend
-// consumes them by polling an SQS queue rather than by serving an inbound
-// endpoint — which removes a public route, signature verification, and a
-// subscription handshake from the surface entirely.
+// There is deliberately NO notification RPC. AWS Marketplace publishes SaaS
+// notifications to topics the seller subscribes an SQS queue to, so the backend
+// consumes them by POLLING that queue rather than by serving an inbound endpoint.
+// That removes a public route, signature verification, a signing-certificate
+// fetch, and a subscription handshake from the surface entirely — all of which
+// are obligations of an HTTPS subscription, which this design does not use.
 //
 // Machine-readable failures. Every rejection below carries a
 // `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud" and whose
@@ -164,11 +165,12 @@ func (c *billingServiceClient) ResolveMarketplaceRegistration(ctx context.Contex
 // attaches an external subscription to an enterprise, and the internal
 // provider-driven registration RPC the public HTTP edge calls.
 //
-// There is deliberately NO notification RPC. AWS Marketplace delivers agreement
-// and license events to the seller account's own EventBridge bus, so the backend
-// consumes them by polling an SQS queue rather than by serving an inbound
-// endpoint — which removes a public route, signature verification, and a
-// subscription handshake from the surface entirely.
+// There is deliberately NO notification RPC. AWS Marketplace publishes SaaS
+// notifications to topics the seller subscribes an SQS queue to, so the backend
+// consumes them by POLLING that queue rather than by serving an inbound endpoint.
+// That removes a public route, signature verification, a signing-certificate
+// fetch, and a subscription handshake from the surface entirely — all of which
+// are obligations of an HTTPS subscription, which this design does not use.
 //
 // Machine-readable failures. Every rejection below carries a
 // `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud" and whose
