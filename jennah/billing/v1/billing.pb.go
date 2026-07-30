@@ -487,11 +487,16 @@ type BindMarketplaceRegistrationResponse struct {
 	Subscription *BoundSubscription `protobuf:"bytes,1,opt,name=subscription,proto3" json:"subscription,omitempty"`
 	// The enterprise's effective tier after the bind.
 	Tier string `protobuf:"bytes,2,opt,name=tier,proto3" json:"tier,omitempty"`
-	// Always true on success: a tier change invalidates the enterprise's outstanding
-	// access tokens (they carry the tier and are verified with no database lookup),
-	// so the client must refresh before the new tier takes effect. Stated explicitly
-	// rather than left implicit — a customer who just paid and is still blocked files
-	// a ticket.
+	// True when this bind actually moved the tier. A tier change invalidates the
+	// enterprise's outstanding access tokens (they carry the tier and are verified
+	// with no database lookup), so the client must refresh before the new plan takes
+	// effect. Stated explicitly rather than left implicit — a customer who just paid
+	// and is still blocked files a ticket.
+	//
+	// NOT always true. Re-binding a subscription already attached to the same
+	// enterprise is idempotent success and changes nothing, so no refresh is needed;
+	// buyers re-enter through the provider's "set up your account" link routinely. A
+	// client that refreshes unconditionally rotates a session token for no reason.
 	AccessTokenRefreshRequired bool `protobuf:"varint,3,opt,name=access_token_refresh_required,json=accessTokenRefreshRequired,proto3" json:"access_token_refresh_required,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
