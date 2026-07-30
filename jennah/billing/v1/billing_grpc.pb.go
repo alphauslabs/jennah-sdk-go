@@ -112,8 +112,9 @@ type BillingServiceClient interface {
 	//	  product code this deployment has no mapping for. Permanent, and no
 	//	  subscription record is written.
 	//	UNAVAILABLE — AWS was unreachable or throttled. Retryable, and no handle is
-	//	  minted and no partial subscription is left behind. The agreement still
-	//	  arrives independently as an EventBridge event, so no revenue is lost.
+	//	  minted and no partial subscription is left behind. The purchase still
+	//	  reaches us independently as a marketplace notification, so no revenue is
+	//	  lost by a failed registration.
 	//	UNIMPLEMENTED — the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(ctx context.Context, in *ResolveMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*ResolveMarketplaceRegistrationResponse, error)
 }
@@ -244,8 +245,9 @@ type BillingServiceServer interface {
 	//	  product code this deployment has no mapping for. Permanent, and no
 	//	  subscription record is written.
 	//	UNAVAILABLE — AWS was unreachable or throttled. Retryable, and no handle is
-	//	  minted and no partial subscription is left behind. The agreement still
-	//	  arrives independently as an EventBridge event, so no revenue is lost.
+	//	  minted and no partial subscription is left behind. The purchase still
+	//	  reaches us independently as a marketplace notification, so no revenue is
+	//	  lost by a failed registration.
 	//	UNIMPLEMENTED — the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(context.Context, *ResolveMarketplaceRegistrationRequest) (*ResolveMarketplaceRegistrationResponse, error)
 	mustEmbedUnimplementedBillingServiceServer()

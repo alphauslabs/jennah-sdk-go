@@ -3922,7 +3922,7 @@ var File_jennah_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x19jennah/auth/v1/auth.proto\x12\x11jennahapi.auth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a$gnostic/openapi/v3/annotations.proto\"\xad\x01\n" +
+	"\x19jennah/auth/v1/auth.proto\x12\x11jennahapi.auth.v1\x1a$gnostic/openapi/v3/annotations.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xad\x01\n" +
 	"\n" +
 	"Membership\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12+\n" +
