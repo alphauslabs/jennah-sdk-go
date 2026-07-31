@@ -131,6 +131,57 @@ func (GraphDirection) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{1}
 }
 
+// Operator selects how `value` is compared. Only EQUALS is implemented; the
+// field exists so range predicates (a natural next want — "chunks from the last
+// 30 days") can be added without changing SemanticQuery's shape. An operator
+// this version does not implement is rejected with UNIMPLEMENTED rather than
+// silently treated as equality.
+type MetadataFilter_Operator int32
+
+const (
+	MetadataFilter_OPERATOR_UNSPECIFIED MetadataFilter_Operator = 0 // treated as EQUALS
+	MetadataFilter_OPERATOR_EQUALS      MetadataFilter_Operator = 1
+)
+
+// Enum value maps for MetadataFilter_Operator.
+var (
+	MetadataFilter_Operator_name = map[int32]string{
+		0: "OPERATOR_UNSPECIFIED",
+		1: "OPERATOR_EQUALS",
+	}
+	MetadataFilter_Operator_value = map[string]int32{
+		"OPERATOR_UNSPECIFIED": 0,
+		"OPERATOR_EQUALS":      1,
+	}
+)
+
+func (x MetadataFilter_Operator) Enum() *MetadataFilter_Operator {
+	p := new(MetadataFilter_Operator)
+	*p = x
+	return p
+}
+
+func (x MetadataFilter_Operator) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MetadataFilter_Operator) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_agent_v1_memory_proto_enumTypes[2].Descriptor()
+}
+
+func (MetadataFilter_Operator) Type() protoreflect.EnumType {
+	return &file_jennah_agent_v1_memory_proto_enumTypes[2]
+}
+
+func (x MetadataFilter_Operator) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MetadataFilter_Operator.Descriptor instead.
+func (MetadataFilter_Operator) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{9, 0}
+}
+
 // Request for MemoryService.CommitMemory.
 //
 // Any subset of the three section fields may be present; at least one SHOULD
@@ -327,7 +378,24 @@ type VectorChunk struct {
 	// supplied, its length MUST equal the data-plane database's configured
 	// embedding width or the whole commit is rejected. float (32-bit) matches the
 	// store's ARRAY<FLOAT32> vector column.
-	Embedding     []float32 `protobuf:"fixed32,3,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`
+	Embedding []float32 `protobuf:"fixed32,3,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`
+	// Optional caller-supplied attribution stored with the chunk: where it came
+	// from, when, what kind of thing it is. Returned with the chunk on search and
+	// inspect, and usable as a pre-ranking filter on a semantic query (see
+	// SemanticQuery.filters).
+	//
+	// Metadata is NOT embedded — only raw_content is — so putting provenance here
+	// instead of inside the text keeps it out of the vector, where it would
+	// otherwise dilute similarity and still not be filterable.
+	//
+	// An upsert REPLACES the chunk's whole metadata set rather than merging into it:
+	// a key absent from this map is removed. Merge semantics would make a key
+	// impossible to delete and would make a chunk's metadata depend on its write
+	// history rather than its most recent write.
+	//
+	// Keys must match `[A-Za-z0-9_.-]{1,128}`; a key outside that set is rejected
+	// with INVALID_ARGUMENT. At most 32 keys per chunk.
+	Metadata      map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -379,6 +447,13 @@ func (x *VectorChunk) GetRawContent() string {
 func (x *VectorChunk) GetEmbedding() []float32 {
 	if x != nil {
 		return x.Embedding
+	}
+	return nil
+}
+
+func (x *VectorChunk) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
@@ -832,10 +907,25 @@ func (x *QueryMemoryRequest) GetAsOf() *timestamppb.Timestamp {
 // and clamped to the caller's agent slice (the clamp never silently truncates
 // below `limit`).
 type SemanticQuery struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Embedding     []float32              `protobuf:"fixed32,1,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`         // precomputed query embedding; width must match the db
-	QueryText     string                 `protobuf:"bytes,2,opt,name=query_text,json=queryText,proto3" json:"query_text,omitempty"` // embedded server-side when `embedding` is absent
-	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                         // max matches to return
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Embedding []float32              `protobuf:"fixed32,1,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`         // precomputed query embedding; width must match the db
+	QueryText string                 `protobuf:"bytes,2,opt,name=query_text,json=queryText,proto3" json:"query_text,omitempty"` // embedded server-side when `embedding` is absent
+	Limit     int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                         // max matches to return
+	// Optional metadata predicates narrowing the candidate set. All must match
+	// (conjunctive); at most 8 per section, and more is rejected with
+	// INVALID_ARGUMENT.
+	//
+	// Filters are evaluated in the WHERE clause BEFORE ranking, never as a
+	// post-filter over an already-limited result set. So the returned chunks are the
+	// nearest `limit` AMONG the chunks matching the filters — not the filters applied
+	// to an unfiltered nearest-`limit` set, which would return fewer results (often
+	// zero) for reasons a caller could not predict.
+	//
+	// A filtered section MAY therefore return fewer than `limit` results when fewer
+	// chunks match. That is the caller's own narrowing and is reproducible from the
+	// filters; it is NOT the silent truncation the tenant/agent clamp guarantees
+	// against.
+	Filters       []*MetadataFilter `protobuf:"bytes,4,rep,name=filters,proto3" json:"filters,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -891,6 +981,74 @@ func (x *SemanticQuery) GetLimit() int32 {
 	return 0
 }
 
+func (x *SemanticQuery) GetFilters() []*MetadataFilter {
+	if x != nil {
+		return x.Filters
+	}
+	return nil
+}
+
+// One predicate over a chunk's metadata.
+type MetadataFilter struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Key           string                  `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                  `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Operator      MetadataFilter_Operator `protobuf:"varint,3,opt,name=operator,proto3,enum=jennahapi.agent.v1.MetadataFilter_Operator" json:"operator,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MetadataFilter) Reset() {
+	*x = MetadataFilter{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MetadataFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MetadataFilter) ProtoMessage() {}
+
+func (x *MetadataFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MetadataFilter.ProtoReflect.Descriptor instead.
+func (*MetadataFilter) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *MetadataFilter) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *MetadataFilter) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *MetadataFilter) GetOperator() MetadataFilter_Operator {
+	if x != nil {
+		return x.Operator
+	}
+	return MetadataFilter_OPERATOR_UNSPECIFIED
+}
+
 // Graph-section query: a STRUCTURED traversal over the agent's
 // AgentKnowledgeGraph. The gateway BUILDS the GQL server-side from these typed
 // fields, so no caller-authored query text is ever executed: every generated
@@ -932,7 +1090,7 @@ type GraphQuery struct {
 
 func (x *GraphQuery) Reset() {
 	*x = GraphQuery{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[9]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -944,7 +1102,7 @@ func (x *GraphQuery) String() string {
 func (*GraphQuery) ProtoMessage() {}
 
 func (x *GraphQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[9]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -957,7 +1115,7 @@ func (x *GraphQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphQuery.ProtoReflect.Descriptor instead.
 func (*GraphQuery) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{9}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GraphQuery) GetStart() *GraphNodeMatch {
@@ -1009,7 +1167,7 @@ type GraphNodeMatch struct {
 
 func (x *GraphNodeMatch) Reset() {
 	*x = GraphNodeMatch{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[10]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1021,7 +1179,7 @@ func (x *GraphNodeMatch) String() string {
 func (*GraphNodeMatch) ProtoMessage() {}
 
 func (x *GraphNodeMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[10]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1034,7 +1192,7 @@ func (x *GraphNodeMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphNodeMatch.ProtoReflect.Descriptor instead.
 func (*GraphNodeMatch) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{10}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GraphNodeMatch) GetLabel() string {
@@ -1063,7 +1221,7 @@ type GraphStep struct {
 
 func (x *GraphStep) Reset() {
 	*x = GraphStep{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[11]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1075,7 +1233,7 @@ func (x *GraphStep) String() string {
 func (*GraphStep) ProtoMessage() {}
 
 func (x *GraphStep) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[11]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1088,7 +1246,7 @@ func (x *GraphStep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphStep.ProtoReflect.Descriptor instead.
 func (*GraphStep) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{11}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GraphStep) GetRelationshipType() string {
@@ -1126,7 +1284,7 @@ type PropertyFilter struct {
 
 func (x *PropertyFilter) Reset() {
 	*x = PropertyFilter{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[12]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1138,7 +1296,7 @@ func (x *PropertyFilter) String() string {
 func (*PropertyFilter) ProtoMessage() {}
 
 func (x *PropertyFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[12]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1151,7 +1309,7 @@ func (x *PropertyFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PropertyFilter.ProtoReflect.Descriptor instead.
 func (*PropertyFilter) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{12}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PropertyFilter) GetKey() string {
@@ -1180,7 +1338,7 @@ type LogQuery struct {
 
 func (x *LogQuery) Reset() {
 	*x = LogQuery{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[13]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1192,7 +1350,7 @@ func (x *LogQuery) String() string {
 func (*LogQuery) ProtoMessage() {}
 
 func (x *LogQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[13]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1205,7 +1363,7 @@ func (x *LogQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogQuery.ProtoReflect.Descriptor instead.
 func (*LogQuery) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{13}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *LogQuery) GetLimit() int32 {
@@ -1239,7 +1397,7 @@ type QueryMemoryResponse struct {
 
 func (x *QueryMemoryResponse) Reset() {
 	*x = QueryMemoryResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[14]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1251,7 +1409,7 @@ func (x *QueryMemoryResponse) String() string {
 func (*QueryMemoryResponse) ProtoMessage() {}
 
 func (x *QueryMemoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[14]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1264,7 +1422,7 @@ func (x *QueryMemoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryMemoryResponse.ProtoReflect.Descriptor instead.
 func (*QueryMemoryResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{14}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *QueryMemoryResponse) GetSemantic() *SemanticResult {
@@ -1311,7 +1469,7 @@ type SemanticResult struct {
 
 func (x *SemanticResult) Reset() {
 	*x = SemanticResult{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[15]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +1481,7 @@ func (x *SemanticResult) String() string {
 func (*SemanticResult) ProtoMessage() {}
 
 func (x *SemanticResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[15]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +1494,7 @@ func (x *SemanticResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SemanticResult.ProtoReflect.Descriptor instead.
 func (*SemanticResult) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{15}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SemanticResult) GetMatches() []*SemanticMatch {
@@ -1347,17 +1505,20 @@ func (x *SemanticResult) GetMatches() []*SemanticMatch {
 }
 
 type SemanticMatch struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ChunkId       string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"`
-	RawContent    string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
-	Distance      float64                `protobuf:"fixed64,3,opt,name=distance,proto3" json:"distance,omitempty"` // cosine distance; smaller is closer
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ChunkId    string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"`
+	RawContent string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
+	Distance   float64                `protobuf:"fixed64,3,opt,name=distance,proto3" json:"distance,omitempty"` // cosine distance; smaller is closer
+	// The chunk's stored metadata, read in the same snapshot as the hit, so a hit
+	// and its attribution can never disagree. Empty when the chunk has none.
+	Metadata      map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SemanticMatch) Reset() {
 	*x = SemanticMatch{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[16]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1369,7 +1530,7 @@ func (x *SemanticMatch) String() string {
 func (*SemanticMatch) ProtoMessage() {}
 
 func (x *SemanticMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[16]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1382,7 +1543,7 @@ func (x *SemanticMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SemanticMatch.ProtoReflect.Descriptor instead.
 func (*SemanticMatch) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{16}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SemanticMatch) GetChunkId() string {
@@ -1406,6 +1567,13 @@ func (x *SemanticMatch) GetDistance() float64 {
 	return 0
 }
 
+func (x *SemanticMatch) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 // Graph traversal result rows. Each row carries the matched elements' key
 // fields (node ids and labels, and edge relationship types) keyed by gateway-
 // assigned binding names, so the shape is carried as a structured value rather
@@ -1419,7 +1587,7 @@ type GraphResult struct {
 
 func (x *GraphResult) Reset() {
 	*x = GraphResult{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[17]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1431,7 +1599,7 @@ func (x *GraphResult) String() string {
 func (*GraphResult) ProtoMessage() {}
 
 func (x *GraphResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[17]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1444,7 +1612,7 @@ func (x *GraphResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphResult.ProtoReflect.Descriptor instead.
 func (*GraphResult) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{17}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GraphResult) GetRows() []*structpb.Struct {
@@ -1463,7 +1631,7 @@ type LogResult struct {
 
 func (x *LogResult) Reset() {
 	*x = LogResult{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[18]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1475,7 +1643,7 @@ func (x *LogResult) String() string {
 func (*LogResult) ProtoMessage() {}
 
 func (x *LogResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[18]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1488,7 +1656,7 @@ func (x *LogResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogResult.ProtoReflect.Descriptor instead.
 func (*LogResult) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{18}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *LogResult) GetSteps() []*ExecutionLogStep {
@@ -1510,7 +1678,7 @@ type FusedResult struct {
 
 func (x *FusedResult) Reset() {
 	*x = FusedResult{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[19]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1522,7 +1690,7 @@ func (x *FusedResult) String() string {
 func (*FusedResult) ProtoMessage() {}
 
 func (x *FusedResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[19]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1535,7 +1703,7 @@ func (x *FusedResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FusedResult.ProtoReflect.Descriptor instead.
 func (*FusedResult) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{19}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *FusedResult) GetItems() []*structpb.Struct {
@@ -1570,7 +1738,7 @@ type InspectMemoryRequest struct {
 
 func (x *InspectMemoryRequest) Reset() {
 	*x = InspectMemoryRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[20]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1582,7 +1750,7 @@ func (x *InspectMemoryRequest) String() string {
 func (*InspectMemoryRequest) ProtoMessage() {}
 
 func (x *InspectMemoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[20]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1595,7 +1763,7 @@ func (x *InspectMemoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectMemoryRequest.ProtoReflect.Descriptor instead.
 func (*InspectMemoryRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{20}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *InspectMemoryRequest) GetAgentInstanceId() string {
@@ -1644,7 +1812,7 @@ type InspectVectors struct {
 
 func (x *InspectVectors) Reset() {
 	*x = InspectVectors{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[21]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1656,7 +1824,7 @@ func (x *InspectVectors) String() string {
 func (*InspectVectors) ProtoMessage() {}
 
 func (x *InspectVectors) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[21]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1669,7 +1837,7 @@ func (x *InspectVectors) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectVectors.ProtoReflect.Descriptor instead.
 func (*InspectVectors) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{21}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *InspectVectors) GetLimit() int32 {
@@ -1691,7 +1859,7 @@ type InspectGraph struct {
 
 func (x *InspectGraph) Reset() {
 	*x = InspectGraph{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[22]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1703,7 +1871,7 @@ func (x *InspectGraph) String() string {
 func (*InspectGraph) ProtoMessage() {}
 
 func (x *InspectGraph) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[22]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1716,7 +1884,7 @@ func (x *InspectGraph) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectGraph.ProtoReflect.Descriptor instead.
 func (*InspectGraph) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{22}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *InspectGraph) GetNodeLimit() int32 {
@@ -1746,7 +1914,7 @@ type InspectLog struct {
 
 func (x *InspectLog) Reset() {
 	*x = InspectLog{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[23]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1758,7 +1926,7 @@ func (x *InspectLog) String() string {
 func (*InspectLog) ProtoMessage() {}
 
 func (x *InspectLog) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[23]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1771,7 +1939,7 @@ func (x *InspectLog) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectLog.ProtoReflect.Descriptor instead.
 func (*InspectLog) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{23}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *InspectLog) GetLimit() int32 {
@@ -1803,7 +1971,7 @@ type InspectMemoryResponse struct {
 
 func (x *InspectMemoryResponse) Reset() {
 	*x = InspectMemoryResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[24]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1815,7 +1983,7 @@ func (x *InspectMemoryResponse) String() string {
 func (*InspectMemoryResponse) ProtoMessage() {}
 
 func (x *InspectMemoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[24]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1828,7 +1996,7 @@ func (x *InspectMemoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectMemoryResponse.ProtoReflect.Descriptor instead.
 func (*InspectMemoryResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{24}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *InspectMemoryResponse) GetVectors() *VectorInspectResult {
@@ -1868,7 +2036,7 @@ type VectorInspectResult struct {
 
 func (x *VectorInspectResult) Reset() {
 	*x = VectorInspectResult{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[25]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1880,7 +2048,7 @@ func (x *VectorInspectResult) String() string {
 func (*VectorInspectResult) ProtoMessage() {}
 
 func (x *VectorInspectResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[25]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1893,7 +2061,7 @@ func (x *VectorInspectResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VectorInspectResult.ProtoReflect.Descriptor instead.
 func (*VectorInspectResult) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{25}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *VectorInspectResult) GetChunks() []*VectorChunkInfo {
@@ -1924,17 +2092,23 @@ type VectorChunkInfo struct {
 	// whose embedding the caller supplied: the platform embedded nothing there, so
 	// it truncated nothing.
 	//
-	// `token_count` is the count the model reported for the content it actually
-	// consumed, and is absent whenever no embedding was generated server-side.
-	Truncated     *bool  `protobuf:"varint,4,opt,name=truncated,proto3,oneof" json:"truncated,omitempty"`
-	TokenCount    *int64 `protobuf:"varint,5,opt,name=token_count,json=tokenCount,proto3,oneof" json:"token_count,omitempty"`
+	// `token_count` is the number of tokens the model counted in the content it
+	// was GIVEN — not in the prefix it embedded. So when `truncated` is true this
+	// value EXCEEDS the model's input limit rather than equalling it, which makes
+	// it directly useful for sizing: `token_count` divided by the limit is roughly
+	// how many pieces the content needs splitting into. Absent whenever no
+	// embedding was generated server-side.
+	Truncated  *bool  `protobuf:"varint,4,opt,name=truncated,proto3,oneof" json:"truncated,omitempty"`
+	TokenCount *int64 `protobuf:"varint,5,opt,name=token_count,json=tokenCount,proto3,oneof" json:"token_count,omitempty"`
+	// The chunk's stored metadata. Empty when the chunk has none.
+	Metadata      map[string]string `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *VectorChunkInfo) Reset() {
 	*x = VectorChunkInfo{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[26]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1946,7 +2120,7 @@ func (x *VectorChunkInfo) String() string {
 func (*VectorChunkInfo) ProtoMessage() {}
 
 func (x *VectorChunkInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[26]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1959,7 +2133,7 @@ func (x *VectorChunkInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VectorChunkInfo.ProtoReflect.Descriptor instead.
 func (*VectorChunkInfo) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{26}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *VectorChunkInfo) GetChunkId() string {
@@ -1997,6 +2171,13 @@ func (x *VectorChunkInfo) GetTokenCount() int64 {
 	return 0
 }
 
+func (x *VectorChunkInfo) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 // Graph listing result: the stored nodes and edges themselves (reusing the same
 // GraphNode/GraphEdge shapes CommitMemory writes), NOT traversal rows.
 type GraphInspectResult struct {
@@ -2009,7 +2190,7 @@ type GraphInspectResult struct {
 
 func (x *GraphInspectResult) Reset() {
 	*x = GraphInspectResult{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[27]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2021,7 +2202,7 @@ func (x *GraphInspectResult) String() string {
 func (*GraphInspectResult) ProtoMessage() {}
 
 func (x *GraphInspectResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[27]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2034,7 +2215,7 @@ func (x *GraphInspectResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphInspectResult.ProtoReflect.Descriptor instead.
 func (*GraphInspectResult) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{27}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *GraphInspectResult) GetNodes() []*GraphNode {
@@ -2072,7 +2253,7 @@ type SupersedeEdgeRequest struct {
 
 func (x *SupersedeEdgeRequest) Reset() {
 	*x = SupersedeEdgeRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[28]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2084,7 +2265,7 @@ func (x *SupersedeEdgeRequest) String() string {
 func (*SupersedeEdgeRequest) ProtoMessage() {}
 
 func (x *SupersedeEdgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[28]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2097,7 +2278,7 @@ func (x *SupersedeEdgeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupersedeEdgeRequest.ProtoReflect.Descriptor instead.
 func (*SupersedeEdgeRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{28}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *SupersedeEdgeRequest) GetAgentInstanceId() string {
@@ -2132,7 +2313,7 @@ type SupersedeEdgeResponse struct {
 
 func (x *SupersedeEdgeResponse) Reset() {
 	*x = SupersedeEdgeResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[29]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2144,7 +2325,7 @@ func (x *SupersedeEdgeResponse) String() string {
 func (*SupersedeEdgeResponse) ProtoMessage() {}
 
 func (x *SupersedeEdgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[29]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2157,7 +2338,7 @@ func (x *SupersedeEdgeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SupersedeEdgeResponse.ProtoReflect.Descriptor instead.
 func (*SupersedeEdgeResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{29}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *SupersedeEdgeResponse) GetCommitTimestamp() *timestamppb.Timestamp {
@@ -2186,12 +2367,16 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"tool_input\x18\x04 \x01(\tR\ttoolInput\x12\x1f\n" +
 	"\vtool_output\x18\x05 \x01(\tR\n" +
 	"toolOutput\x128\n" +
-	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"g\n" +
+	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\xef\x01\n" +
 	"\vVectorChunk\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
 	"rawContent\x12\x1c\n" +
-	"\tembedding\x18\x03 \x03(\x02R\tembedding\"v\n" +
+	"\tembedding\x18\x03 \x03(\x02R\tembedding\x12I\n" +
+	"\bmetadata\x18\x04 \x03(\v2-.jennahapi.agent.v1.VectorChunk.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"v\n" +
 	"\n" +
 	"GraphWrite\x123\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x1d.jennahapi.agent.v1.GraphNodeR\x05nodes\x123\n" +
@@ -2232,12 +2417,20 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x03log\x18\x04 \x01(\v2\x1c.jennahapi.agent.v1.LogQueryR\x03log\x12\x12\n" +
 	"\x04link\x18\x05 \x01(\bR\x04link\x12N\n" +
 	"\x10fusion_direction\x18\x06 \x01(\x0e2#.jennahapi.agent.v1.FusionDirectionR\x0ffusionDirection\x12/\n" +
-	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"b\n" +
+	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"\xa0\x01\n" +
 	"\rSemanticQuery\x12\x1c\n" +
 	"\tembedding\x18\x01 \x03(\x02R\tembedding\x12\x1d\n" +
 	"\n" +
 	"query_text\x18\x02 \x01(\tR\tqueryText\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x83\x02\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12<\n" +
+	"\afilters\x18\x04 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\afilters\"\xbc\x01\n" +
+	"\x0eMetadataFilter\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x12G\n" +
+	"\boperator\x18\x03 \x01(\x0e2+.jennahapi.agent.v1.MetadataFilter.OperatorR\boperator\"9\n" +
+	"\bOperator\x12\x18\n" +
+	"\x14OPERATOR_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fOPERATOR_EQUALS\x10\x01\"\x83\x02\n" +
 	"\n" +
 	"GraphQuery\x128\n" +
 	"\x05start\x18\x01 \x01(\v2\".jennahapi.agent.v1.GraphNodeMatchR\x05start\x123\n" +
@@ -2265,12 +2458,16 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x05fused\x18\x04 \x01(\v2\x1f.jennahapi.agent.v1.FusedResultR\x05fused\x12A\n" +
 	"\x0eread_timestamp\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"M\n" +
 	"\x0eSemanticResult\x12;\n" +
-	"\amatches\x18\x01 \x03(\v2!.jennahapi.agent.v1.SemanticMatchR\amatches\"g\n" +
+	"\amatches\x18\x01 \x03(\v2!.jennahapi.agent.v1.SemanticMatchR\amatches\"\xf1\x01\n" +
 	"\rSemanticMatch\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
 	"rawContent\x12\x1a\n" +
-	"\bdistance\x18\x03 \x01(\x01R\bdistance\":\n" +
+	"\bdistance\x18\x03 \x01(\x01R\bdistance\x12K\n" +
+	"\bmetadata\x18\x04 \x03(\v2/.jennahapi.agent.v1.SemanticMatch.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\":\n" +
 	"\vGraphResult\x12+\n" +
 	"\x04rows\x18\x01 \x03(\v2\x17.google.protobuf.StructR\x04rows\"G\n" +
 	"\tLogResult\x12:\n" +
@@ -2300,7 +2497,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x03log\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.LogResultR\x03log\x12A\n" +
 	"\x0eread_timestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"R\n" +
 	"\x13VectorInspectResult\x12;\n" +
-	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\xef\x01\n" +
+	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\xfb\x02\n" +
 	"\x0fVectorChunkInfo\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
@@ -2309,7 +2506,11 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12!\n" +
 	"\ttruncated\x18\x04 \x01(\bH\x00R\ttruncated\x88\x01\x01\x12$\n" +
 	"\vtoken_count\x18\x05 \x01(\x03H\x01R\n" +
-	"tokenCount\x88\x01\x01B\f\n" +
+	"tokenCount\x88\x01\x01\x12M\n" +
+	"\bmetadata\x18\x06 \x03(\v21.jennahapi.agent.v1.VectorChunkInfo.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\f\n" +
 	"\n" +
 	"_truncatedB\x0e\n" +
 	"\f_token_count\"~\n" +
@@ -2349,110 +2550,120 @@ func file_jennah_agent_v1_memory_proto_rawDescGZIP() []byte {
 	return file_jennah_agent_v1_memory_proto_rawDescData
 }
 
-var file_jennah_agent_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_jennah_agent_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
 var file_jennah_agent_v1_memory_proto_goTypes = []any{
 	(FusionDirection)(0),          // 0: jennahapi.agent.v1.FusionDirection
 	(GraphDirection)(0),           // 1: jennahapi.agent.v1.GraphDirection
-	(*CommitMemoryRequest)(nil),   // 2: jennahapi.agent.v1.CommitMemoryRequest
-	(*ExecutionLogStep)(nil),      // 3: jennahapi.agent.v1.ExecutionLogStep
-	(*VectorChunk)(nil),           // 4: jennahapi.agent.v1.VectorChunk
-	(*GraphWrite)(nil),            // 5: jennahapi.agent.v1.GraphWrite
-	(*GraphNode)(nil),             // 6: jennahapi.agent.v1.GraphNode
-	(*GraphEdge)(nil),             // 7: jennahapi.agent.v1.GraphEdge
-	(*CommitMemoryResponse)(nil),  // 8: jennahapi.agent.v1.CommitMemoryResponse
-	(*QueryMemoryRequest)(nil),    // 9: jennahapi.agent.v1.QueryMemoryRequest
-	(*SemanticQuery)(nil),         // 10: jennahapi.agent.v1.SemanticQuery
-	(*GraphQuery)(nil),            // 11: jennahapi.agent.v1.GraphQuery
-	(*GraphNodeMatch)(nil),        // 12: jennahapi.agent.v1.GraphNodeMatch
-	(*GraphStep)(nil),             // 13: jennahapi.agent.v1.GraphStep
-	(*PropertyFilter)(nil),        // 14: jennahapi.agent.v1.PropertyFilter
-	(*LogQuery)(nil),              // 15: jennahapi.agent.v1.LogQuery
-	(*QueryMemoryResponse)(nil),   // 16: jennahapi.agent.v1.QueryMemoryResponse
-	(*SemanticResult)(nil),        // 17: jennahapi.agent.v1.SemanticResult
-	(*SemanticMatch)(nil),         // 18: jennahapi.agent.v1.SemanticMatch
-	(*GraphResult)(nil),           // 19: jennahapi.agent.v1.GraphResult
-	(*LogResult)(nil),             // 20: jennahapi.agent.v1.LogResult
-	(*FusedResult)(nil),           // 21: jennahapi.agent.v1.FusedResult
-	(*InspectMemoryRequest)(nil),  // 22: jennahapi.agent.v1.InspectMemoryRequest
-	(*InspectVectors)(nil),        // 23: jennahapi.agent.v1.InspectVectors
-	(*InspectGraph)(nil),          // 24: jennahapi.agent.v1.InspectGraph
-	(*InspectLog)(nil),            // 25: jennahapi.agent.v1.InspectLog
-	(*InspectMemoryResponse)(nil), // 26: jennahapi.agent.v1.InspectMemoryResponse
-	(*VectorInspectResult)(nil),   // 27: jennahapi.agent.v1.VectorInspectResult
-	(*VectorChunkInfo)(nil),       // 28: jennahapi.agent.v1.VectorChunkInfo
-	(*GraphInspectResult)(nil),    // 29: jennahapi.agent.v1.GraphInspectResult
-	(*SupersedeEdgeRequest)(nil),  // 30: jennahapi.agent.v1.SupersedeEdgeRequest
-	(*SupersedeEdgeResponse)(nil), // 31: jennahapi.agent.v1.SupersedeEdgeResponse
-	(*timestamppb.Timestamp)(nil), // 32: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),       // 33: google.protobuf.Struct
-	(*structpb.Value)(nil),        // 34: google.protobuf.Value
+	(MetadataFilter_Operator)(0),  // 2: jennahapi.agent.v1.MetadataFilter.Operator
+	(*CommitMemoryRequest)(nil),   // 3: jennahapi.agent.v1.CommitMemoryRequest
+	(*ExecutionLogStep)(nil),      // 4: jennahapi.agent.v1.ExecutionLogStep
+	(*VectorChunk)(nil),           // 5: jennahapi.agent.v1.VectorChunk
+	(*GraphWrite)(nil),            // 6: jennahapi.agent.v1.GraphWrite
+	(*GraphNode)(nil),             // 7: jennahapi.agent.v1.GraphNode
+	(*GraphEdge)(nil),             // 8: jennahapi.agent.v1.GraphEdge
+	(*CommitMemoryResponse)(nil),  // 9: jennahapi.agent.v1.CommitMemoryResponse
+	(*QueryMemoryRequest)(nil),    // 10: jennahapi.agent.v1.QueryMemoryRequest
+	(*SemanticQuery)(nil),         // 11: jennahapi.agent.v1.SemanticQuery
+	(*MetadataFilter)(nil),        // 12: jennahapi.agent.v1.MetadataFilter
+	(*GraphQuery)(nil),            // 13: jennahapi.agent.v1.GraphQuery
+	(*GraphNodeMatch)(nil),        // 14: jennahapi.agent.v1.GraphNodeMatch
+	(*GraphStep)(nil),             // 15: jennahapi.agent.v1.GraphStep
+	(*PropertyFilter)(nil),        // 16: jennahapi.agent.v1.PropertyFilter
+	(*LogQuery)(nil),              // 17: jennahapi.agent.v1.LogQuery
+	(*QueryMemoryResponse)(nil),   // 18: jennahapi.agent.v1.QueryMemoryResponse
+	(*SemanticResult)(nil),        // 19: jennahapi.agent.v1.SemanticResult
+	(*SemanticMatch)(nil),         // 20: jennahapi.agent.v1.SemanticMatch
+	(*GraphResult)(nil),           // 21: jennahapi.agent.v1.GraphResult
+	(*LogResult)(nil),             // 22: jennahapi.agent.v1.LogResult
+	(*FusedResult)(nil),           // 23: jennahapi.agent.v1.FusedResult
+	(*InspectMemoryRequest)(nil),  // 24: jennahapi.agent.v1.InspectMemoryRequest
+	(*InspectVectors)(nil),        // 25: jennahapi.agent.v1.InspectVectors
+	(*InspectGraph)(nil),          // 26: jennahapi.agent.v1.InspectGraph
+	(*InspectLog)(nil),            // 27: jennahapi.agent.v1.InspectLog
+	(*InspectMemoryResponse)(nil), // 28: jennahapi.agent.v1.InspectMemoryResponse
+	(*VectorInspectResult)(nil),   // 29: jennahapi.agent.v1.VectorInspectResult
+	(*VectorChunkInfo)(nil),       // 30: jennahapi.agent.v1.VectorChunkInfo
+	(*GraphInspectResult)(nil),    // 31: jennahapi.agent.v1.GraphInspectResult
+	(*SupersedeEdgeRequest)(nil),  // 32: jennahapi.agent.v1.SupersedeEdgeRequest
+	(*SupersedeEdgeResponse)(nil), // 33: jennahapi.agent.v1.SupersedeEdgeResponse
+	nil,                           // 34: jennahapi.agent.v1.VectorChunk.MetadataEntry
+	nil,                           // 35: jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	nil,                           // 36: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	(*timestamppb.Timestamp)(nil), // 37: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),       // 38: google.protobuf.Struct
+	(*structpb.Value)(nil),        // 39: google.protobuf.Value
 }
 var file_jennah_agent_v1_memory_proto_depIdxs = []int32{
-	3,  // 0: jennahapi.agent.v1.CommitMemoryRequest.log:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	4,  // 1: jennahapi.agent.v1.CommitMemoryRequest.vectors:type_name -> jennahapi.agent.v1.VectorChunk
-	5,  // 2: jennahapi.agent.v1.CommitMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphWrite
-	32, // 3: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
-	6,  // 4: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	7,  // 5: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	33, // 6: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
-	32, // 7: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
-	33, // 8: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
-	32, // 9: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
-	32, // 10: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
-	32, // 11: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
-	32, // 12: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	10, // 13: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
-	11, // 14: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
-	15, // 15: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
-	0,  // 16: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
-	32, // 17: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	12, // 18: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	13, // 19: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
-	32, // 20: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
-	32, // 21: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
-	14, // 22: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
-	1,  // 23: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
-	12, // 24: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	34, // 25: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
-	32, // 26: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
-	17, // 27: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
-	19, // 28: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
-	20, // 29: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	21, // 30: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
-	32, // 31: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	18, // 32: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
-	33, // 33: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
-	3,  // 34: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	33, // 35: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
-	23, // 36: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
-	24, // 37: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
-	25, // 38: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
-	32, // 39: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	32, // 40: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
-	27, // 41: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
-	29, // 42: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
-	20, // 43: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	32, // 44: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	28, // 45: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
-	32, // 46: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 47: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	7,  // 48: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	7,  // 49: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
-	32, // 50: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	2,  // 51: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
-	9,  // 52: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
-	22, // 53: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
-	30, // 54: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
-	8,  // 55: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
-	16, // 56: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
-	26, // 57: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
-	31, // 58: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
-	55, // [55:59] is the sub-list for method output_type
-	51, // [51:55] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	4,  // 0: jennahapi.agent.v1.CommitMemoryRequest.log:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	5,  // 1: jennahapi.agent.v1.CommitMemoryRequest.vectors:type_name -> jennahapi.agent.v1.VectorChunk
+	6,  // 2: jennahapi.agent.v1.CommitMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphWrite
+	37, // 3: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
+	34, // 4: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
+	7,  // 5: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	8,  // 6: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	38, // 7: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
+	37, // 8: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
+	38, // 9: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
+	37, // 10: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
+	37, // 11: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
+	37, // 12: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
+	37, // 13: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	11, // 14: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
+	13, // 15: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
+	17, // 16: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
+	0,  // 17: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
+	37, // 18: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	12, // 19: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
+	2,  // 20: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
+	14, // 21: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	15, // 22: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
+	37, // 23: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	37, // 24: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	16, // 25: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
+	1,  // 26: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
+	14, // 27: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	39, // 28: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
+	37, // 29: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
+	19, // 30: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
+	21, // 31: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
+	22, // 32: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	23, // 33: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
+	37, // 34: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	20, // 35: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
+	35, // 36: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	38, // 37: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
+	4,  // 38: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	38, // 39: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
+	25, // 40: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
+	26, // 41: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
+	27, // 42: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
+	37, // 43: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	37, // 44: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
+	29, // 45: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
+	31, // 46: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
+	22, // 47: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	37, // 48: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	30, // 49: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
+	37, // 50: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
+	36, // 51: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	7,  // 52: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	8,  // 53: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	8,  // 54: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
+	37, // 55: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	3,  // 56: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
+	10, // 57: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
+	24, // 58: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
+	32, // 59: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
+	9,  // 60: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
+	18, // 61: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
+	28, // 62: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
+	33, // 63: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
+	60, // [60:64] is the sub-list for method output_type
+	56, // [56:60] is the sub-list for method input_type
+	56, // [56:56] is the sub-list for extension type_name
+	56, // [56:56] is the sub-list for extension extendee
+	0,  // [0:56] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_memory_proto_init() }
@@ -2460,14 +2671,14 @@ func file_jennah_agent_v1_memory_proto_init() {
 	if File_jennah_agent_v1_memory_proto != nil {
 		return
 	}
-	file_jennah_agent_v1_memory_proto_msgTypes[26].OneofWrappers = []any{}
+	file_jennah_agent_v1_memory_proto_msgTypes[27].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_agent_v1_memory_proto_rawDesc), len(file_jennah_agent_v1_memory_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   30,
+			NumEnums:      3,
+			NumMessages:   34,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
