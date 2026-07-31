@@ -1857,8 +1857,18 @@ func (x *InspectMemoryRequest) GetAsOf() *timestamppb.Timestamp {
 // Vector-section listing request. Enumerates stored chunks; the embedding vector
 // is never included in the response (it is large and not human-inspectable).
 type InspectVectors struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // max chunks; <= 0 uses the default, clamped to a server max
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Limit int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // max chunks; <= 0 uses the default, clamped to a server max
+	// Resume a walk of this listing. Empty starts one. Pass back the
+	// `next_chunk_token` from the prior response; when that comes back EMPTY the
+	// listing is exhausted and there is nothing further to fetch.
+	//
+	// The token is opaque and server-generated. Do not construct, parse, or edit
+	// one: a token the server cannot interpret is REJECTED with INVALID_ARGUMENT
+	// rather than quietly restarting from the first page, because a silent restart
+	// would hand a caller walking to exhaustion a partial listing that looks
+	// complete.
+	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1900,12 +1910,26 @@ func (x *InspectVectors) GetLimit() int32 {
 	return 0
 }
 
+func (x *InspectVectors) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 // Graph-section listing request. Enumerates stored nodes and edges independently
 // (this is a raw dump, not a traversal), each bounded by its own limit.
 type InspectGraph struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	NodeLimit     int32                  `protobuf:"varint,1,opt,name=node_limit,json=nodeLimit,proto3" json:"node_limit,omitempty"` // max nodes; <= 0 uses the default, clamped to a server max
-	EdgeLimit     int32                  `protobuf:"varint,2,opt,name=edge_limit,json=edgeLimit,proto3" json:"edge_limit,omitempty"` // max edges; <= 0 uses the default, clamped to a server max
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	NodeLimit int32                  `protobuf:"varint,1,opt,name=node_limit,json=nodeLimit,proto3" json:"node_limit,omitempty"` // max nodes; <= 0 uses the default, clamped to a server max
+	EdgeLimit int32                  `protobuf:"varint,2,opt,name=edge_limit,json=edgeLimit,proto3" json:"edge_limit,omitempty"` // max edges; <= 0 uses the default, clamped to a server max
+	// Nodes and edges are walked INDEPENDENTLY — a workspace typically holds far
+	// more edges than nodes, so one shared cursor would stall the longer listing or
+	// re-deliver the shorter one. Pass back `next_node_token` / `next_edge_token`
+	// from the prior response; empty means that listing is exhausted. Opaque and
+	// server-generated; see InspectVectors.page_token.
+	NodePageToken string `protobuf:"bytes,3,opt,name=node_page_token,json=nodePageToken,proto3" json:"node_page_token,omitempty"`
+	EdgePageToken string `protobuf:"bytes,4,opt,name=edge_page_token,json=edgePageToken,proto3" json:"edge_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1954,13 +1978,31 @@ func (x *InspectGraph) GetEdgeLimit() int32 {
 	return 0
 }
 
+func (x *InspectGraph) GetNodePageToken() string {
+	if x != nil {
+		return x.NodePageToken
+	}
+	return ""
+}
+
+func (x *InspectGraph) GetEdgePageToken() string {
+	if x != nil {
+		return x.EdgePageToken
+	}
+	return ""
+}
+
 // Execution-log-section listing request: the agent's most recent steps in
 // commit-timestamp order (newest first). Mirrors LogQuery so callers can follow
 // the log incrementally (poll with `since` advanced to the prior read).
 type InspectLog struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // max steps to return
-	Since         *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`  // optional recency lower bound
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Limit int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // max steps to return
+	Since *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`  // optional recency lower bound
+	// Resume a walk of the step listing; empty starts one. Pass back
+	// `next_log_token`; empty means exhausted. Opaque and server-generated; see
+	// InspectVectors.page_token.
+	PageToken     string `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2009,6 +2051,13 @@ func (x *InspectLog) GetSince() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *InspectLog) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
 // Response for MemoryService.InspectMemory. Each result section is present only
 // when its corresponding request section was supplied.
 type InspectMemoryResponse struct {
@@ -2018,8 +2067,27 @@ type InspectMemoryResponse struct {
 	Log     *LogResult             `protobuf:"bytes,3,opt,name=log,proto3" json:"log,omitempty"` // same ExecutionLogStep records as QueryMemory
 	// The single read timestamp every section was evaluated at.
 	ReadTimestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=read_timestamp,json=readTimestamp,proto3" json:"read_timestamp,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Continuation tokens, one per listing. An EMPTY token means that listing is
+	// EXHAUSTED — not merely that this page ended — so a caller can tell "this is
+	// everything held" from "this is the first page of an unknown amount". Feed a
+	// token back on the matching request section to fetch the next page.
+	//
+	// Listings exhaust independently: a workspace with many chunks and few log steps
+	// reports the log done while chunks still have more.
+	//
+	// These live on the response rather than inside each result message because
+	// `LogResult` is shared with QueryMemory, which returns a bounded slice of
+	// recent steps rather than an enumerable listing and has nothing to continue.
+	//
+	// CONSISTENCY: pages are independently snapshotted, so a commit landing mid-walk
+	// may appear. Set `as_of` on every request of the walk for a stable view —
+	// bounded by the backend's version-retention window (about an hour).
+	NextChunkToken string `protobuf:"bytes,5,opt,name=next_chunk_token,json=nextChunkToken,proto3" json:"next_chunk_token,omitempty"`
+	NextNodeToken  string `protobuf:"bytes,6,opt,name=next_node_token,json=nextNodeToken,proto3" json:"next_node_token,omitempty"`
+	NextEdgeToken  string `protobuf:"bytes,7,opt,name=next_edge_token,json=nextEdgeToken,proto3" json:"next_edge_token,omitempty"`
+	NextLogToken   string `protobuf:"bytes,8,opt,name=next_log_token,json=nextLogToken,proto3" json:"next_log_token,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *InspectMemoryResponse) Reset() {
@@ -2078,6 +2146,34 @@ func (x *InspectMemoryResponse) GetReadTimestamp() *timestamppb.Timestamp {
 		return x.ReadTimestamp
 	}
 	return nil
+}
+
+func (x *InspectMemoryResponse) GetNextChunkToken() string {
+	if x != nil {
+		return x.NextChunkToken
+	}
+	return ""
+}
+
+func (x *InspectMemoryResponse) GetNextNodeToken() string {
+	if x != nil {
+		return x.NextNodeToken
+	}
+	return ""
+}
+
+func (x *InspectMemoryResponse) GetNextEdgeToken() string {
+	if x != nil {
+		return x.NextEdgeToken
+	}
+	return ""
+}
+
+func (x *InspectMemoryResponse) GetNextLogToken() string {
+	if x != nil {
+		return x.NextLogToken
+	}
+	return ""
 }
 
 type VectorInspectResult struct {
@@ -2536,23 +2632,33 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\avectors\x18\x02 \x01(\v2\".jennahapi.agent.v1.InspectVectorsR\avectors\x126\n" +
 	"\x05graph\x18\x03 \x01(\v2 .jennahapi.agent.v1.InspectGraphR\x05graph\x120\n" +
 	"\x03log\x18\x04 \x01(\v2\x1e.jennahapi.agent.v1.InspectLogR\x03log\x12/\n" +
-	"\x05as_of\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"&\n" +
+	"\x05as_of\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"E\n" +
 	"\x0eInspectVectors\x12\x14\n" +
-	"\x05limit\x18\x01 \x01(\x05R\x05limit\"L\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tR\tpageToken\"\x9c\x01\n" +
 	"\fInspectGraph\x12\x1d\n" +
 	"\n" +
 	"node_limit\x18\x01 \x01(\x05R\tnodeLimit\x12\x1d\n" +
 	"\n" +
-	"edge_limit\x18\x02 \x01(\x05R\tedgeLimit\"T\n" +
+	"edge_limit\x18\x02 \x01(\x05R\tedgeLimit\x12&\n" +
+	"\x0fnode_page_token\x18\x03 \x01(\tR\rnodePageToken\x12&\n" +
+	"\x0fedge_page_token\x18\x04 \x01(\tR\redgePageToken\"s\n" +
 	"\n" +
 	"InspectLog\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x120\n" +
-	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\"\x8c\x02\n" +
+	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"\xac\x03\n" +
 	"\x15InspectMemoryResponse\x12A\n" +
 	"\avectors\x18\x01 \x01(\v2'.jennahapi.agent.v1.VectorInspectResultR\avectors\x12<\n" +
 	"\x05graph\x18\x02 \x01(\v2&.jennahapi.agent.v1.GraphInspectResultR\x05graph\x12/\n" +
 	"\x03log\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.LogResultR\x03log\x12A\n" +
-	"\x0eread_timestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"R\n" +
+	"\x0eread_timestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\x12(\n" +
+	"\x10next_chunk_token\x18\x05 \x01(\tR\x0enextChunkToken\x12&\n" +
+	"\x0fnext_node_token\x18\x06 \x01(\tR\rnextNodeToken\x12&\n" +
+	"\x0fnext_edge_token\x18\a \x01(\tR\rnextEdgeToken\x12$\n" +
+	"\x0enext_log_token\x18\b \x01(\tR\fnextLogToken\"R\n" +
 	"\x13VectorInspectResult\x12;\n" +
 	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\xfb\x02\n" +
 	"\x0fVectorChunkInfo\x12\x19\n" +
