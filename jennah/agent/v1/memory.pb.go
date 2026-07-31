@@ -145,9 +145,24 @@ type CommitMemoryRequest struct {
 	// Empty to commit no vectors.
 	Vectors []*VectorChunk `protobuf:"bytes,3,rep,name=vectors,proto3" json:"vectors,omitempty"`
 	// Graph section: node and/or edge writes. Absent to commit no graph data.
-	Graph         *GraphWrite `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Graph *GraphWrite `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
+	// When set, embedding truncation is FATAL to the whole commit instead of
+	// merely reported: if the model truncates any chunk whose vector the server
+	// generated, the commit is rejected and no section's rows are written (the
+	// all-or-nothing guarantee applies to the rejection).
+	//
+	// Truncation policy belongs to the caller. An audit-trail writer may prefer a
+	// degraded embedding over a lost commit; a retrieval-critical writer prefers
+	// to fail, split the content, and re-commit. Defaults to false so a caller
+	// that does not care keeps today's behavior — the receipt's
+	// `truncated_chunk_ids` reports the same fact without refusing the write.
+	//
+	// Rejection fires only on the model's OWN report of truncation, never on an
+	// estimated token count, so a caller is never refused for content the model
+	// would in fact have accepted.
+	RejectOnTruncation bool `protobuf:"varint,5,opt,name=reject_on_truncation,json=rejectOnTruncation,proto3" json:"reject_on_truncation,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *CommitMemoryRequest) Reset() {
@@ -206,6 +221,13 @@ func (x *CommitMemoryRequest) GetGraph() *GraphWrite {
 		return x.Graph
 	}
 	return nil
+}
+
+func (x *CommitMemoryRequest) GetRejectOnTruncation() bool {
+	if x != nil {
+		return x.RejectOnTruncation
+	}
+	return false
 }
 
 // A single execution-memory step. On CommitMemory only the payload fields are
@@ -610,8 +632,22 @@ type CommitMemoryResponse struct {
 	VectorRows       int64                  `protobuf:"varint,3,opt,name=vector_rows,json=vectorRows,proto3" json:"vector_rows,omitempty"`
 	GraphNodeRows    int64                  `protobuf:"varint,4,opt,name=graph_node_rows,json=graphNodeRows,proto3" json:"graph_node_rows,omitempty"`
 	GraphEdgeRows    int64                  `protobuf:"varint,5,opt,name=graph_edge_rows,json=graphEdgeRows,proto3" json:"graph_edge_rows,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Chunks whose SERVER-GENERATED embedding the model truncated because the
+	// content exceeded the embedding model's input limit. The commit SUCCEEDED,
+	// but for each id listed here the tail of `raw_content` is not represented in
+	// the stored vector and is therefore unreachable by semantic search — the
+	// stored content is complete, the stored embedding is not.
+	//
+	// Ids rather than a flag or a count, so a caller knows exactly which chunk to
+	// split and re-commit; a count cannot say that in a multi-chunk commit. Empty
+	// means every generated chunk in this commit was embedded in full.
+	//
+	// Never populated for a caller-supplied embedding: the platform did not embed
+	// that content, so it has nothing to report about it. A precomputed vector's
+	// fidelity is the caller's own concern.
+	TruncatedChunkIds []string `protobuf:"bytes,6,rep,name=truncated_chunk_ids,json=truncatedChunkIds,proto3" json:"truncated_chunk_ids,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *CommitMemoryResponse) Reset() {
@@ -677,6 +713,13 @@ func (x *CommitMemoryResponse) GetGraphEdgeRows() int64 {
 		return x.GraphEdgeRows
 	}
 	return 0
+}
+
+func (x *CommitMemoryResponse) GetTruncatedChunkIds() []string {
+	if x != nil {
+		return x.TruncatedChunkIds
+	}
+	return nil
 }
 
 // Request for MemoryService.QueryMemory.
@@ -1868,7 +1911,23 @@ type VectorChunkInfo struct {
 	RawContent string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
 	// Output-only: the chunk's last-write commit timestamp. Chunks are upserted, so
 	// this is the last write, not first creation.
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Output-only truncation state of the STORED embedding, so already-written
+	// history can be audited and not merely newly-written chunks.
+	//
+	// Both fields use explicit presence, and ABSENT IS MEANINGFUL: it means the
+	// chunk predates truncation tracking, so its state was never measured. A
+	// reader MUST NOT treat absent as "not truncated" — conflating unknown with
+	// known-good is the exact failure this reporting exists to remove.
+	//
+	// Present-and-false means measured and embedded in full. That includes a chunk
+	// whose embedding the caller supplied: the platform embedded nothing there, so
+	// it truncated nothing.
+	//
+	// `token_count` is the count the model reported for the content it actually
+	// consumed, and is absent whenever no embedding was generated server-side.
+	Truncated     *bool  `protobuf:"varint,4,opt,name=truncated,proto3,oneof" json:"truncated,omitempty"`
+	TokenCount    *int64 `protobuf:"varint,5,opt,name=token_count,json=tokenCount,proto3,oneof" json:"token_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1922,6 +1981,20 @@ func (x *VectorChunkInfo) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *VectorChunkInfo) GetTruncated() bool {
+	if x != nil && x.Truncated != nil {
+		return *x.Truncated
+	}
+	return false
+}
+
+func (x *VectorChunkInfo) GetTokenCount() int64 {
+	if x != nil && x.TokenCount != nil {
+		return *x.TokenCount
+	}
+	return 0
 }
 
 // Graph listing result: the stored nodes and edges themselves (reusing the same
@@ -2098,12 +2171,13 @@ var File_jennah_agent_v1_memory_proto protoreflect.FileDescriptor
 
 const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\n" +
-	"\x1cjennah/agent/v1/memory.proto\x12\x12jennahapi.agent.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xea\x01\n" +
+	"\x1cjennah/agent/v1/memory.proto\x12\x12jennahapi.agent.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x02\n" +
 	"\x13CommitMemoryRequest\x12*\n" +
 	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x126\n" +
 	"\x03log\x18\x02 \x01(\v2$.jennahapi.agent.v1.ExecutionLogStepR\x03log\x129\n" +
 	"\avectors\x18\x03 \x03(\v2\x1f.jennahapi.agent.v1.VectorChunkR\avectors\x124\n" +
-	"\x05graph\x18\x04 \x01(\v2\x1e.jennahapi.agent.v1.GraphWriteR\x05graph\"\xeb\x01\n" +
+	"\x05graph\x18\x04 \x01(\v2\x1e.jennahapi.agent.v1.GraphWriteR\x05graph\x120\n" +
+	"\x14reject_on_truncation\x18\x05 \x01(\bR\x12rejectOnTruncation\"\xeb\x01\n" +
 	"\x10ExecutionLogStep\x12\x17\n" +
 	"\astep_id\x18\x01 \x01(\tR\x06stepId\x12'\n" +
 	"\x0fthought_process\x18\x02 \x01(\tR\x0ethoughtProcess\x12\x1b\n" +
@@ -2142,14 +2216,15 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x125\n" +
 	"\bvalid_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\avalidAt\x129\n" +
 	"\n" +
-	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\"\xfc\x01\n" +
+	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\"\xac\x02\n" +
 	"\x14CommitMemoryResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
 	"\vvector_rows\x18\x03 \x01(\x03R\n" +
 	"vectorRows\x12&\n" +
 	"\x0fgraph_node_rows\x18\x04 \x01(\x03R\rgraphNodeRows\x12&\n" +
-	"\x0fgraph_edge_rows\x18\x05 \x01(\x03R\rgraphEdgeRows\"\xfa\x02\n" +
+	"\x0fgraph_edge_rows\x18\x05 \x01(\x03R\rgraphEdgeRows\x12.\n" +
+	"\x13truncated_chunk_ids\x18\x06 \x03(\tR\x11truncatedChunkIds\"\xfa\x02\n" +
 	"\x12QueryMemoryRequest\x12*\n" +
 	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12=\n" +
 	"\bsemantic\x18\x02 \x01(\v2!.jennahapi.agent.v1.SemanticQueryR\bsemantic\x124\n" +
@@ -2225,13 +2300,19 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x03log\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.LogResultR\x03log\x12A\n" +
 	"\x0eread_timestamp\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"R\n" +
 	"\x13VectorInspectResult\x12;\n" +
-	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\x88\x01\n" +
+	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\xef\x01\n" +
 	"\x0fVectorChunkInfo\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
 	"rawContent\x129\n" +
 	"\n" +
-	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"~\n" +
+	"updated_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12!\n" +
+	"\ttruncated\x18\x04 \x01(\bH\x00R\ttruncated\x88\x01\x01\x12$\n" +
+	"\vtoken_count\x18\x05 \x01(\x03H\x01R\n" +
+	"tokenCount\x88\x01\x01B\f\n" +
+	"\n" +
+	"_truncatedB\x0e\n" +
+	"\f_token_count\"~\n" +
 	"\x12GraphInspectResult\x123\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x1d.jennahapi.agent.v1.GraphNodeR\x05nodes\x123\n" +
 	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"\xa0\x01\n" +
@@ -2379,6 +2460,7 @@ func file_jennah_agent_v1_memory_proto_init() {
 	if File_jennah_agent_v1_memory_proto != nil {
 		return
 	}
+	file_jennah_agent_v1_memory_proto_msgTypes[26].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
