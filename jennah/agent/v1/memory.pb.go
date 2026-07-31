@@ -951,10 +951,22 @@ type SemanticQuery struct {
 	// (conjunctive); at most 8 per section, and more is rejected with
 	// INVALID_ARGUMENT.
 	//
-	// Each filter compares a metadata key against a value with an operator —
-	// equality, or one of the ordered comparisons. A bounded range is two filters
-	// on the same key, e.g. date >= "2026-07-01" AND date <= "2026-07-31". See
-	// MetadataFilter.Operator: comparison is LEXICOGRAPHIC, not numeric.
+	// Each filter compares a metadata key against a value with an operator:
+	// OPERATOR_EQUALS (the default when unset), or one of OPERATOR_LESS_THAN,
+	// OPERATOR_LESS_THAN_OR_EQUAL, OPERATOR_GREATER_THAN,
+	// OPERATOR_GREATER_THAN_OR_EQUAL. A bounded range is two filters on the same
+	// key, e.g. date >= "2026-07-01" AND date <= "2026-07-31".
+	//
+	// ORDERED COMPARISON IS LEXICOGRAPHIC, over the stored string. A metadata value
+	// carries no type tag and the platform never infers one, so comparison is byte
+	// order, NOT numeric. Encode values for the ordering you want: ISO-8601
+	// timestamps and zero-padded numbers sort correctly ("2026-07-01" < "2026-07-15",
+	// "007" < "042"); unpadded numbers do not ("10" < "9"), and ordinal words sort
+	// alphabetically rather than by rank ("High" < "Low" < "Medium").
+	//
+	// A chunk that does not carry the filtered key matches NO operator, including
+	// OPERATOR_EQUALS: there is no value to compare or order against, so absence
+	// excludes.
 	//
 	// Filters are evaluated in the WHERE clause BEFORE ranking, never as a
 	// post-filter over an already-limited result set. So the returned chunks are the
