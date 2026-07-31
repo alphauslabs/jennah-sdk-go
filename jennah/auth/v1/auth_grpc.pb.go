@@ -51,7 +51,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AuthService service definition.
+// AuthService is the identity and access surface for an enterprise.
 type AuthServiceClient interface {
 	// Gets information about the caller. External (gateway) RPC. Requires a valid
 	// jennah access token; returns the resolved caller identity.
@@ -467,7 +467,7 @@ func (c *authServiceClient) DeleteRole(ctx context.Context, in *DeleteRoleReques
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
-// AuthService service definition.
+// AuthService is the identity and access surface for an enterprise.
 type AuthServiceServer interface {
 	// Gets information about the caller. External (gateway) RPC. Requires a valid
 	// jennah access token; returns the resolved caller identity.

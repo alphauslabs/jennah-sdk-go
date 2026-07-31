@@ -28,22 +28,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// BillingService is the provider-neutral billing surface. It carries the
-// caller-facing read of an enterprise's plan, the authenticated bind that
-// attaches an external subscription to an enterprise, and the internal
-// provider-driven registration RPC the public HTTP edge calls.
-//
-// There is deliberately NO notification RPC. AWS Marketplace publishes SaaS
-// notifications to topics the seller subscribes an SQS queue to, so the backend
-// consumes them by POLLING that queue rather than by serving an inbound endpoint.
-// That removes a public route, signature verification, a signing-certificate
-// fetch, and a subscription handshake from the surface entirely — all of which
-// are obligations of an HTTPS subscription, which this design does not use.
-//
-// Machine-readable failures. Every rejection below carries a
-// `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud" and whose
-// `reason` is one of the constants named in each RPC's comment. A client keys on
-// the reason, never on the human-readable message.
+// BillingService is the provider-neutral billing surface for an enterprise.
 type BillingServiceClient interface {
 	// Reads the caller's active enterprise billing state: its effective tier, which
 	// source owns that tier, and every subscription bound to it (plural — one AWS
@@ -74,7 +59,10 @@ type BillingServiceClient interface {
 	// Binding the same subscription to the same enterprise again is idempotent
 	// success: buyers re-enter through AWS's "Set up your account" button routinely.
 	//
-	// Rejections:
+	// Rejections. Each carries a `google.rpc.ErrorInfo` whose `domain` is
+	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
+	// the reason, never on the human-readable message — each reason needs a
+	// different recovery path in the UI.
 	//
 	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID — expired, already
 	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
@@ -104,7 +92,11 @@ type BillingServiceClient interface {
 	// from contract creation whether or not they ever finish registering. After this
 	// returns, every remaining step is retryable and nothing is time-critical.
 	//
-	// Rejections, split so the edge can tell a retry from a dead end:
+	// Rejections, split so the edge can tell a retry from a dead end. Those naming
+	// a reason below carry a `google.rpc.ErrorInfo` whose `domain` is
+	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
+	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
+	// carry NO ErrorInfo — for those the status code is the whole signal.
 	//
 	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID — missing or malformed token,
 	//	  or one AWS refuses. Permanent; do not retry.
@@ -161,22 +153,7 @@ func (c *billingServiceClient) ResolveMarketplaceRegistration(ctx context.Contex
 // All implementations must embed UnimplementedBillingServiceServer
 // for forward compatibility.
 //
-// BillingService is the provider-neutral billing surface. It carries the
-// caller-facing read of an enterprise's plan, the authenticated bind that
-// attaches an external subscription to an enterprise, and the internal
-// provider-driven registration RPC the public HTTP edge calls.
-//
-// There is deliberately NO notification RPC. AWS Marketplace publishes SaaS
-// notifications to topics the seller subscribes an SQS queue to, so the backend
-// consumes them by POLLING that queue rather than by serving an inbound endpoint.
-// That removes a public route, signature verification, a signing-certificate
-// fetch, and a subscription handshake from the surface entirely — all of which
-// are obligations of an HTTPS subscription, which this design does not use.
-//
-// Machine-readable failures. Every rejection below carries a
-// `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud" and whose
-// `reason` is one of the constants named in each RPC's comment. A client keys on
-// the reason, never on the human-readable message.
+// BillingService is the provider-neutral billing surface for an enterprise.
 type BillingServiceServer interface {
 	// Reads the caller's active enterprise billing state: its effective tier, which
 	// source owns that tier, and every subscription bound to it (plural — one AWS
@@ -207,7 +184,10 @@ type BillingServiceServer interface {
 	// Binding the same subscription to the same enterprise again is idempotent
 	// success: buyers re-enter through AWS's "Set up your account" button routinely.
 	//
-	// Rejections:
+	// Rejections. Each carries a `google.rpc.ErrorInfo` whose `domain` is
+	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
+	// the reason, never on the human-readable message — each reason needs a
+	// different recovery path in the UI.
 	//
 	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID — expired, already
 	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
@@ -237,7 +217,11 @@ type BillingServiceServer interface {
 	// from contract creation whether or not they ever finish registering. After this
 	// returns, every remaining step is retryable and nothing is time-critical.
 	//
-	// Rejections, split so the edge can tell a retry from a dead end:
+	// Rejections, split so the edge can tell a retry from a dead end. Those naming
+	// a reason below carry a `google.rpc.ErrorInfo` whose `domain` is
+	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
+	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
+	// carry NO ErrorInfo — for those the status code is the whole signal.
 	//
 	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID — missing or malformed token,
 	//	  or one AWS refuses. Permanent; do not retry.

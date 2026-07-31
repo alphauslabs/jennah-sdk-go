@@ -131,16 +131,44 @@ func (GraphDirection) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{1}
 }
 
-// Operator selects how `value` is compared. Only EQUALS is implemented; the
-// field exists so range predicates (a natural next want — "chunks from the last
-// 30 days") can be added without changing SemanticQuery's shape. An operator
-// this version does not implement is rejected with UNIMPLEMENTED rather than
-// silently treated as equality.
+// Operator selects how `value` is compared against the chunk's stored value
+// for `key`. An operator this version does not implement is rejected with
+// UNIMPLEMENTED rather than silently treated as equality — a filter that
+// quietly means something other than what you asked for returns a
+// plausible-looking result set that is wrong.
+//
+// ORDERED COMPARISON IS LEXICOGRAPHIC, over the stored string. A metadata
+// value carries no type tag and the platform deliberately does not infer one,
+// so comparison is byte order — NOT numeric. That is exact for values encoded
+// so byte order matches their natural order, and wrong for values that are
+// not:
+//
+//	ISO-8601 timestamps  "2026-07-01" < "2026-07-15"   correct
+//	zero-padded numbers  "007" < "042"                 correct
+//	unpadded numbers     "10" < "9"                    SURPRISING but correct
+//	                                                   byte order
+//	ordinal words        "High" < "Low" < "Medium"     alphabetical, not
+//	                                                   ordinal
+//
+// Encode values for the ordering you want; the platform never coerces.
+//
+// A chunk that does not carry `key` at all matches NO operator, including
+// EQUALS: there is no value to compare or order against, so absence excludes.
+// Filters combine conjunctively (all must match); there is no disjunction
+// between them.
 type MetadataFilter_Operator int32
 
 const (
 	MetadataFilter_OPERATOR_UNSPECIFIED MetadataFilter_Operator = 0 // treated as EQUALS
 	MetadataFilter_OPERATOR_EQUALS      MetadataFilter_Operator = 1
+	// Ordered comparisons. Each reads "the chunk's stored value <op> `value`",
+	// e.g. OPERATOR_GREATER_THAN_OR_EQUAL with value "2026-07-01" matches
+	// chunks whose stored value sorts at or after that string. A bounded range
+	// is two filters on the same key.
+	MetadataFilter_OPERATOR_LESS_THAN             MetadataFilter_Operator = 2
+	MetadataFilter_OPERATOR_LESS_THAN_OR_EQUAL    MetadataFilter_Operator = 3
+	MetadataFilter_OPERATOR_GREATER_THAN          MetadataFilter_Operator = 4
+	MetadataFilter_OPERATOR_GREATER_THAN_OR_EQUAL MetadataFilter_Operator = 5
 )
 
 // Enum value maps for MetadataFilter_Operator.
@@ -148,10 +176,18 @@ var (
 	MetadataFilter_Operator_name = map[int32]string{
 		0: "OPERATOR_UNSPECIFIED",
 		1: "OPERATOR_EQUALS",
+		2: "OPERATOR_LESS_THAN",
+		3: "OPERATOR_LESS_THAN_OR_EQUAL",
+		4: "OPERATOR_GREATER_THAN",
+		5: "OPERATOR_GREATER_THAN_OR_EQUAL",
 	}
 	MetadataFilter_Operator_value = map[string]int32{
-		"OPERATOR_UNSPECIFIED": 0,
-		"OPERATOR_EQUALS":      1,
+		"OPERATOR_UNSPECIFIED":           0,
+		"OPERATOR_EQUALS":                1,
+		"OPERATOR_LESS_THAN":             2,
+		"OPERATOR_LESS_THAN_OR_EQUAL":    3,
+		"OPERATOR_GREATER_THAN":          4,
+		"OPERATOR_GREATER_THAN_OR_EQUAL": 5,
 	}
 )
 
@@ -914,6 +950,11 @@ type SemanticQuery struct {
 	// Optional metadata predicates narrowing the candidate set. All must match
 	// (conjunctive); at most 8 per section, and more is rejected with
 	// INVALID_ARGUMENT.
+	//
+	// Each filter compares a metadata key against a value with an operator —
+	// equality, or one of the ordered comparisons. A bounded range is two filters
+	// on the same key, e.g. date >= "2026-07-01" AND date <= "2026-07-31". See
+	// MetadataFilter.Operator: comparison is LEXICOGRAPHIC, not numeric.
 	//
 	// Filters are evaluated in the WHERE clause BEFORE ranking, never as a
 	// post-filter over an already-limited result set. So the returned chunks are the
@@ -2423,14 +2464,18 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\n" +
 	"query_text\x18\x02 \x01(\tR\tqueryText\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12<\n" +
-	"\afilters\x18\x04 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\afilters\"\xbc\x01\n" +
+	"\afilters\x18\x04 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\afilters\"\xb5\x02\n" +
 	"\x0eMetadataFilter\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12G\n" +
-	"\boperator\x18\x03 \x01(\x0e2+.jennahapi.agent.v1.MetadataFilter.OperatorR\boperator\"9\n" +
+	"\boperator\x18\x03 \x01(\x0e2+.jennahapi.agent.v1.MetadataFilter.OperatorR\boperator\"\xb1\x01\n" +
 	"\bOperator\x12\x18\n" +
 	"\x14OPERATOR_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fOPERATOR_EQUALS\x10\x01\"\x83\x02\n" +
+	"\x0fOPERATOR_EQUALS\x10\x01\x12\x16\n" +
+	"\x12OPERATOR_LESS_THAN\x10\x02\x12\x1f\n" +
+	"\x1bOPERATOR_LESS_THAN_OR_EQUAL\x10\x03\x12\x19\n" +
+	"\x15OPERATOR_GREATER_THAN\x10\x04\x12\"\n" +
+	"\x1eOPERATOR_GREATER_THAN_OR_EQUAL\x10\x05\"\x83\x02\n" +
 	"\n" +
 	"GraphQuery\x128\n" +
 	"\x05start\x18\x01 \x01(\v2\".jennahapi.agent.v1.GraphNodeMatchR\x05start\x123\n" +

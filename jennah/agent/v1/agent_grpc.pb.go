@@ -30,7 +30,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AgentService service definition.
+// AgentService is the lifecycle control plane for an enterprise's agent workspaces.
 type AgentServiceClient interface {
 	// Lists the Jennah regions an agent workspace can be created in: the region
 	// allowlist is operator-owned topology, so a caller cannot know the valid
@@ -132,7 +132,7 @@ func (c *agentServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentReq
 // All implementations must embed UnimplementedAgentServiceServer
 // for forward compatibility.
 //
-// AgentService service definition.
+// AgentService is the lifecycle control plane for an enterprise's agent workspaces.
 type AgentServiceServer interface {
 	// Lists the Jennah regions an agent workspace can be created in: the region
 	// allowlist is operator-owned topology, so a caller cannot know the valid
