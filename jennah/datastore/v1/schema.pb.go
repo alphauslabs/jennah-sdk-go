@@ -401,18 +401,8 @@ type TableDeclaration struct {
 	// that is not expressible in the declaration and cannot be overridden or
 	// reordered, because it is what makes cross-slice access structurally
 	// impossible rather than merely denied.
-	PrimaryKey []string            `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
-	Indexes    []*IndexDeclaration `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
-	// Optional name of a column on this table holding the identity that owns each
-	// row. When set, every read and write of this table additionally carries an
-	// owner-equals-caller predicate, so a principal reaches only rows it owns.
-	//
-	// This is deliberately a single identity column and not a policy language. A
-	// general per-row policy engine over identity claims is a separate, larger
-	// change; ownership is designed as the degenerate case of that future
-	// predicate rather than as a throwaway, so adopting the policy engine later
-	// does not invalidate rows written under this.
-	OwnerColumn   string `protobuf:"bytes,5,opt,name=owner_column,json=ownerColumn,proto3" json:"owner_column,omitempty"`
+	PrimaryKey    []string            `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
+	Indexes       []*IndexDeclaration `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -473,13 +463,6 @@ func (x *TableDeclaration) GetIndexes() []*IndexDeclaration {
 		return x.Indexes
 	}
 	return nil
-}
-
-func (x *TableDeclaration) GetOwnerColumn() string {
-	if x != nil {
-		return x.OwnerColumn
-	}
-	return ""
 }
 
 // Request message for the SchemaService.DeclareTables rpc.
@@ -788,11 +771,10 @@ type TableSchema struct {
 	// concept and naming it here would imply it were optional.
 	PrimaryKey    []string               `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
 	Indexes       []*IndexDeclaration    `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
-	OwnerColumn   string                 `protobuf:"bytes,5,opt,name=owner_column,json=ownerColumn,proto3" json:"owner_column,omitempty"` // empty when the table declares no row ownership
-	Status        SchemaStatus           `protobuf:"varint,6,opt,name=status,proto3,enum=jennahapi.datastore.v1.SchemaStatus" json:"status,omitempty"`
-	StatusDetail  string                 `protobuf:"bytes,7,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // last successful schema change
+	Status        SchemaStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.datastore.v1.SchemaStatus" json:"status,omitempty"`
+	StatusDetail  string                 `protobuf:"bytes,6,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // last successful schema change
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -853,13 +835,6 @@ func (x *TableSchema) GetIndexes() []*IndexDeclaration {
 		return x.Indexes
 	}
 	return nil
-}
-
-func (x *TableSchema) GetOwnerColumn() string {
-	if x != nil {
-		return x.OwnerColumn
-	}
-	return ""
 }
 
 func (x *TableSchema) GetStatus() SchemaStatus {
@@ -1048,14 +1023,13 @@ const file_jennah_datastore_v1_schema_proto_rawDesc = "" +
 	"\x10IndexDeclaration\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acolumns\x18\x02 \x03(\tR\acolumns\x12\x16\n" +
-	"\x06unique\x18\x03 \x01(\bR\x06unique\"\xf3\x01\n" +
+	"\x06unique\x18\x03 \x01(\bR\x06unique\"\xd0\x01\n" +
 	"\x10TableDeclaration\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12C\n" +
 	"\acolumns\x18\x02 \x03(\v2).jennahapi.datastore.v1.ColumnDeclarationR\acolumns\x12\x1f\n" +
 	"\vprimary_key\x18\x03 \x03(\tR\n" +
 	"primaryKey\x12B\n" +
-	"\aindexes\x18\x04 \x03(\v2(.jennahapi.datastore.v1.IndexDeclarationR\aindexes\x12!\n" +
-	"\fowner_column\x18\x05 \x01(\tR\vownerColumn\"w\n" +
+	"\aindexes\x18\x04 \x03(\v2(.jennahapi.datastore.v1.IndexDeclarationR\aindexes\"w\n" +
 	"\x14DeclareTablesRequest\x12\x1d\n" +
 	"\n" +
 	"dataset_id\x18\x01 \x01(\tR\tdatasetId\x12@\n" +
@@ -1074,20 +1048,19 @@ const file_jennah_datastore_v1_schema_proto_rawDesc = "" +
 	"\x04type\x18\x02 \x01(\x0e2\".jennahapi.datastore.v1.ColumnTypeR\x04type\x12\x1a\n" +
 	"\bnullable\x18\x03 \x01(\bR\bnullable\x12=\n" +
 	"\x06vector\x18\x04 \x01(\v2%.jennahapi.datastore.v1.VectorOptionsR\x06vector\x12\x18\n" +
-	"\amanaged\x18\x05 \x01(\bR\amanaged\"\xc2\x03\n" +
+	"\amanaged\x18\x05 \x01(\bR\amanaged\"\x9f\x03\n" +
 	"\vTableSchema\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12>\n" +
 	"\acolumns\x18\x02 \x03(\v2$.jennahapi.datastore.v1.ColumnSchemaR\acolumns\x12\x1f\n" +
 	"\vprimary_key\x18\x03 \x03(\tR\n" +
 	"primaryKey\x12B\n" +
-	"\aindexes\x18\x04 \x03(\v2(.jennahapi.datastore.v1.IndexDeclarationR\aindexes\x12!\n" +
-	"\fowner_column\x18\x05 \x01(\tR\vownerColumn\x12<\n" +
-	"\x06status\x18\x06 \x01(\x0e2$.jennahapi.datastore.v1.SchemaStatusR\x06status\x12#\n" +
-	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\x129\n" +
+	"\aindexes\x18\x04 \x03(\v2(.jennahapi.datastore.v1.IndexDeclarationR\aindexes\x12<\n" +
+	"\x06status\x18\x05 \x01(\x0e2$.jennahapi.datastore.v1.SchemaStatusR\x06status\x12#\n" +
+	"\rstatus_detail\x18\x06 \x01(\tR\fstatusDetail\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb2\x01\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb2\x01\n" +
 	"\vSchemaUsage\x12\x16\n" +
 	"\x06tables\x18\x01 \x01(\x03R\x06tables\x12\x1d\n" +
 	"\n" +
