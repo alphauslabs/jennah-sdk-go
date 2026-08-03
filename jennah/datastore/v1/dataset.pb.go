@@ -31,9 +31,8 @@ const (
 	// Ready for use: the data-plane database exists and the directory row is
 	// registered. Tables may be declared and data committed.
 	DatasetStatus_DATASET_STATUS_ACTIVE DatasetStatus = 1
-	// The data-plane database for the chosen Spanner configuration is being
-	// created (which can take minutes). No table may be declared yet; poll
-	// GetDataset until ACTIVE.
+	// The data-plane database for the chosen location is being created (which can
+	// take minutes). No table may be declared yet; poll GetDataset until ACTIVE.
 	DatasetStatus_DATASET_STATUS_PROVISIONING DatasetStatus = 2
 	// Provisioning failed; status_detail carries the reason. The caller may retry
 	// CreateDataset (idempotent on dataset_id) or delete the failed record.
@@ -103,18 +102,20 @@ type Dataset struct {
 	// through the HTTP gateway, where dataset_id binds as a single path segment.
 	DatasetId   string `protobuf:"bytes,2,opt,name=dataset_id,json=datasetId,proto3" json:"dataset_id,omitempty"`
 	DisplayName string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	// The Spanner configuration this dataset's data lives on: a regional config
-	// for locality, or a multi-region config (e.g. "nam-eur-asia1", "eur6") for
-	// globally strongly-consistent low-latency reads. Chosen at creation and fixed
-	// for the dataset's lifetime.
+	// Where this dataset's data lives: a single-region location for locality, or a
+	// multi-region one for globally strongly-consistent low-latency reads. Chosen at
+	// creation and fixed for the dataset's lifetime. The available locations are
+	// operator-defined topology, discoverable through the platform's own listing —
+	// they are deliberately NOT a backend vendor's configuration names, so the set
+	// can change without becoming a breaking API change.
 	//
-	// The trade is real and the owner picks it deliberately: a multi-region config
+	// The trade is real and the owner picks it deliberately: a multi-region location
 	// buys globally consistent reads at the cost of write latency. Bounded-staleness
 	// reads (see DataService.QueryData) mitigate read latency without giving up the
 	// write geography.
-	SpannerConfig string                 `protobuf:"bytes,4,opt,name=spanner_config,json=spannerConfig,proto3" json:"spanner_config,omitempty"`
-	Status        DatasetStatus          `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.datastore.v1.DatasetStatus" json:"status,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // server-assigned commit timestamp
+	Location  string                 `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`
+	Status    DatasetStatus          `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.datastore.v1.DatasetStatus" json:"status,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // server-assigned commit timestamp
 	// Human-readable detail for a non-terminal or failed status (e.g. the
 	// provisioning phase, or the failure reason when status is FAILED). Empty for
 	// a plain ACTIVE dataset.
@@ -174,9 +175,9 @@ func (x *Dataset) GetDisplayName() string {
 	return ""
 }
 
-func (x *Dataset) GetSpannerConfig() string {
+func (x *Dataset) GetLocation() string {
 	if x != nil {
-		return x.SpannerConfig
+		return x.Location
 	}
 	return ""
 }
@@ -207,9 +208,9 @@ type CreateDatasetRequest struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	DatasetId   string                 `protobuf:"bytes,1,opt,name=dataset_id,json=datasetId,proto3" json:"dataset_id,omitempty"` // caller-chosen; unique within the enterprise
 	DisplayName string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	// Optional Spanner configuration identifier. Must be one the platform offers;
-	// when empty the platform default configuration is used.
-	SpannerConfig string `protobuf:"bytes,3,opt,name=spanner_config,json=spannerConfig,proto3" json:"spanner_config,omitempty"`
+	// Optional location identifier. Must be one the platform offers; when empty the
+	// platform default location is used.
+	Location string `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`
 	// When true, mint an API key scoped to this dataset alongside it and return
 	// its one-time secret. Purely a convenience for the common "create a dataset,
 	// hand its key to an app" flow.
@@ -278,9 +279,9 @@ func (x *CreateDatasetRequest) GetDisplayName() string {
 	return ""
 }
 
-func (x *CreateDatasetRequest) GetSpannerConfig() string {
+func (x *CreateDatasetRequest) GetLocation() string {
 	if x != nil {
-		return x.SpannerConfig
+		return x.Location
 	}
 	return ""
 }
@@ -689,22 +690,22 @@ var File_jennah_datastore_v1_dataset_proto protoreflect.FileDescriptor
 
 const file_jennah_datastore_v1_dataset_proto_rawDesc = "" +
 	"\n" +
-	"!jennah/datastore/v1/dataset.proto\x12\x16jennahapi.datastore.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb6\x02\n" +
+	"!jennah/datastore/v1/dataset.proto\x12\x16jennahapi.datastore.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xab\x02\n" +
 	"\aDataset\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12\x1d\n" +
 	"\n" +
 	"dataset_id\x18\x02 \x01(\tR\tdatasetId\x12!\n" +
-	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12%\n" +
-	"\x0espanner_config\x18\x04 \x01(\tR\rspannerConfig\x12=\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x1a\n" +
+	"\blocation\x18\x04 \x01(\tR\blocation\x12=\n" +
 	"\x06status\x18\x05 \x01(\x0e2%.jennahapi.datastore.v1.DatasetStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12#\n" +
-	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"\xcb\x01\n" +
+	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"\xc0\x01\n" +
 	"\x14CreateDatasetRequest\x12\x1d\n" +
 	"\n" +
 	"dataset_id\x18\x01 \x01(\tR\tdatasetId\x12!\n" +
-	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12%\n" +
-	"\x0espanner_config\x18\x03 \x01(\tR\rspannerConfig\x12$\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12\x1a\n" +
+	"\blocation\x18\x03 \x01(\tR\blocation\x12$\n" +
 	"\x0ecreate_api_key\x18\x04 \x01(\bR\fcreateApiKey\x12$\n" +
 	"\x0eapi_key_scopes\x18\x05 \x03(\tR\fapiKeyScopes\"\x96\x01\n" +
 	"\x15CreateDatasetResponse\x129\n" +

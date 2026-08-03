@@ -39,17 +39,17 @@ const (
 // always comes from the verified credential; DatasetId always from the route.
 //
 // Unlike an agent, a dataset is NOT region-pinned to an agent's execution
-// locality: it selects its own Spanner configuration at creation, so application
-// data can be regional for locality or multi-region for globally
-// strongly-consistent reads.
+// locality: it selects its own LOCATION at creation, so application data can be
+// single-region for locality or multi-region for globally strongly-consistent
+// reads.
 type DatasetServiceClient interface {
 	// Creates a dataset under the caller's enterprise, registers it in the
 	// control-plane directory, and places it on a data-plane database compatible
-	// with the requested Spanner configuration. The EnterpriseId is taken from the
-	// token, never the body.
+	// with the requested location. The EnterpriseId is taken from the token, never
+	// the body.
 	//
 	// Returns the dataset synchronously. When the data-plane database for the
-	// chosen configuration must be provisioned first, the returned Dataset carries
+	// chosen location must be provisioned first, the returned Dataset carries
 	// DATASET_STATUS_PROVISIONING; poll GetDataset until DATASET_STATUS_ACTIVE.
 	//
 	// Requires datastore.datasets:create AND a dataset selector already covering
@@ -137,17 +137,17 @@ func (c *datasetServiceClient) DeleteDataset(ctx context.Context, in *DeleteData
 // always comes from the verified credential; DatasetId always from the route.
 //
 // Unlike an agent, a dataset is NOT region-pinned to an agent's execution
-// locality: it selects its own Spanner configuration at creation, so application
-// data can be regional for locality or multi-region for globally
-// strongly-consistent reads.
+// locality: it selects its own LOCATION at creation, so application data can be
+// single-region for locality or multi-region for globally strongly-consistent
+// reads.
 type DatasetServiceServer interface {
 	// Creates a dataset under the caller's enterprise, registers it in the
 	// control-plane directory, and places it on a data-plane database compatible
-	// with the requested Spanner configuration. The EnterpriseId is taken from the
-	// token, never the body.
+	// with the requested location. The EnterpriseId is taken from the token, never
+	// the body.
 	//
 	// Returns the dataset synchronously. When the data-plane database for the
-	// chosen configuration must be provisioned first, the returned Dataset carries
+	// chosen location must be provisioned first, the returned Dataset carries
 	// DATASET_STATUS_PROVISIONING; poll GetDataset until DATASET_STATUS_ACTIVE.
 	//
 	// Requires datastore.datasets:create AND a dataset selector already covering

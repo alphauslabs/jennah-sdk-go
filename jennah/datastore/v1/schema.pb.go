@@ -31,7 +31,7 @@ const (
 	// The physical table exists and matches the declaration; data may be
 	// committed to it.
 	SchemaStatus_SCHEMA_STATUS_READY SchemaStatus = 1
-	// The DDL has been accepted and is applying. Spanner schema changes are
+	// The change has been accepted and is applying. Schema changes are
 	// queued and can take time, so this is the normal state immediately after a
 	// declaration, not an error.
 	SchemaStatus_SCHEMA_STATUS_PENDING SchemaStatus = 2
@@ -82,8 +82,8 @@ func (SchemaStatus) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{0}
 }
 
-// The type of a declared column. These map to Spanner column types; the mapping
-// is the platform's, so a tenant never writes a Spanner type name.
+// The type of a declared column. These map to real storage types; the mapping is
+// the platform's, so a tenant never writes a backend type name.
 type ColumnType int32
 
 const (

@@ -46,7 +46,7 @@ const (
 // the catalog, is a possible later addition rather than a promise.
 type DataServiceClient interface {
 	// Applies a set of structured row operations across one or more of the
-	// dataset's tables in a SINGLE Spanner read-write transaction, clamped to
+	// dataset's tables in a SINGLE read-write transaction, clamped to
 	// `(EnterpriseId, DatasetId)`. All-or-nothing: if any operation fails, no
 	// operation's rows are written.
 	//
@@ -123,7 +123,7 @@ func (c *dataServiceClient) QueryData(ctx context.Context, in *QueryDataRequest,
 // the catalog, is a possible later addition rather than a promise.
 type DataServiceServer interface {
 	// Applies a set of structured row operations across one or more of the
-	// dataset's tables in a SINGLE Spanner read-write transaction, clamped to
+	// dataset's tables in a SINGLE read-write transaction, clamped to
 	// `(EnterpriseId, DatasetId)`. All-or-nothing: if any operation fails, no
 	// operation's rows are written.
 	//

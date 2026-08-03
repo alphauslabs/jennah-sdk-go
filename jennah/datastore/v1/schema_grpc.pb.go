@@ -32,8 +32,8 @@ const (
 //
 // Tenants declare LOGICAL tables and columns. The control plane validates each
 // declaration against a strict grammar, mints a PHYSICAL identifier for every
-// object, records the logical->physical mapping in the catalog, and issues real
-// Spanner DDL. Callers only ever name logical identifiers; a caller string never
+// object, records the logical->physical mapping in the catalog, and creates real
+// tables. Callers only ever name logical identifiers; a caller string never
 // reaches query text. A logical name absent from the dataset's catalog is a
 // not-found, never a fallthrough to raw interpolation — which is what makes
 // identifier injection structurally impossible rather than merely filtered.
@@ -55,7 +55,7 @@ type SchemaServiceClient interface {
 	// exceeding a dataset's table, column, or index ceiling, which returns
 	// RESOURCE_EXHAUSTED and never a raw backend error.
 	//
-	// Spanner applies schema changes asynchronously, so an accepted declaration
+	// Schema changes are applied asynchronously, so an accepted declaration
 	// returns with each table at SCHEMA_STATUS_PENDING; poll GetSchema until every
 	// table reaches SCHEMA_STATUS_READY before committing data to it.
 	//
@@ -109,8 +109,8 @@ func (c *schemaServiceClient) GetSchema(ctx context.Context, in *GetSchemaReques
 //
 // Tenants declare LOGICAL tables and columns. The control plane validates each
 // declaration against a strict grammar, mints a PHYSICAL identifier for every
-// object, records the logical->physical mapping in the catalog, and issues real
-// Spanner DDL. Callers only ever name logical identifiers; a caller string never
+// object, records the logical->physical mapping in the catalog, and creates real
+// tables. Callers only ever name logical identifiers; a caller string never
 // reaches query text. A logical name absent from the dataset's catalog is a
 // not-found, never a fallthrough to raw interpolation — which is what makes
 // identifier injection structurally impossible rather than merely filtered.
@@ -132,7 +132,7 @@ type SchemaServiceServer interface {
 	// exceeding a dataset's table, column, or index ceiling, which returns
 	// RESOURCE_EXHAUSTED and never a raw backend error.
 	//
-	// Spanner applies schema changes asynchronously, so an accepted declaration
+	// Schema changes are applied asynchronously, so an accepted declaration
 	// returns with each table at SCHEMA_STATUS_PENDING; poll GetSchema until every
 	// table reaches SCHEMA_STATUS_READY before committing data to it.
 	//

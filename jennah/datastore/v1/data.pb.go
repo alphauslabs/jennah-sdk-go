@@ -201,7 +201,7 @@ func (Predicate_Operator) EnumDescriptor() ([]byte, []int) {
 // One typed column value.
 //
 // Values are explicitly typed rather than carried as free-form JSON because
-// application columns are real typed Spanner columns: routing an INT64 through a
+// application columns are real typed columns: routing an INT64 through a
 // JSON number silently loses precision past 2^53, and TIMESTAMP, DATE, and BYTES
 // have no faithful JSON scalar at all. A money column or an id that quietly
 // changes value in transit is exactly the failure this shape exists to prevent.
@@ -1352,7 +1352,7 @@ type isReadStaleness_Mode interface {
 }
 
 type ReadStaleness_MaxStaleness struct {
-	// Read at any timestamp at most this far in the past, letting Spanner pick a
+	// Read at any timestamp at most this far in the past, letting the backend pick a
 	// replica-local timestamp. The usual choice for a low-latency global read.
 	MaxStaleness *durationpb.Duration `protobuf:"bytes,1,opt,name=max_staleness,json=maxStaleness,proto3,oneof"`
 }
