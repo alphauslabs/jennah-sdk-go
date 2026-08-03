@@ -1128,9 +1128,9 @@ type GraphQuery struct {
 	// and is only meaningful together with as_of_valid.
 	//
 	// These are DELIBERATELY DISTINCT from QueryMemoryRequest.as_of. That field is
-	// the physical read snapshot (Spanner ReadTimestamp), bounded by the version-
-	// retention window (~1h) and applied to every section's physical read. Graph
-	// valid-time must reach arbitrarily far back, so it is evaluated as a bound
+	// the physical read snapshot, bounded by the backend's version-retention window
+	// (~1h) and applied to every section's physical read. Graph valid-time must
+	// reach arbitrarily far back, so it is evaluated as a bound
 	// predicate over the validity columns at the current snapshot — never by moving
 	// the physical read timestamp. Both bounds bind as query parameters; the clamp
 	// is injected onto every hop exactly like the tenant/agent clamp and cannot be

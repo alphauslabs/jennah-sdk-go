@@ -31,9 +31,9 @@ const (
 //
 // MemoryService is the unified memory-data plane for an agent workspace.
 type MemoryServiceClient interface {
-	// Applies a multi-section memory step in a SINGLE Spanner read-write
-	// transaction: an optional execution-log step, an optional set of vector
-	// chunks, and an optional set of graph writes. The commit is all-or-nothing —
+	// Applies a multi-section memory step in a SINGLE read-write transaction: an
+	// optional execution-log step, an optional set of vector chunks, and an
+	// optional set of graph writes. The commit is all-or-nothing —
 	// if any section fails (e.g. a vector whose width does not match the
 	// database), no section's rows are written. The commit is rejected, writing
 	// nothing, if the target workspace does not exist under the caller's tenant.
@@ -125,9 +125,9 @@ func (c *memoryServiceClient) SupersedeEdge(ctx context.Context, in *SupersedeEd
 //
 // MemoryService is the unified memory-data plane for an agent workspace.
 type MemoryServiceServer interface {
-	// Applies a multi-section memory step in a SINGLE Spanner read-write
-	// transaction: an optional execution-log step, an optional set of vector
-	// chunks, and an optional set of graph writes. The commit is all-or-nothing —
+	// Applies a multi-section memory step in a SINGLE read-write transaction: an
+	// optional execution-log step, an optional set of vector chunks, and an
+	// optional set of graph writes. The commit is all-or-nothing —
 	// if any section fails (e.g. a vector whose width does not match the
 	// database), no section's rows are written. The commit is rejected, writing
 	// nothing, if the target workspace does not exist under the caller's tenant.

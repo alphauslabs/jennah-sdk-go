@@ -58,7 +58,7 @@ type AuthServiceClient interface {
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResponse, error)
 	// Begins a browser/authorization-code login. WEB returns the encrypted state
 	// blob in the response (proxy stores it in the __Host- cookie); CLI leaves it
-	// empty and the backend persists state in the oauth_state Spanner row.
+	// empty and the backend persists state in its own oauth_state row.
 	// Unauthenticated (interceptor allowlist).
 	StartLogin(ctx context.Context, in *StartLoginRequest, opts ...grpc.CallOption) (*StartLoginResponse, error)
 	// Completes a login after the provider redirects back to jennah's callback:
@@ -474,7 +474,7 @@ type AuthServiceServer interface {
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResponse, error)
 	// Begins a browser/authorization-code login. WEB returns the encrypted state
 	// blob in the response (proxy stores it in the __Host- cookie); CLI leaves it
-	// empty and the backend persists state in the oauth_state Spanner row.
+	// empty and the backend persists state in its own oauth_state row.
 	// Unauthenticated (interceptor allowlist).
 	StartLogin(context.Context, *StartLoginRequest) (*StartLoginResponse, error)
 	// Completes a login after the provider redirects back to jennah's callback:
