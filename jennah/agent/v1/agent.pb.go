@@ -97,7 +97,7 @@ type AgentInstance struct {
 	EnterpriseId    string                 `protobuf:"bytes,1,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
 	AgentInstanceId string                 `protobuf:"bytes,2,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // unique within the enterprise
 	AgentName       string                 `protobuf:"bytes,3,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
-	Region          string                 `protobuf:"bytes,4,opt,name=region,proto3" json:"region,omitempty"` // Jennah region id, e.g. "us-east-1"
+	Region          string                 `protobuf:"bytes,4,opt,name=region,proto3" json:"region,omitempty"` // location id this workspace is pinned to, e.g. "us-east-1" (see PlatformService.ListLocations)
 	Status          AgentStatus            `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.agent.v1.AgentStatus" json:"status,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // server-assigned commit timestamp
 	// Human-readable detail for a non-terminal/failed status (e.g. the region
@@ -187,166 +187,19 @@ func (x *AgentInstance) GetStatusDetail() string {
 	return ""
 }
 
-// A Jennah region an agent workspace can be pinned to. Regions are operator-
-// owned topology (the configured allowlist), identical for every enterprise.
-type Region struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                 // Jennah region id, e.g. "us-central-1"
-	IsDefault     bool                   `protobuf:"varint,2,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"` // true for the region CreateAgent uses when `region` is omitted
-	Location      string                 `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`                     // free-form human-readable location, e.g. "Tokyo, Japan"
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Region) Reset() {
-	*x = Region{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Region) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Region) ProtoMessage() {}
-
-func (x *Region) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Region.ProtoReflect.Descriptor instead.
-func (*Region) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *Region) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *Region) GetIsDefault() bool {
-	if x != nil {
-		return x.IsDefault
-	}
-	return false
-}
-
-func (x *Region) GetLocation() string {
-	if x != nil {
-		return x.Location
-	}
-	return ""
-}
-
-// Request message for the AgentService.ListRegions rpc. No parameters: the
-// region set is global, not tenant- or page-scoped.
-type ListRegionsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListRegionsRequest) Reset() {
-	*x = ListRegionsRequest{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListRegionsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListRegionsRequest) ProtoMessage() {}
-
-func (x *ListRegionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListRegionsRequest.ProtoReflect.Descriptor instead.
-func (*ListRegionsRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{2}
-}
-
-// Response message for the AgentService.ListRegions rpc.
-type ListRegionsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Regions       []*Region              `protobuf:"bytes,1,rep,name=regions,proto3" json:"regions,omitempty"`                                  // configured regions, ordered by id
-	DefaultRegion string                 `protobuf:"bytes,2,opt,name=default_region,json=defaultRegion,proto3" json:"default_region,omitempty"` // id of the default region (also flagged is_default in `regions`)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListRegionsResponse) Reset() {
-	*x = ListRegionsResponse{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListRegionsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListRegionsResponse) ProtoMessage() {}
-
-func (x *ListRegionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListRegionsResponse.ProtoReflect.Descriptor instead.
-func (*ListRegionsResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *ListRegionsResponse) GetRegions() []*Region {
-	if x != nil {
-		return x.Regions
-	}
-	return nil
-}
-
-func (x *ListRegionsResponse) GetDefaultRegion() string {
-	if x != nil {
-		return x.DefaultRegion
-	}
-	return ""
-}
-
 // Request message for the AgentService.CreateAgent rpc.
 type CreateAgentRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // caller-chosen id, unique within the enterprise
 	AgentName       string                 `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
-	// Optional Jennah region identifier (e.g. "us-east-1"). Must be in the
-	// configured region allowlist; when empty the platform default region is used.
+	// Optional location identifier (e.g. "us-east-1"). Must be one the platform
+	// offers for agents — see PlatformService.ListLocations, whose entries carry an
+	// `agents` block where they do — and when empty the default agent location is
+	// used.
+	//
+	// The field is named `region` for historical reasons: it predates the platform
+	// having any placement other than an agent's. A location is not required to be
+	// a single cloud region, so the NAME is narrower than the values it accepts.
 	Region        string `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -354,7 +207,7 @@ type CreateAgentRequest struct {
 
 func (x *CreateAgentRequest) Reset() {
 	*x = CreateAgentRequest{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[4]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -366,7 +219,7 @@ func (x *CreateAgentRequest) String() string {
 func (*CreateAgentRequest) ProtoMessage() {}
 
 func (x *CreateAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[4]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -379,7 +232,7 @@ func (x *CreateAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAgentRequest.ProtoReflect.Descriptor instead.
 func (*CreateAgentRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{4}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CreateAgentRequest) GetAgentInstanceId() string {
@@ -413,7 +266,7 @@ type CreateAgentResponse struct {
 
 func (x *CreateAgentResponse) Reset() {
 	*x = CreateAgentResponse{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[5]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -425,7 +278,7 @@ func (x *CreateAgentResponse) String() string {
 func (*CreateAgentResponse) ProtoMessage() {}
 
 func (x *CreateAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[5]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +291,7 @@ func (x *CreateAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAgentResponse.ProtoReflect.Descriptor instead.
 func (*CreateAgentResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{5}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CreateAgentResponse) GetAgent() *AgentInstance {
@@ -458,7 +311,7 @@ type GetAgentRequest struct {
 
 func (x *GetAgentRequest) Reset() {
 	*x = GetAgentRequest{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[6]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -470,7 +323,7 @@ func (x *GetAgentRequest) String() string {
 func (*GetAgentRequest) ProtoMessage() {}
 
 func (x *GetAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[6]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -483,7 +336,7 @@ func (x *GetAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentRequest.ProtoReflect.Descriptor instead.
 func (*GetAgentRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{6}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetAgentRequest) GetAgentInstanceId() string {
@@ -503,7 +356,7 @@ type GetAgentResponse struct {
 
 func (x *GetAgentResponse) Reset() {
 	*x = GetAgentResponse{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[7]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -515,7 +368,7 @@ func (x *GetAgentResponse) String() string {
 func (*GetAgentResponse) ProtoMessage() {}
 
 func (x *GetAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[7]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,7 +381,7 @@ func (x *GetAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentResponse.ProtoReflect.Descriptor instead.
 func (*GetAgentResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{7}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetAgentResponse) GetAgent() *AgentInstance {
@@ -549,7 +402,7 @@ type ListAgentsRequest struct {
 
 func (x *ListAgentsRequest) Reset() {
 	*x = ListAgentsRequest{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[8]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -561,7 +414,7 @@ func (x *ListAgentsRequest) String() string {
 func (*ListAgentsRequest) ProtoMessage() {}
 
 func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[8]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -574,7 +427,7 @@ func (x *ListAgentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentsRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{8}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListAgentsRequest) GetPageSize() int32 {
@@ -602,7 +455,7 @@ type ListAgentsResponse struct {
 
 func (x *ListAgentsResponse) Reset() {
 	*x = ListAgentsResponse{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[9]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -614,7 +467,7 @@ func (x *ListAgentsResponse) String() string {
 func (*ListAgentsResponse) ProtoMessage() {}
 
 func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[9]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -627,7 +480,7 @@ func (x *ListAgentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentsResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{9}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListAgentsResponse) GetAgents() []*AgentInstance {
@@ -654,7 +507,7 @@ type DeleteAgentRequest struct {
 
 func (x *DeleteAgentRequest) Reset() {
 	*x = DeleteAgentRequest{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[10]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -666,7 +519,7 @@ func (x *DeleteAgentRequest) String() string {
 func (*DeleteAgentRequest) ProtoMessage() {}
 
 func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[10]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -679,7 +532,7 @@ func (x *DeleteAgentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAgentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAgentRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{10}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeleteAgentRequest) GetAgentInstanceId() string {
@@ -706,7 +559,7 @@ type DeleteAgentResponse struct {
 
 func (x *DeleteAgentResponse) Reset() {
 	*x = DeleteAgentResponse{}
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[11]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +571,7 @@ func (x *DeleteAgentResponse) String() string {
 func (*DeleteAgentResponse) ProtoMessage() {}
 
 func (x *DeleteAgentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_agent_proto_msgTypes[11]
+	mi := &file_jennah_agent_v1_agent_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +584,7 @@ func (x *DeleteAgentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAgentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteAgentResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{11}
+	return file_jennah_agent_v1_agent_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeleteAgentResponse) GetDeletedAt() *timestamppb.Timestamp {
@@ -783,16 +636,7 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"\x06status\x18\x05 \x01(\x0e2\x1f.jennahapi.agent.v1.AgentStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12#\n" +
-	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"S\n" +
-	"\x06Region\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
-	"\n" +
-	"is_default\x18\x02 \x01(\bR\tisDefault\x12\x1a\n" +
-	"\blocation\x18\x03 \x01(\tR\blocation\"\x14\n" +
-	"\x12ListRegionsRequest\"r\n" +
-	"\x13ListRegionsResponse\x124\n" +
-	"\aregions\x18\x01 \x03(\v2\x1a.jennahapi.agent.v1.RegionR\aregions\x12%\n" +
-	"\x0edefault_region\x18\x02 \x01(\tR\rdefaultRegion\"w\n" +
+	"\rstatus_detail\x18\a \x01(\tR\fstatusDetail\"w\n" +
 	"\x12CreateAgentRequest\x12*\n" +
 	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12\x1d\n" +
 	"\n" +
@@ -827,9 +671,8 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"\x13AGENT_STATUS_PAUSED\x10\x02\x12\x1a\n" +
 	"\x16AGENT_STATUS_COMPLETED\x10\x03\x12\x1d\n" +
 	"\x19AGENT_STATUS_PROVISIONING\x10\x04\x12\x17\n" +
-	"\x13AGENT_STATUS_FAILED\x10\x052\xf3\x04\n" +
-	"\fAgentService\x12s\n" +
-	"\vListRegions\x12&.jennahapi.agent.v1.ListRegionsRequest\x1a'.jennahapi.agent.v1.ListRegionsResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/regions\x12u\n" +
+	"\x13AGENT_STATUS_FAILED\x10\x052\xfe\x03\n" +
+	"\fAgentService\x12u\n" +
 	"\vCreateAgent\x12&.jennahapi.agent.v1.CreateAgentRequest\x1a'.jennahapi.agent.v1.CreateAgentResponse\"\x15\x82\xd3\xe4\x93\x02\x0f:\x01*\"\n" +
 	"/v1/agents\x12}\n" +
 	"\bGetAgent\x12#.jennahapi.agent.v1.GetAgentRequest\x1a$.jennahapi.agent.v1.GetAgentResponse\"&\x82\xd3\xe4\x93\x02 \x12\x1e/v1/agents/{agent_instance_id}\x12o\n" +
@@ -851,46 +694,40 @@ func file_jennah_agent_v1_agent_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_agent_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_jennah_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_jennah_agent_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_jennah_agent_v1_agent_proto_goTypes = []any{
 	(AgentStatus)(0),              // 0: jennahapi.agent.v1.AgentStatus
 	(*AgentInstance)(nil),         // 1: jennahapi.agent.v1.AgentInstance
-	(*Region)(nil),                // 2: jennahapi.agent.v1.Region
-	(*ListRegionsRequest)(nil),    // 3: jennahapi.agent.v1.ListRegionsRequest
-	(*ListRegionsResponse)(nil),   // 4: jennahapi.agent.v1.ListRegionsResponse
-	(*CreateAgentRequest)(nil),    // 5: jennahapi.agent.v1.CreateAgentRequest
-	(*CreateAgentResponse)(nil),   // 6: jennahapi.agent.v1.CreateAgentResponse
-	(*GetAgentRequest)(nil),       // 7: jennahapi.agent.v1.GetAgentRequest
-	(*GetAgentResponse)(nil),      // 8: jennahapi.agent.v1.GetAgentResponse
-	(*ListAgentsRequest)(nil),     // 9: jennahapi.agent.v1.ListAgentsRequest
-	(*ListAgentsResponse)(nil),    // 10: jennahapi.agent.v1.ListAgentsResponse
-	(*DeleteAgentRequest)(nil),    // 11: jennahapi.agent.v1.DeleteAgentRequest
-	(*DeleteAgentResponse)(nil),   // 12: jennahapi.agent.v1.DeleteAgentResponse
-	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
+	(*CreateAgentRequest)(nil),    // 2: jennahapi.agent.v1.CreateAgentRequest
+	(*CreateAgentResponse)(nil),   // 3: jennahapi.agent.v1.CreateAgentResponse
+	(*GetAgentRequest)(nil),       // 4: jennahapi.agent.v1.GetAgentRequest
+	(*GetAgentResponse)(nil),      // 5: jennahapi.agent.v1.GetAgentResponse
+	(*ListAgentsRequest)(nil),     // 6: jennahapi.agent.v1.ListAgentsRequest
+	(*ListAgentsResponse)(nil),    // 7: jennahapi.agent.v1.ListAgentsResponse
+	(*DeleteAgentRequest)(nil),    // 8: jennahapi.agent.v1.DeleteAgentRequest
+	(*DeleteAgentResponse)(nil),   // 9: jennahapi.agent.v1.DeleteAgentResponse
+	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
 }
 var file_jennah_agent_v1_agent_proto_depIdxs = []int32{
 	0,  // 0: jennahapi.agent.v1.AgentInstance.status:type_name -> jennahapi.agent.v1.AgentStatus
-	13, // 1: jennahapi.agent.v1.AgentInstance.created_at:type_name -> google.protobuf.Timestamp
-	2,  // 2: jennahapi.agent.v1.ListRegionsResponse.regions:type_name -> jennahapi.agent.v1.Region
-	1,  // 3: jennahapi.agent.v1.CreateAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
-	1,  // 4: jennahapi.agent.v1.GetAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
-	1,  // 5: jennahapi.agent.v1.ListAgentsResponse.agents:type_name -> jennahapi.agent.v1.AgentInstance
-	13, // 6: jennahapi.agent.v1.DeleteAgentResponse.deleted_at:type_name -> google.protobuf.Timestamp
-	3,  // 7: jennahapi.agent.v1.AgentService.ListRegions:input_type -> jennahapi.agent.v1.ListRegionsRequest
-	5,  // 8: jennahapi.agent.v1.AgentService.CreateAgent:input_type -> jennahapi.agent.v1.CreateAgentRequest
-	7,  // 9: jennahapi.agent.v1.AgentService.GetAgent:input_type -> jennahapi.agent.v1.GetAgentRequest
-	9,  // 10: jennahapi.agent.v1.AgentService.ListAgents:input_type -> jennahapi.agent.v1.ListAgentsRequest
-	11, // 11: jennahapi.agent.v1.AgentService.DeleteAgent:input_type -> jennahapi.agent.v1.DeleteAgentRequest
-	4,  // 12: jennahapi.agent.v1.AgentService.ListRegions:output_type -> jennahapi.agent.v1.ListRegionsResponse
-	6,  // 13: jennahapi.agent.v1.AgentService.CreateAgent:output_type -> jennahapi.agent.v1.CreateAgentResponse
-	8,  // 14: jennahapi.agent.v1.AgentService.GetAgent:output_type -> jennahapi.agent.v1.GetAgentResponse
-	10, // 15: jennahapi.agent.v1.AgentService.ListAgents:output_type -> jennahapi.agent.v1.ListAgentsResponse
-	12, // 16: jennahapi.agent.v1.AgentService.DeleteAgent:output_type -> jennahapi.agent.v1.DeleteAgentResponse
-	12, // [12:17] is the sub-list for method output_type
-	7,  // [7:12] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	10, // 1: jennahapi.agent.v1.AgentInstance.created_at:type_name -> google.protobuf.Timestamp
+	1,  // 2: jennahapi.agent.v1.CreateAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
+	1,  // 3: jennahapi.agent.v1.GetAgentResponse.agent:type_name -> jennahapi.agent.v1.AgentInstance
+	1,  // 4: jennahapi.agent.v1.ListAgentsResponse.agents:type_name -> jennahapi.agent.v1.AgentInstance
+	10, // 5: jennahapi.agent.v1.DeleteAgentResponse.deleted_at:type_name -> google.protobuf.Timestamp
+	2,  // 6: jennahapi.agent.v1.AgentService.CreateAgent:input_type -> jennahapi.agent.v1.CreateAgentRequest
+	4,  // 7: jennahapi.agent.v1.AgentService.GetAgent:input_type -> jennahapi.agent.v1.GetAgentRequest
+	6,  // 8: jennahapi.agent.v1.AgentService.ListAgents:input_type -> jennahapi.agent.v1.ListAgentsRequest
+	8,  // 9: jennahapi.agent.v1.AgentService.DeleteAgent:input_type -> jennahapi.agent.v1.DeleteAgentRequest
+	3,  // 10: jennahapi.agent.v1.AgentService.CreateAgent:output_type -> jennahapi.agent.v1.CreateAgentResponse
+	5,  // 11: jennahapi.agent.v1.AgentService.GetAgent:output_type -> jennahapi.agent.v1.GetAgentResponse
+	7,  // 12: jennahapi.agent.v1.AgentService.ListAgents:output_type -> jennahapi.agent.v1.ListAgentsResponse
+	9,  // 13: jennahapi.agent.v1.AgentService.DeleteAgent:output_type -> jennahapi.agent.v1.DeleteAgentResponse
+	10, // [10:14] is the sub-list for method output_type
+	6,  // [6:10] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_agent_proto_init() }
@@ -904,7 +741,7 @@ func file_jennah_agent_v1_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_agent_v1_agent_proto_rawDesc), len(file_jennah_agent_v1_agent_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   12,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

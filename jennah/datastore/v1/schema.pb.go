@@ -96,7 +96,7 @@ const (
 	ColumnType_COLUMN_TYPE_DATE        ColumnType = 6
 	ColumnType_COLUMN_TYPE_BYTES       ColumnType = 7
 	ColumnType_COLUMN_TYPE_JSON        ColumnType = 8
-	// A fixed-width embedding column, searchable by exact COSINE_DISTANCE as a
+	// A fixed-width embedding column, searchable by exact cosine distance as a
 	// section of DataService.QueryData. Requires `vector` to be set.
 	ColumnType_COLUMN_TYPE_VECTOR ColumnType = 9
 )

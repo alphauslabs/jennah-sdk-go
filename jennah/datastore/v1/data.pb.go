@@ -421,8 +421,9 @@ func (*Value_JsonValue) isValue_Kind() {}
 func (*Value_VectorValue) isValue_Kind() {}
 
 // A fixed-width embedding. Its length must equal the target column's declared
-// `dimensions`; a mismatch is refused rather than padded or truncated. float
-// (32-bit) matches the store's ARRAY<FLOAT32> vector column.
+// `dimensions`; a mismatch is refused rather than padded or truncated.
+// Single-precision (32-bit) because that is the precision vectors are stored at;
+// sending double would be silently narrowed.
 type VectorValue struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []float32              `protobuf:"fixed32,1,rep,packed,name=values,proto3" json:"values,omitempty"`
@@ -1146,7 +1147,7 @@ func (x *RelationalQuery) GetPageToken() string {
 
 // Vector section: exact-KNN ranking over one vector column.
 //
-// Ranking is EXACT COSINE_DISTANCE, not an approximate index. Each query is
+// Ranking is by EXACT cosine distance, not an approximate index. Each query is
 // already clamped to a dataset slice, which makes the scan small and an ANN
 // index pointless — the same conclusion the memory plane reached.
 type VectorQuery struct {

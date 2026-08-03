@@ -19,7 +19,6 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AgentService_ListRegions_FullMethodName = "/jennahapi.agent.v1.AgentService/ListRegions"
 	AgentService_CreateAgent_FullMethodName = "/jennahapi.agent.v1.AgentService/CreateAgent"
 	AgentService_GetAgent_FullMethodName    = "/jennahapi.agent.v1.AgentService/GetAgent"
 	AgentService_ListAgents_FullMethodName  = "/jennahapi.agent.v1.AgentService/ListAgents"
@@ -32,12 +31,6 @@ const (
 //
 // AgentService is the lifecycle control plane for an enterprise's agent workspaces.
 type AgentServiceClient interface {
-	// Lists the Jennah regions an agent workspace can be created in: the region
-	// allowlist is operator-owned topology, so a caller cannot know the valid
-	// `region` values for CreateAgent without asking. The response marks the
-	// default region (the one CreateAgent uses when `region` is omitted). Scoped
-	// to authenticated callers; the set is identical for every enterprise.
-	ListRegions(ctx context.Context, in *ListRegionsRequest, opts ...grpc.CallOption) (*ListRegionsResponse, error)
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
@@ -76,16 +69,6 @@ type agentServiceClient struct {
 
 func NewAgentServiceClient(cc grpc.ClientConnInterface) AgentServiceClient {
 	return &agentServiceClient{cc}
-}
-
-func (c *agentServiceClient) ListRegions(ctx context.Context, in *ListRegionsRequest, opts ...grpc.CallOption) (*ListRegionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListRegionsResponse)
-	err := c.cc.Invoke(ctx, AgentService_ListRegions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *agentServiceClient) CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error) {
@@ -134,12 +117,6 @@ func (c *agentServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentReq
 //
 // AgentService is the lifecycle control plane for an enterprise's agent workspaces.
 type AgentServiceServer interface {
-	// Lists the Jennah regions an agent workspace can be created in: the region
-	// allowlist is operator-owned topology, so a caller cannot know the valid
-	// `region` values for CreateAgent without asking. The response marks the
-	// default region (the one CreateAgent uses when `region` is omitted). Scoped
-	// to authenticated callers; the set is identical for every enterprise.
-	ListRegions(context.Context, *ListRegionsRequest) (*ListRegionsResponse, error)
 	// Creates a new agent workspace under the caller's enterprise. The home region
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
@@ -180,9 +157,6 @@ type AgentServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAgentServiceServer struct{}
 
-func (UnimplementedAgentServiceServer) ListRegions(context.Context, *ListRegionsRequest) (*ListRegionsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListRegions not implemented")
-}
 func (UnimplementedAgentServiceServer) CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateAgent not implemented")
 }
@@ -214,24 +188,6 @@ func RegisterAgentServiceServer(s grpc.ServiceRegistrar, srv AgentServiceServer)
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&AgentService_ServiceDesc, srv)
-}
-
-func _AgentService_ListRegions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListRegionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentServiceServer).ListRegions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AgentService_ListRegions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServiceServer).ListRegions(ctx, req.(*ListRegionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _AgentService_CreateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -313,10 +269,6 @@ var AgentService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "jennahapi.agent.v1.AgentService",
 	HandlerType: (*AgentServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ListRegions",
-			Handler:    _AgentService_ListRegions_Handler,
-		},
 		{
 			MethodName: "CreateAgent",
 			Handler:    _AgentService_CreateAgent_Handler,

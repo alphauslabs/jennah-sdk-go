@@ -409,11 +409,12 @@ type VectorChunk struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	ChunkId    string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"` // caller-chosen; unique within the agent slice
 	RawContent string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
-	// Optional precomputed embedding. When empty, the gateway generates it from
-	// raw_content server-side (Vertex AI, task_type RETRIEVAL_DOCUMENT). When
-	// supplied, its length MUST equal the data-plane database's configured
-	// embedding width or the whole commit is rejected. float (32-bit) matches the
-	// store's ARRAY<FLOAT32> vector column.
+	// Optional precomputed embedding. When empty, the platform generates it from
+	// raw_content server-side, using the managed embedding model configured for the
+	// agent's location and a retrieval-document task type. When supplied, its length
+	// MUST equal that location's configured embedding width or the whole commit is
+	// rejected. Single-precision (32-bit) because that is the precision vectors are
+	// stored at; sending double would be silently narrowed.
 	Embedding []float32 `protobuf:"fixed32,3,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`
 	// Optional caller-supplied attribution stored with the chunk: where it came
 	// from, when, what kind of thing it is. Returned with the chunk on search and
@@ -1102,14 +1103,14 @@ func (x *MetadataFilter) GetOperator() MetadataFilter_Operator {
 	return MetadataFilter_OPERATOR_UNSPECIFIED
 }
 
-// Graph-section query: a STRUCTURED traversal over the agent's
-// AgentKnowledgeGraph. The gateway BUILDS the GQL server-side from these typed
+// Graph-section query: a STRUCTURED traversal over the agent's knowledge graph.
+// The platform BUILDS the graph query server-side from these typed
 // fields, so no caller-authored query text is ever executed: every generated
 // pattern element carries the (EnterpriseId, AgentInstanceId) clamp
 // unconditionally and the slice cannot be widened. All caller values bind as
 // query parameters; the few caller-supplied identifiers (property keys) are
 // validated against a strict allowlist. This is the "structural injection, not
-// trust" clamp — a free-form GQL string surface was rejected because it would
+// trust" clamp — a free-form query-string surface was rejected because it would
 // require parsing and rewriting untrusted query text.
 //
 // A query is an anchor node set plus zero or more single-hop traversals. Each

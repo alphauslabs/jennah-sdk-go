@@ -41,7 +41,7 @@ type MemoryServiceClient interface {
 	CommitMemory(ctx context.Context, in *CommitMemoryRequest, opts ...grpc.CallOption) (*CommitMemoryResponse, error)
 	// Evaluates a multi-section read against ONE read snapshot so results are
 	// internally consistent across memory types: an optional semantic (vector)
-	// section, an optional graph (GQL) section, and an optional execution-log
+	// section, an optional graph (traversal) section, and an optional execution-log
 	// section. Returns one result section per requested section, plus a fused
 	// result when `link` is set. An optional `as_of` timestamp is applied
 	// uniformly to every section so all sections observe the same historical
@@ -135,7 +135,7 @@ type MemoryServiceServer interface {
 	CommitMemory(context.Context, *CommitMemoryRequest) (*CommitMemoryResponse, error)
 	// Evaluates a multi-section read against ONE read snapshot so results are
 	// internally consistent across memory types: an optional semantic (vector)
-	// section, an optional graph (GQL) section, and an optional execution-log
+	// section, an optional graph (traversal) section, and an optional execution-log
 	// section. Returns one result section per requested section, plus a fused
 	// result when `link` is set. An optional `as_of` timestamp is applied
 	// uniformly to every section so all sections observe the same historical
