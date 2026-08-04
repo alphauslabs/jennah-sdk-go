@@ -31,10 +31,20 @@ const (
 	OperationType_OPERATION_TYPE_UNSPECIFIED OperationType = 0
 	// Fails if a row with the same primary key already exists.
 	OperationType_OPERATION_TYPE_INSERT OperationType = 1
-	// Writes or replaces the row wholesale.
+	// Writes the row when its primary key is new, and otherwise overwrites the
+	// columns named in `row` on the row already there.
+	//
+	// An upsert MERGES on the key rather than replacing the row: a column the
+	// operation does not name keeps the value it had, so upserting
+	// {customer_id, email} over a row that also carries `phone` leaves `phone`
+	// intact. Name a column with a null value to clear it.
 	OperationType_OPERATION_TYPE_UPSERT OperationType = 2
-	// Updates the columns present in `row` on rows matching `where`; fails if no
-	// row matches.
+	// Sets the columns present in `row` on rows matching `where`.
+	//
+	// Matching NO row is not an error: the operation is a no-op and the receipt
+	// reports zero rows for the table. Read the receipt's row count when the
+	// difference matters, rather than treating a successful commit as proof a row
+	// was there to update.
 	OperationType_OPERATION_TYPE_UPDATE OperationType = 3
 	// Deletes rows matching `where`.
 	OperationType_OPERATION_TYPE_DELETE OperationType = 4
@@ -606,6 +616,11 @@ type RowOperation struct {
 	Table string        `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`
 	Type  OperationType `protobuf:"varint,2,opt,name=type,proto3,enum=jennahapi.datastore.v1.OperationType" json:"type,omitempty"`
 	// Column values for INSERT, UPSERT, and UPDATE. Ignored for DELETE.
+	//
+	// INSERT and UPSERT address the row by key, so both must name EVERY
+	// primary-key column; a partial key is a typed error rather than a write to
+	// some other row. UPDATE addresses rows through `where` instead and needs at
+	// least one column to set.
 	//
 	// A vector column's value is supplied here like any other, as a
 	// VectorValue — and its ABSENCE is meaningful. When the column declares a
