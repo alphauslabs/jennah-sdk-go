@@ -29,19 +29,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// DatasetService is the lifecycle control plane for an enterprise's application
-// datasets.
-//
-// A DATASET is a tenant-owned container of user-defined application tables —
-// peer to an agent workspace, not nested under one. `(EnterpriseId, DatasetId)`
-// is the clamp prefix for every application statement, exactly mirroring the
-// `(EnterpriseId, AgentInstanceId)` model of the memory plane. EnterpriseId
-// always comes from the verified credential; DatasetId always from the route.
-//
-// Unlike an agent, a dataset is NOT region-pinned to an agent's execution
-// locality: it selects its own LOCATION at creation, so application data can be
-// single-region for locality or multi-region for globally strongly-consistent
-// reads.
+// DatasetService is the lifecycle control plane for an enterprise's application datasets.
 type DatasetServiceClient interface {
 	// Creates a dataset under the caller's enterprise, registers it in the
 	// control-plane directory, and places it on a data-plane database compatible
@@ -127,19 +115,7 @@ func (c *datasetServiceClient) DeleteDataset(ctx context.Context, in *DeleteData
 // All implementations must embed UnimplementedDatasetServiceServer
 // for forward compatibility.
 //
-// DatasetService is the lifecycle control plane for an enterprise's application
-// datasets.
-//
-// A DATASET is a tenant-owned container of user-defined application tables —
-// peer to an agent workspace, not nested under one. `(EnterpriseId, DatasetId)`
-// is the clamp prefix for every application statement, exactly mirroring the
-// `(EnterpriseId, AgentInstanceId)` model of the memory plane. EnterpriseId
-// always comes from the verified credential; DatasetId always from the route.
-//
-// Unlike an agent, a dataset is NOT region-pinned to an agent's execution
-// locality: it selects its own LOCATION at creation, so application data can be
-// single-region for locality or multi-region for globally strongly-consistent
-// reads.
+// DatasetService is the lifecycle control plane for an enterprise's application datasets.
 type DatasetServiceServer interface {
 	// Creates a dataset under the caller's enterprise, registers it in the
 	// control-plane directory, and places it on a data-plane database compatible

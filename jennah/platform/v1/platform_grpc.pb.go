@@ -26,16 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// PlatformService exposes facts about the platform itself rather than about any
-// enterprise's resources: topology that is operator-owned and identical for every
-// caller.
-//
-// It exists because location discovery outgrew AgentService. The listing began as
-// ListRegions there, when agent workspaces were the only thing that had a
-// placement. The application datastore gave locations a second consumer, and a
-// listing describing where DATASETS may live does not belong on the service that
-// manages agents — a caller holding only datastore permissions would have to ask
-// the agent surface where its data can go.
+// PlatformService is the discovery surface for operator-owned platform topology.
 type PlatformServiceClient interface {
 	// Lists the locations tenant resources may be placed in, and what each one is
 	// provisioned for. Callers cannot know the valid location values without
@@ -73,16 +64,7 @@ func (c *platformServiceClient) ListLocations(ctx context.Context, in *ListLocat
 // All implementations must embed UnimplementedPlatformServiceServer
 // for forward compatibility.
 //
-// PlatformService exposes facts about the platform itself rather than about any
-// enterprise's resources: topology that is operator-owned and identical for every
-// caller.
-//
-// It exists because location discovery outgrew AgentService. The listing began as
-// ListRegions there, when agent workspaces were the only thing that had a
-// placement. The application datastore gave locations a second consumer, and a
-// listing describing where DATASETS may live does not belong on the service that
-// manages agents — a caller holding only datastore permissions would have to ask
-// the agent surface where its data can go.
+// PlatformService is the discovery surface for operator-owned platform topology.
 type PlatformServiceServer interface {
 	// Lists the locations tenant resources may be placed in, and what each one is
 	// provisioned for. Callers cannot know the valid location values without

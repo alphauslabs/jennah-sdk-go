@@ -27,21 +27,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// SchemaService is the tenant-facing schema catalog for a dataset's
-// user-defined tables.
-//
-// Tenants declare LOGICAL tables and columns. The control plane validates each
-// declaration against a strict grammar, mints a PHYSICAL identifier for every
-// object, records the logical->physical mapping in the catalog, and creates real
-// tables. Callers only ever name logical identifiers; a caller string never
-// reaches query text. A logical name absent from the dataset's catalog is a
-// not-found, never a fallthrough to raw interpolation — which is what makes
-// identifier injection structurally impossible rather than merely filtered.
-//
-// Every table's primary key is led by `(EnterpriseId, DatasetId)`, prepended by
-// the platform and NOT expressible in a declaration. That is what makes a
-// dataset's rows a contiguous key range and isolation a mandatory bound
-// predicate rather than a remembered WHERE clause.
+// SchemaService is the tenant-facing schema catalog for a dataset's user-defined tables.
 type SchemaServiceClient interface {
 	// Declares or evolves the dataset's tables. Idempotent and ADDITIVE:
 	// re-declaring an existing table or column is a no-op, and a new column is
@@ -104,21 +90,7 @@ func (c *schemaServiceClient) GetSchema(ctx context.Context, in *GetSchemaReques
 // All implementations must embed UnimplementedSchemaServiceServer
 // for forward compatibility.
 //
-// SchemaService is the tenant-facing schema catalog for a dataset's
-// user-defined tables.
-//
-// Tenants declare LOGICAL tables and columns. The control plane validates each
-// declaration against a strict grammar, mints a PHYSICAL identifier for every
-// object, records the logical->physical mapping in the catalog, and creates real
-// tables. Callers only ever name logical identifiers; a caller string never
-// reaches query text. A logical name absent from the dataset's catalog is a
-// not-found, never a fallthrough to raw interpolation — which is what makes
-// identifier injection structurally impossible rather than merely filtered.
-//
-// Every table's primary key is led by `(EnterpriseId, DatasetId)`, prepended by
-// the platform and NOT expressible in a declaration. That is what makes a
-// dataset's rows a contiguous key range and isolation a mandatory bound
-// predicate rather than a remembered WHERE clause.
+// SchemaService is the tenant-facing schema catalog for a dataset's user-defined tables.
 type SchemaServiceServer interface {
 	// Declares or evolves the dataset's tables. Idempotent and ADDITIVE:
 	// re-declaring an existing table or column is a no-op, and a new column is

@@ -27,23 +27,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// DataService is the row transport for a dataset's application tables: a
-// structured write and a structured read, mirroring the memory plane's
-// CommitMemory / QueryMemory.
-//
-// Both are STRUCTURED, not SQL. A caller sends an operation tree naming logical
-// tables and columns; the gateway resolves those through the catalog to
-// platform-minted physical identifiers, injects the `(EnterpriseId, DatasetId)`
-// clamp into every table pattern, and binds every caller value as a query
-// parameter. No caller-authored query text is ever executed.
-//
-// That is a deliberate expressiveness trade. Raw SQL passthrough would re-open
-// both identifier injection and clamp escape, and force a full SQL
-// parser/rewriter onto the hostile path; a structured tree lets the gateway EMIT
-// the statement with the clamp and identifiers under its own control. The gap is
-// real — aggregations, subqueries, and arbitrary expressions are not expressible
-// here — and a controlled read-only SQL surface, parsed and re-clamped through
-// the catalog, is a possible later addition rather than a promise.
+// DataService is the structured row transport for a dataset's application tables.
 type DataServiceClient interface {
 	// Applies a set of structured row operations across one or more of the
 	// dataset's tables in a SINGLE read-write transaction, clamped to
@@ -54,6 +38,14 @@ type DataServiceClient interface {
 	// embedding, and rows in other tables land together or not at all. An
 	// operation naming a table absent from the dataset's catalog rejects the whole
 	// commit, writing nothing.
+	//
+	// An operation may also make its OWN effect a precondition of the commit (see
+	// RowOperation.expect), which is what makes compare-and-set expressible. An
+	// unmet precondition returns FAILED_PRECONDITION and writes nothing; the
+	// status carries a google.rpc.PreconditionFailure naming the operation, its
+	// table, and the expected and observed counts, so it is distinguishable from
+	// a rejected truncation, which reports the same code. Never retry it blindly:
+	// re-read the contended row and decide again.
 	//
 	// Requires datastore.data:write and a dataset selector matching dataset_id.
 	CommitData(ctx context.Context, in *CommitDataRequest, opts ...grpc.CallOption) (*CommitDataResponse, error)
@@ -104,23 +96,7 @@ func (c *dataServiceClient) QueryData(ctx context.Context, in *QueryDataRequest,
 // All implementations must embed UnimplementedDataServiceServer
 // for forward compatibility.
 //
-// DataService is the row transport for a dataset's application tables: a
-// structured write and a structured read, mirroring the memory plane's
-// CommitMemory / QueryMemory.
-//
-// Both are STRUCTURED, not SQL. A caller sends an operation tree naming logical
-// tables and columns; the gateway resolves those through the catalog to
-// platform-minted physical identifiers, injects the `(EnterpriseId, DatasetId)`
-// clamp into every table pattern, and binds every caller value as a query
-// parameter. No caller-authored query text is ever executed.
-//
-// That is a deliberate expressiveness trade. Raw SQL passthrough would re-open
-// both identifier injection and clamp escape, and force a full SQL
-// parser/rewriter onto the hostile path; a structured tree lets the gateway EMIT
-// the statement with the clamp and identifiers under its own control. The gap is
-// real — aggregations, subqueries, and arbitrary expressions are not expressible
-// here — and a controlled read-only SQL surface, parsed and re-clamped through
-// the catalog, is a possible later addition rather than a promise.
+// DataService is the structured row transport for a dataset's application tables.
 type DataServiceServer interface {
 	// Applies a set of structured row operations across one or more of the
 	// dataset's tables in a SINGLE read-write transaction, clamped to
@@ -131,6 +107,14 @@ type DataServiceServer interface {
 	// embedding, and rows in other tables land together or not at all. An
 	// operation naming a table absent from the dataset's catalog rejects the whole
 	// commit, writing nothing.
+	//
+	// An operation may also make its OWN effect a precondition of the commit (see
+	// RowOperation.expect), which is what makes compare-and-set expressible. An
+	// unmet precondition returns FAILED_PRECONDITION and writes nothing; the
+	// status carries a google.rpc.PreconditionFailure naming the operation, its
+	// table, and the expected and observed counts, so it is distinguishable from
+	// a rejected truncation, which reports the same code. Never retry it blindly:
+	// re-read the contended row and decide again.
 	//
 	// Requires datastore.data:write and a dataset selector matching dataset_id.
 	CommitData(context.Context, *CommitDataRequest) (*CommitDataResponse, error)
