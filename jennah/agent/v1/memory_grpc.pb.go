@@ -33,7 +33,7 @@ const (
 type MemoryServiceClient interface {
 	// Applies a multi-section memory step in a SINGLE read-write transaction: an
 	// optional execution-log step, an optional set of vector chunks, and an
-	// optional set of graph writes. The commit is all-or-nothing —
+	// optional set of graph writes. The commit is all-or-nothing:
 	// if any section fails (e.g. a vector whose width does not match the
 	// database), no section's rows are written. The commit is rejected, writing
 	// nothing, if the target workspace does not exist under the caller's tenant.
@@ -49,7 +49,7 @@ type MemoryServiceClient interface {
 	// AgentInstanceId) slice.
 	QueryMemory(ctx context.Context, in *QueryMemoryRequest, opts ...grpc.CallOption) (*QueryMemoryResponse, error)
 	// Lists the stored rows of one or more memory sections WITHOUT a query anchor,
-	// for debugging and inspection: the vector chunks (content only — embedding
+	// for debugging and inspection: the vector chunks (content only; embedding
 	// vectors are never returned), the graph nodes and edges, and the recent
 	// execution-log steps. Unlike QueryMemory it takes no semantic query or graph
 	// start pattern; each requested section is simply enumerated within the
@@ -127,7 +127,7 @@ func (c *memoryServiceClient) SupersedeEdge(ctx context.Context, in *SupersedeEd
 type MemoryServiceServer interface {
 	// Applies a multi-section memory step in a SINGLE read-write transaction: an
 	// optional execution-log step, an optional set of vector chunks, and an
-	// optional set of graph writes. The commit is all-or-nothing —
+	// optional set of graph writes. The commit is all-or-nothing:
 	// if any section fails (e.g. a vector whose width does not match the
 	// database), no section's rows are written. The commit is rejected, writing
 	// nothing, if the target workspace does not exist under the caller's tenant.
@@ -143,7 +143,7 @@ type MemoryServiceServer interface {
 	// AgentInstanceId) slice.
 	QueryMemory(context.Context, *QueryMemoryRequest) (*QueryMemoryResponse, error)
 	// Lists the stored rows of one or more memory sections WITHOUT a query anchor,
-	// for debugging and inspection: the vector chunks (content only — embedding
+	// for debugging and inspection: the vector chunks (content only; embedding
 	// vectors are never returned), the graph nodes and edges, and the recent
 	// execution-log steps. Unlike QueryMemory it takes no semantic query or graph
 	// start pattern; each requested section is simply enumerated within the

@@ -34,7 +34,7 @@ type DataServiceClient interface {
 	// `(EnterpriseId, DatasetId)`. All-or-nothing: if any operation fails, no
 	// operation's rows are written.
 	//
-	// This is the atomic multi-table write a split stack cannot offer — a row, its
+	// This is the atomic multi-table write a split stack cannot offer: a row, its
 	// embedding, and rows in other tables land together or not at all. An
 	// operation naming a table absent from the dataset's catalog rejects the whole
 	// commit, writing nothing.
@@ -46,6 +46,12 @@ type DataServiceClient interface {
 	// table, and the expected and observed counts, so it is distinguishable from
 	// a rejected truncation, which reports the same code. Never retry it blindly:
 	// re-read the contended row and decide again.
+	//
+	// A commit whose response is LOST is recoverable only if it carried an
+	// idempotency_key: resending it with the same key applies nothing a second
+	// time and returns the original commit's receipt. Without a key there is no
+	// way to ask whether a commit landed, and no way to say "this is the same one
+	// I already sent". See CommitDataRequest.idempotency_key.
 	//
 	// Requires datastore.data:write and a dataset selector matching dataset_id.
 	CommitData(ctx context.Context, in *CommitDataRequest, opts ...grpc.CallOption) (*CommitDataResponse, error)
@@ -103,7 +109,7 @@ type DataServiceServer interface {
 	// `(EnterpriseId, DatasetId)`. All-or-nothing: if any operation fails, no
 	// operation's rows are written.
 	//
-	// This is the atomic multi-table write a split stack cannot offer — a row, its
+	// This is the atomic multi-table write a split stack cannot offer: a row, its
 	// embedding, and rows in other tables land together or not at all. An
 	// operation naming a table absent from the dataset's catalog rejects the whole
 	// commit, writing nothing.
@@ -115,6 +121,12 @@ type DataServiceServer interface {
 	// table, and the expected and observed counts, so it is distinguishable from
 	// a rejected truncation, which reports the same code. Never retry it blindly:
 	// re-read the contended row and decide again.
+	//
+	// A commit whose response is LOST is recoverable only if it carried an
+	// idempotency_key: resending it with the same key applies nothing a second
+	// time and returns the original commit's receipt. Without a key there is no
+	// way to ask whether a commit landed, and no way to say "this is the same one
+	// I already sent". See CommitDataRequest.idempotency_key.
 	//
 	// Requires datastore.data:write and a dataset selector matching dataset_id.
 	CommitData(context.Context, *CommitDataRequest) (*CommitDataResponse, error)

@@ -133,13 +133,13 @@ func (GraphDirection) EnumDescriptor() ([]byte, []int) {
 
 // Operator selects how `value` is compared against the chunk's stored value
 // for `key`. An operator this version does not implement is rejected with
-// UNIMPLEMENTED rather than silently treated as equality — a filter that
+// UNIMPLEMENTED rather than silently treated as equality: a filter that
 // quietly means something other than what you asked for returns a
 // plausible-looking result set that is wrong.
 //
 // ORDERED COMPARISON IS LEXICOGRAPHIC, over the stored string. A metadata
 // value carries no type tag and the platform deliberately does not infer one,
-// so comparison is byte order — NOT numeric. That is exact for values encoded
+// so comparison is byte order, NOT numeric. That is exact for values encoded
 // so byte order matches their natural order, and wrong for values that are
 // not:
 //
@@ -241,7 +241,7 @@ type CommitMemoryRequest struct {
 	// Truncation policy belongs to the caller. An audit-trail writer may prefer a
 	// degraded embedding over a lost commit; a retrieval-critical writer prefers
 	// to fail, split the content, and re-commit. Defaults to false so a caller
-	// that does not care keeps today's behavior — the receipt's
+	// that does not care keeps today's behavior: the receipt's
 	// `truncated_chunk_ids` reports the same fact without refusing the write.
 	//
 	// Rejection fires only on the model's OWN report of truncation, never on an
@@ -421,7 +421,7 @@ type VectorChunk struct {
 	// inspect, and usable as a pre-ranking filter on a semantic query (see
 	// SemanticQuery.filters).
 	//
-	// Metadata is NOT embedded — only raw_content is — so putting provenance here
+	// Metadata is NOT embedded (only raw_content is), so putting provenance here
 	// instead of inside the text keeps it out of the vector, where it would
 	// otherwise dilute similarity and still not be filterable.
 	//
@@ -747,7 +747,7 @@ type CommitMemoryResponse struct {
 	// Chunks whose SERVER-GENERATED embedding the model truncated because the
 	// content exceeded the embedding model's input limit. The commit SUCCEEDED,
 	// but for each id listed here the tail of `raw_content` is not represented in
-	// the stored vector and is therefore unreachable by semantic search — the
+	// the stored vector and is therefore unreachable by semantic search: the
 	// stored content is complete, the stored embedding is not.
 	//
 	// Ids rather than a flag or a count, so a caller knows exactly which chunk to
@@ -971,7 +971,7 @@ type SemanticQuery struct {
 	//
 	// Filters are evaluated in the WHERE clause BEFORE ranking, never as a
 	// post-filter over an already-limited result set. So the returned chunks are the
-	// nearest `limit` AMONG the chunks matching the filters — not the filters applied
+	// nearest `limit` AMONG the chunks matching the filters, not the filters applied
 	// to an unfiltered nearest-`limit` set, which would return fewer results (often
 	// zero) for reasons a caller could not predict.
 	//
@@ -1110,7 +1110,7 @@ func (x *MetadataFilter) GetOperator() MetadataFilter_Operator {
 // unconditionally and the slice cannot be widened. All caller values bind as
 // query parameters; the few caller-supplied identifiers (property keys) are
 // validated against a strict allowlist. This is the "structural injection, not
-// trust" clamp — a free-form query-string surface was rejected because it would
+// trust" clamp: a free-form query-string surface was rejected because it would
 // require parsing and rewriting untrusted query text.
 //
 // A query is an anchor node set plus zero or more single-hop traversals. Each
@@ -1123,7 +1123,7 @@ type GraphQuery struct {
 	// Bi-temporal time-travel over edge validity (add-temporal-graph). Absent
 	// as_of_valid means the default filter: only currently-held edges (invalid_at
 	// and expired are both open). A set as_of_valid switches to valid-time interval
-	// containment — edges whose valid-time window contains that instant — so the
+	// containment (edges whose valid-time window contains that instant), so the
 	// traversal reconstructs the facts believed true at that point in time. A set
 	// as_of_tx additionally constrains transaction-time ("as known at as_of_tx"),
 	// and is only meaningful together with as_of_valid.
@@ -1132,7 +1132,7 @@ type GraphQuery struct {
 	// the physical read snapshot, bounded by the backend's version-retention window
 	// (~1h) and applied to every section's physical read. Graph valid-time must
 	// reach arbitrarily far back, so it is evaluated as a bound
-	// predicate over the validity columns at the current snapshot — never by moving
+	// predicate over the validity columns at the current snapshot, never by moving
 	// the physical read timestamp. Both bounds bind as query parameters; the clamp
 	// is injected onto every hop exactly like the tenant/agent clamp and cannot be
 	// omitted or widened.
@@ -1210,7 +1210,7 @@ func (x *GraphQuery) GetAsOfTx() *timestamppb.Timestamp {
 // A node-pattern constraint. `label` optionally filters the node's semantic
 // `Label` property (e.g. "Person"); `filters` are optional equality predicates.
 // The gateway always adds the (EnterpriseId, AgentInstanceId) clamp to the
-// generated element — it is NOT expressible here and cannot be overridden.
+// generated element: it is NOT expressible here and cannot be overridden.
 type GraphNodeMatch struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`     // optional equality filter on the node's `Label`
@@ -1326,7 +1326,7 @@ func (x *GraphStep) GetNode() *GraphNodeMatch {
 
 // A single property equality filter. `key` is a property name validated as a
 // safe identifier by the gateway (resolved to a first-class column when it is
-// one — e.g. `NodeId`, `Label` — otherwise a JSON `Properties` key); `value`
+// one, e.g. `NodeId`, `Label`; otherwise a JSON `Properties` key); `value`
 // binds as a query parameter and is never interpolated into query text.
 type PropertyFilter struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1924,7 +1924,7 @@ type InspectGraph struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	NodeLimit int32                  `protobuf:"varint,1,opt,name=node_limit,json=nodeLimit,proto3" json:"node_limit,omitempty"` // max nodes; <= 0 uses the default, clamped to a server max
 	EdgeLimit int32                  `protobuf:"varint,2,opt,name=edge_limit,json=edgeLimit,proto3" json:"edge_limit,omitempty"` // max edges; <= 0 uses the default, clamped to a server max
-	// Nodes and edges are walked INDEPENDENTLY — a workspace typically holds far
+	// Nodes and edges are walked INDEPENDENTLY: a workspace typically holds far
 	// more edges than nodes, so one shared cursor would stall the longer listing or
 	// re-deliver the shorter one. Pass back `next_node_token` / `next_edge_token`
 	// from the prior response; empty means that listing is exhausted. Opaque and
@@ -2069,7 +2069,7 @@ type InspectMemoryResponse struct {
 	// The single read timestamp every section was evaluated at.
 	ReadTimestamp *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=read_timestamp,json=readTimestamp,proto3" json:"read_timestamp,omitempty"`
 	// Continuation tokens, one per listing. An EMPTY token means that listing is
-	// EXHAUSTED — not merely that this page ended — so a caller can tell "this is
+	// EXHAUSTED, not merely that this page ended, so a caller can tell "this is
 	// everything held" from "this is the first page of an unknown amount". Feed a
 	// token back on the matching request section to fetch the next page.
 	//
@@ -2081,7 +2081,7 @@ type InspectMemoryResponse struct {
 	// recent steps rather than an enumerable listing and has nothing to continue.
 	//
 	// CONSISTENCY: pages are independently snapshotted, so a commit landing mid-walk
-	// may appear. Set `as_of` on every request of the walk for a stable view —
+	// may appear. Set `as_of` on every request of the walk for a stable view,
 	// bounded by the backend's version-retention window (about an hour).
 	NextChunkToken string `protobuf:"bytes,5,opt,name=next_chunk_token,json=nextChunkToken,proto3" json:"next_chunk_token,omitempty"`
 	NextNodeToken  string `protobuf:"bytes,6,opt,name=next_node_token,json=nextNodeToken,proto3" json:"next_node_token,omitempty"`
@@ -2235,7 +2235,7 @@ type VectorChunkInfo struct {
 	//
 	// Both fields use explicit presence, and ABSENT IS MEANINGFUL: it means the
 	// chunk predates truncation tracking, so its state was never measured. A
-	// reader MUST NOT treat absent as "not truncated" — conflating unknown with
+	// reader MUST NOT treat absent as "not truncated": conflating unknown with
 	// known-good is the exact failure this reporting exists to remove.
 	//
 	// Present-and-false means measured and embedded in full. That includes a chunk
@@ -2243,7 +2243,7 @@ type VectorChunkInfo struct {
 	// it truncated nothing.
 	//
 	// `token_count` is the number of tokens the model counted in the content it
-	// was GIVEN — not in the prefix it embedded. So when `truncated` is true this
+	// was GIVEN, not in the prefix it embedded. So when `truncated` is true this
 	// value EXCEEDS the model's input limit rather than equalling it, which makes
 	// it directly useful for sizing: `token_count` divided by the limit is roughly
 	// how many pieces the content needs splitting into. Absent whenever no
@@ -2390,7 +2390,7 @@ type SupersedeEdgeRequest struct {
 	// unknown id is NotFound (never a cross-slice touch).
 	PriorEdgeId string `protobuf:"bytes,2,opt,name=prior_edge_id,json=priorEdgeId,proto3" json:"prior_edge_id,omitempty"`
 	// The replacement fact, inserted in the same slice. new_edge.valid_at is
-	// REQUIRED — it is the supersession boundary (the prior edge's invalid_at and
+	// REQUIRED: it is the supersession boundary (the prior edge's invalid_at and
 	// the new edge's valid_at) and must be a concrete timestamp. new_edge.edge_id
 	// must be set and differ from prior_edge_id (the replacement is inserted, not
 	// upserted, so a reused id is rejected). new_edge.invalid_at may be set to open

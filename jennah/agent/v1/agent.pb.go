@@ -193,8 +193,8 @@ type CreateAgentRequest struct {
 	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // caller-chosen id, unique within the enterprise
 	AgentName       string                 `protobuf:"bytes,2,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
 	// Optional location identifier (e.g. "us-east-1"). Must be one the platform
-	// offers for agents — see PlatformService.ListLocations, whose entries carry an
-	// `agents` block where they do — and when empty the default agent location is
+	// offers for agents (see PlatformService.ListLocations, whose entries carry an
+	// `agents` block where they do), and when empty the default agent location is
 	// used.
 	//
 	// The field is named `region` for historical reasons: it predates the platform

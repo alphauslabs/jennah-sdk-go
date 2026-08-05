@@ -32,12 +32,12 @@ type SchemaServiceClient interface {
 	// Declares or evolves the dataset's tables. Idempotent and ADDITIVE:
 	// re-declaring an existing table or column is a no-op, and a new column is
 	// added as an online change. Destructive changes (dropping a table or column,
-	// or retyping one) are REJECTED in this version — they can rewrite or lose
+	// or retyping one) are REJECTED in this version: they can rewrite or lose
 	// live tenant data, and deserve an explicit, separately-authorized migration
 	// path rather than being reachable from the ordinary declare call.
 	//
 	// Validation happens entirely before any DDL is issued, so a rejected
-	// declaration leaves the schema untouched — including when it is refused for
+	// declaration leaves the schema untouched, including when it is refused for
 	// exceeding a dataset's table, column, or index ceiling, which returns
 	// RESOURCE_EXHAUSTED and never a raw backend error.
 	//
@@ -48,7 +48,7 @@ type SchemaServiceClient interface {
 	// Requires datastore.schema:manage, which is deliberately NOT part of the
 	// built-in member role: declaring a table issues DDL against a shared
 	// data-plane database, so it is always an explicit grant to a custom role or
-	// an explicitly scoped key. It IS grantable to an API key — a machine
+	// an explicitly scoped key. It IS grantable to an API key: a machine
 	// principal building an app has to be able to declare its own tables.
 	DeclareTables(ctx context.Context, in *DeclareTablesRequest, opts ...grpc.CallOption) (*DeclareTablesResponse, error)
 	// Reads the dataset's logical schema: every declared table with its columns,
@@ -95,12 +95,12 @@ type SchemaServiceServer interface {
 	// Declares or evolves the dataset's tables. Idempotent and ADDITIVE:
 	// re-declaring an existing table or column is a no-op, and a new column is
 	// added as an online change. Destructive changes (dropping a table or column,
-	// or retyping one) are REJECTED in this version — they can rewrite or lose
+	// or retyping one) are REJECTED in this version: they can rewrite or lose
 	// live tenant data, and deserve an explicit, separately-authorized migration
 	// path rather than being reachable from the ordinary declare call.
 	//
 	// Validation happens entirely before any DDL is issued, so a rejected
-	// declaration leaves the schema untouched — including when it is refused for
+	// declaration leaves the schema untouched, including when it is refused for
 	// exceeding a dataset's table, column, or index ceiling, which returns
 	// RESOURCE_EXHAUSTED and never a raw backend error.
 	//
@@ -111,7 +111,7 @@ type SchemaServiceServer interface {
 	// Requires datastore.schema:manage, which is deliberately NOT part of the
 	// built-in member role: declaring a table issues DDL against a shared
 	// data-plane database, so it is always an explicit grant to a custom role or
-	// an explicitly scoped key. It IS grantable to an API key — a machine
+	// an explicitly scoped key. It IS grantable to an API key: a machine
 	// principal building an app has to be able to declare its own tables.
 	DeclareTables(context.Context, *DeclareTablesRequest) (*DeclareTablesResponse, error)
 	// Reads the dataset's logical schema: every declared table with its columns,

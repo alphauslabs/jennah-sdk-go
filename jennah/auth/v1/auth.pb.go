@@ -135,7 +135,7 @@ const (
 	// Defaults to FRAGMENT.
 	ResponseMode_RESPONSE_MODE_UNSPECIFIED ResponseMode = 0
 	// Public client / test harness: callback redirects with tokens in the URL
-	// fragment (#access_token=...). NOT for production — the refresh token
+	// fragment (#access_token=...). NOT for production: the refresh token
 	// transits the browser.
 	ResponseMode_RESPONSE_MODE_FRAGMENT ResponseMode = 1
 	// Confidential client (server-side BFF): callback redirects with only a
@@ -652,7 +652,7 @@ type WhoAmIResponse struct {
 	Identity    *Identity              `protobuf:"bytes,1,opt,name=identity,proto3" json:"identity,omitempty"`
 	Entitlement *Entitlement           `protobuf:"bytes,2,opt,name=entitlement,proto3" json:"entitlement,omitempty"`
 	// The caller's effective permissions in the active enterprise, resolved
-	// server-side from their membership role (built-in or custom) — never from the
+	// server-side from their membership role (built-in or custom), never from the
 	// token. Each is a concrete "group.resource:action" catalog grant. Empty when
 	// auth/RBAC is not configured. A client uses this to enable/disable admin
 	// controls precisely, instead of inferring capability from the built-in role.
@@ -1576,7 +1576,7 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 }
 
 // Non-secret metadata for a single API key. The raw secret is NEVER carried
-// here — it is returned only once, in CreateApiKeyResponse. `last4` is a
+// here: it is returned only once, in CreateApiKeyResponse. `last4` is a
 // non-secret display fragment (the last 4 characters) for identifying a key in
 // listings and logs.
 type ApiKey struct {
@@ -1603,14 +1603,14 @@ type ApiKey struct {
 	Scopes []string `protobuf:"bytes,10,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	// Agents this key may reach, as agent selectors (an exact agent_instance_id, a
 	// "prefix.*" subtree, or "*" for every agent in the enterprise), fixed at
-	// creation. Empty means the key can reach NO agent — a key never inherits the
+	// creation. Empty means the key can reach NO agent: a key never inherits the
 	// selectors of the user who created it. Omitted entirely when the caller lacks
 	// the agent.access:read permission.
 	AgentSelectors []string `protobuf:"bytes,11,rep,name=agent_selectors,json=agentSelectors,proto3" json:"agent_selectors,omitempty"`
 	// Datasets this key may reach, as dataset selectors, under exactly the same
 	// rules as agent_selectors above and in a SEPARATE namespace: an exact
 	// dataset_id, a "prefix.*" subtree, or "*" for every dataset in the
-	// enterprise. Empty means the key can reach NO dataset — which is why an
+	// enterprise. Empty means the key can reach NO dataset, which is why an
 	// unscoped key, whose default permissions include datastore.data:read/write,
 	// still reaches nothing until a selector is set.
 	//
@@ -1741,7 +1741,7 @@ func (x *ApiKey) GetDatasetSelectors() []string {
 
 // Request message for the AuthService.CreateApiKey rpc.
 //
-// The new key is bound to the caller's active enterprise — the enterprise_id
+// The new key is bound to the caller's active enterprise: the enterprise_id
 // scope of the access token used to make the call. There is intentionally no
 // enterprise field here: a member belonging to more than one enterprise mints
 // a key for whichever enterprise their token is currently scoped to. To target
@@ -1848,7 +1848,7 @@ func (x *CreateApiKeyRequest) GetDatasetSelectors() []string {
 // Response message for the AuthService.CreateApiKey rpc.
 //
 // `secret` is the full plaintext key (prefixed `jennah_sk_`), returned exactly
-// once — it cannot be retrieved again, so the caller must store it now. `key`
+// once: it cannot be retrieved again, so the caller must store it now. `key`
 // holds the non-secret metadata for the same key.
 type CreateApiKeyResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2099,7 +2099,7 @@ func (x *RevokeApiKeyResponse) GetRevokedAt() *timestamppb.Timestamp {
 }
 
 // Non-secret metadata for a single enterprise invitation. The invite token is
-// NEVER carried here — it is returned only once, in InviteMemberResponse; only
+// NEVER carried here: it is returned only once, in InviteMemberResponse; only
 // its sha256 hash is stored.
 type Invitation struct {
 	state        protoimpl.MessageState `protogen:"open.v1"`
@@ -2209,7 +2209,7 @@ type Member struct {
 	UserId string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // jennah user id
 	Email  string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`                 // the member's primary email
 	// Built-in role within the enterprise. ROLE_UNSPECIFIED when the member holds
-	// a custom role instead — see custom_role_id.
+	// a custom role instead, see custom_role_id.
 	Role     Role                   `protobuf:"varint,3,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"`
 	JoinedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"` // Memberships row creation time
 	// Set when the member holds a custom RBAC role rather than a built-in one; it
@@ -2341,7 +2341,7 @@ func (x *InviteMemberRequest) GetRole() Role {
 // Response message for the AuthService.InviteMember rpc.
 //
 // `token` is the one-time invite token (prefixed `jennah_inv_`), returned
-// exactly once for the inviter to share out-of-band — it cannot be retrieved
+// exactly once for the inviter to share out-of-band: it cannot be retrieved
 // again. `invitation` holds the non-secret metadata for the same invite.
 type InviteMemberResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3344,13 +3344,13 @@ type CustomRole struct {
 	UpdatedAt    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // last modification; unset until first update
 	// Agents holders of this role may reach, as agent selectors: an exact
 	// agent_instance_id, a "prefix.*" subtree (the separator is "."), or "*" for
-	// every agent in the enterprise. Empty means holders reach NO agent — this is
+	// every agent in the enterprise. Empty means holders reach NO agent: this is
 	// the default for a role created without selectors, and it is what makes agent
 	// access opt-in. Omitted entirely when the caller lacks agent.access:read.
 	AgentSelectors []string `protobuf:"bytes,7,rep,name=agent_selectors,json=agentSelectors,proto3" json:"agent_selectors,omitempty"`
 	// Datasets holders of this role may reach, as dataset selectors, in a separate
 	// namespace under the same grammar and matching rules. Empty means holders
-	// reach NO dataset — the default, and what makes dataset access opt-in even
+	// reach NO dataset: the default, and what makes dataset access opt-in even
 	// though the built-in member role carries the datastore data-plane
 	// permissions. Omitted entirely when the caller lacks datastore.access:read.
 	DatasetSelectors []string `protobuf:"bytes,8,rep,name=dataset_selectors,json=datasetSelectors,proto3" json:"dataset_selectors,omitempty"`
@@ -3497,8 +3497,8 @@ func (x *AgentSelectorList) GetSelectors() []string {
 // counterpart to AgentSelectorList and used for the same reason.
 //
 // It is a separate message rather than a reuse of AgentSelectorList because the
-// two are set independently — an update may replace one namespace's selectors
-// and leave the other's untouched — and a shared type would make "unset" mean
+// two are set independently (an update may replace one namespace's selectors
+// and leave the other's untouched), and a shared type would make "unset" mean
 // "leave both alone", collapsing that distinction. A shared, namespace-neutral
 // type would have been cleaner from the start, but renaming AgentSelectorList
 // now would break every generated client for no behavioral gain.

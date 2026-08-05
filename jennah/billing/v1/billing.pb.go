@@ -28,13 +28,13 @@ const (
 // integrations from fighting over one enterprise.
 //
 // A client MUST NOT decide whether to show an in-app plan change by comparing
-// against this enum — a source added after the client was built arrives as
+// against this enum: a source added after the client was built arrives as
 // BILLING_SOURCE_UNSPECIFIED. Use `externally_managed`, which is computed
 // server-side and stays correct across versions.
 type BillingSource int32
 
 const (
-	// Unknown to this client's proto version — treat as external if
+	// Unknown to this client's proto version: treat as external if
 	// `externally_managed` says so.
 	BillingSource_BILLING_SOURCE_UNSPECIFIED BillingSource = 0
 	// Nobody is billing this enterprise yet: a trial. Stored as empty rather than a
@@ -100,19 +100,19 @@ type SubscriptionState int32
 const (
 	SubscriptionState_SUBSCRIPTION_STATE_UNSPECIFIED SubscriptionState = 0
 	// Resolved and persisted, but not yet attached to any enterprise. A normal,
-	// persistent state — AWS bills from contract creation, so a buyer who abandons
+	// persistent state: AWS bills from contract creation, so a buyer who abandons
 	// registration still has a paid subscription that must not be lost.
 	SubscriptionState_SUBSCRIPTION_STATE_UNBOUND SubscriptionState = 1
 	// Bound to an enterprise with an active entitlement.
 	SubscriptionState_SUBSCRIPTION_STATE_ACTIVE SubscriptionState = 2
 	// An authoritative read returned no active entitlement, but the subscription is
-	// still within the grace window of its last known expiration — where "renewing
+	// still within the grace window of its last known expiration, where "renewing
 	// right now" and "ended" are the same observation. The tier is held and the
 	// subscription re-read; only an absence that outlasts the window cancels.
 	SubscriptionState_SUBSCRIPTION_STATE_PENDING_VERIFICATION SubscriptionState = 3
 	// Something needs a human: entitlements are present but none maps to a
 	// configured tier, or the purchased quantity is greater than one. The tier is
-	// left unchanged in both cases — a dimension we do not recognize must never be
+	// left unchanged in both cases: a dimension we do not recognize must never be
 	// read as a cancellation.
 	SubscriptionState_SUBSCRIPTION_STATE_NEEDS_ATTENTION SubscriptionState = 4
 	// The subscription ended: either an explicit end event from the provider, or an
@@ -174,7 +174,7 @@ type BoundSubscription struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Source BillingSource          `protobuf:"varint,1,opt,name=source,proto3,enum=jennahapi.billing.v1.BillingSource" json:"source,omitempty"`
 	// The provider's subscription identity. For AWS Marketplace this is the
-	// agreement's LicenseArn — the identity used in logs, operator subcommands, and
+	// agreement's LicenseArn: the identity used in logs, operator subcommands, and
 	// support conversations. It is the agreement, not the buyer: one AWS account can
 	// hold several concurrent agreements for the same product.
 	SubscriptionId string `protobuf:"bytes,2,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
@@ -184,7 +184,7 @@ type BoundSubscription struct {
 	AccountRef string `protobuf:"bytes,3,opt,name=account_ref,json=accountRef,proto3" json:"account_ref,omitempty"`
 	// The provider-side product identifier this subscription was resolved under. For
 	// AWS Marketplace this is the product code, and it selects which configured
-	// dimension mapping applies — a second listing is a second product code.
+	// dimension mapping applies: a second listing is a second product code.
 	ProductRef string `protobuf:"bytes,4,opt,name=product_ref,json=productRef,proto3" json:"product_ref,omitempty"`
 	// The tier resolved for THIS subscription. An enterprise holding several active
 	// subscriptions is entitled at the highest-ranked tier across them, which is
@@ -195,8 +195,8 @@ type BoundSubscription struct {
 	// than a once-a-year event.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	State     SubscriptionState      `protobuf:"varint,7,opt,name=state,proto3,enum=jennahapi.billing.v1.SubscriptionState" json:"state,omitempty"`
-	// The purchased entitlement quantity. Recorded and surfaced but NOT enforced —
-	// seat limits are out of scope — and it never affects the resolved tier. A value
+	// The purchased entitlement quantity. Recorded and surfaced but NOT enforced
+	// (seat limits are out of scope), and it never affects the resolved tier. A value
 	// above one is flagged for attention, because a buyer billed for five units and
 	// silently receiving one unit's service is the failure worth being loud about.
 	Quantity      int64 `protobuf:"varint,8,opt,name=quantity,proto3" json:"quantity,omitempty"`
@@ -330,7 +330,7 @@ func (*GetBillingStateRequest) Descriptor() ([]byte, []int) {
 // Response message for the BillingService.GetBillingState rpc.
 type GetBillingStateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The active enterprise's effective tier — the highest-ranked tier across its
+	// The active enterprise's effective tier: the highest-ranked tier across its
 	// active subscriptions, or its platform-assigned tier when nothing is bound.
 	Tier string `protobuf:"bytes,1,opt,name=tier,proto3" json:"tier,omitempty"`
 	// The source that owns the tier, for display.
@@ -349,7 +349,7 @@ type GetBillingStateResponse struct {
 	// re-purchase, or a channel-partner offer alongside a direct one. Empty for a
 	// trial enterprise.
 	Subscriptions []*BoundSubscription `protobuf:"bytes,5,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
-	// Where the plan is managed when it is externally owned — the AWS Marketplace
+	// Where the plan is managed when it is externally owned: the AWS Marketplace
 	// subscription page for a marketplace-owned enterprise. Also the renewal path
 	// shown when the tier is the terminal cancelled one, so a former subscriber gets
 	// a re-subscribe link rather than an expired-trial prompt. Empty when the plan is
@@ -490,7 +490,7 @@ type BindMarketplaceRegistrationResponse struct {
 	// True when this bind actually moved the tier. A tier change invalidates the
 	// enterprise's outstanding access tokens (they carry the tier and are verified
 	// with no database lookup), so the client must refresh before the new plan takes
-	// effect. Stated explicitly rather than left implicit — a customer who just paid
+	// effect. Stated explicitly rather than left implicit: a customer who just paid
 	// and is still blocked files a ticket.
 	//
 	// NOT always true. Re-binding a subscription already attached to the same

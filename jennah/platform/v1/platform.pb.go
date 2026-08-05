@@ -92,7 +92,7 @@ func (Geography) EnumDescriptor() ([]byte, []int) {
 // it may name a multi-region or global placement (see Geography). That is why a
 // location id is validated by allowlist membership only and never against a
 // region-shaped pattern, and why the ids are Jennah's own rather than a cloud
-// vendor's — the backing topology can change without breaking the API.
+// vendor's: the backing topology can change without breaking the API.
 type Location struct {
 	state       protoimpl.MessageState `protogen:"open.v1"`
 	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                   // e.g. "us-central-1", "nam3"
@@ -232,7 +232,7 @@ type DatasetSupport struct {
 	IsDefault bool `protobuf:"varint,1,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
 	// Output width of the embedding model registered here, or 0 when none is.
 	//
-	// It governs MANAGED vector columns only — the ones that name a source_column
+	// It governs MANAGED vector columns only: the ones that name a source_column
 	// and have their vector generated server-side. A managed column's declared
 	// width must EQUAL this value, because an inline generated write whose output
 	// does not fit the column is rejected outright, so a mismatched declaration

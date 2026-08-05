@@ -31,9 +31,9 @@ const (
 // BillingService is the provider-neutral billing surface for an enterprise.
 type BillingServiceClient interface {
 	// Reads the caller's active enterprise billing state: its effective tier, which
-	// source owns that tier, and every subscription bound to it (plural — one AWS
-	// account can hold several concurrent agreements for the same product). External
-	// (gateway) RPC. Authenticated.
+	// source owns that tier, and every subscription bound to it (plural because
+	// one AWS account can hold several concurrent agreements for the same
+	// product). External (gateway) RPC. Authenticated.
 	//
 	// It stays callable when the caller's tier is unusable (an expired trial or a
 	// cancelled subscription): it is on the entitlement interceptor's exempt
@@ -41,7 +41,7 @@ type BillingServiceClient interface {
 	// explains how to recover.
 	//
 	// When `externally_managed` is true the client MUST NOT offer an in-app plan
-	// change — a foreign source's tier write is rejected server-side, so the button
+	// change: a foreign source's tier write is rejected server-side, so the button
 	// would be one that cannot work. Send the user to `manage_url` instead.
 	GetBillingState(ctx context.Context, in *GetBillingStateRequest, opts ...grpc.CallOption) (*GetBillingStateResponse, error)
 	// Binds the subscription behind a single-use registration handle to the caller's
@@ -54,25 +54,25 @@ type BillingServiceClient interface {
 	// whoever presents it attaches that subscription to THEIR active enterprise.
 	// AWS gives us no proof of the buyer's jennah identity, so the mitigations are a
 	// minutes-long TTL, single use, storage as a hash, the admin-role requirement
-	// above, and an operator rebind path — not a claim that the class is eliminated.
+	// above, and an operator rebind path, not a claim that the class is eliminated.
 	//
 	// Binding the same subscription to the same enterprise again is idempotent
 	// success: buyers re-enter through AWS's "Set up your account" button routinely.
 	//
 	// Rejections. Each carries a `google.rpc.ErrorInfo` whose `domain` is
 	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
-	// the reason, never on the human-readable message — each reason needs a
+	// the reason, never on the human-readable message: each reason needs a
 	// different recovery path in the UI.
 	//
-	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID — expired, already
+	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
 	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
 	//	  caller cannot probe which handles exist.
-	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE — bound to a different
+	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
 	//	  enterprise. The existing binding is NOT moved; recovery is an operator
 	//	  action with a recorded reason.
-	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED — the caller is a member
+	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
 	//	  without an administrator role on the active enterprise.
-	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT — the enterprise's tier is
+	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
 	//	  already owned by a DIFFERENT billing source. (A second subscription from
 	//	  the SAME source is accepted, not refused.)
 	BindMarketplaceRegistration(ctx context.Context, in *BindMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*BindMarketplaceRegistrationResponse, error)
@@ -84,7 +84,7 @@ type BillingServiceClient interface {
 	// a jennah user: AWS POSTs the buyer's browser to the public registration
 	// endpoint with no cookie and no bearer credential, and the buyer may have no
 	// jennah account at all. Exemption from bearer-token auth is not exemption from
-	// authentication — this method authenticates its caller by exchanging the
+	// authentication: this method authenticates its caller by exchanging the
 	// provider-issued token with AWS, and rejects the request when that fails.
 	//
 	// The resolve-and-persist-before-login ordering is the point: the token is
@@ -96,18 +96,18 @@ type BillingServiceClient interface {
 	// a reason below carry a `google.rpc.ErrorInfo` whose `domain` is
 	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
 	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
-	// carry NO ErrorInfo — for those the status code is the whole signal.
+	// carry NO ErrorInfo; for those the status code is the whole signal.
 	//
-	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID — missing or malformed token,
+	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
 	//	  or one AWS refuses. Permanent; do not retry.
-	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED — the token resolved to a
+	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
 	//	  product code this deployment has no mapping for. Permanent, and no
 	//	  subscription record is written.
-	//	UNAVAILABLE — AWS was unreachable or throttled. Retryable, and no handle is
+	//	UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
 	//	  minted and no partial subscription is left behind. The purchase still
 	//	  reaches us independently as a marketplace notification, so no revenue is
 	//	  lost by a failed registration.
-	//	UNIMPLEMENTED — the deployment has no billing configuration at all.
+	//	UNIMPLEMENTED: the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(ctx context.Context, in *ResolveMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*ResolveMarketplaceRegistrationResponse, error)
 }
 
@@ -156,9 +156,9 @@ func (c *billingServiceClient) ResolveMarketplaceRegistration(ctx context.Contex
 // BillingService is the provider-neutral billing surface for an enterprise.
 type BillingServiceServer interface {
 	// Reads the caller's active enterprise billing state: its effective tier, which
-	// source owns that tier, and every subscription bound to it (plural — one AWS
-	// account can hold several concurrent agreements for the same product). External
-	// (gateway) RPC. Authenticated.
+	// source owns that tier, and every subscription bound to it (plural because
+	// one AWS account can hold several concurrent agreements for the same
+	// product). External (gateway) RPC. Authenticated.
 	//
 	// It stays callable when the caller's tier is unusable (an expired trial or a
 	// cancelled subscription): it is on the entitlement interceptor's exempt
@@ -166,7 +166,7 @@ type BillingServiceServer interface {
 	// explains how to recover.
 	//
 	// When `externally_managed` is true the client MUST NOT offer an in-app plan
-	// change — a foreign source's tier write is rejected server-side, so the button
+	// change: a foreign source's tier write is rejected server-side, so the button
 	// would be one that cannot work. Send the user to `manage_url` instead.
 	GetBillingState(context.Context, *GetBillingStateRequest) (*GetBillingStateResponse, error)
 	// Binds the subscription behind a single-use registration handle to the caller's
@@ -179,25 +179,25 @@ type BillingServiceServer interface {
 	// whoever presents it attaches that subscription to THEIR active enterprise.
 	// AWS gives us no proof of the buyer's jennah identity, so the mitigations are a
 	// minutes-long TTL, single use, storage as a hash, the admin-role requirement
-	// above, and an operator rebind path — not a claim that the class is eliminated.
+	// above, and an operator rebind path, not a claim that the class is eliminated.
 	//
 	// Binding the same subscription to the same enterprise again is idempotent
 	// success: buyers re-enter through AWS's "Set up your account" button routinely.
 	//
 	// Rejections. Each carries a `google.rpc.ErrorInfo` whose `domain` is
 	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
-	// the reason, never on the human-readable message — each reason needs a
+	// the reason, never on the human-readable message: each reason needs a
 	// different recovery path in the UI.
 	//
-	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID — expired, already
+	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
 	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
 	//	  caller cannot probe which handles exist.
-	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE — bound to a different
+	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
 	//	  enterprise. The existing binding is NOT moved; recovery is an operator
 	//	  action with a recorded reason.
-	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED — the caller is a member
+	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
 	//	  without an administrator role on the active enterprise.
-	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT — the enterprise's tier is
+	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
 	//	  already owned by a DIFFERENT billing source. (A second subscription from
 	//	  the SAME source is accepted, not refused.)
 	BindMarketplaceRegistration(context.Context, *BindMarketplaceRegistrationRequest) (*BindMarketplaceRegistrationResponse, error)
@@ -209,7 +209,7 @@ type BillingServiceServer interface {
 	// a jennah user: AWS POSTs the buyer's browser to the public registration
 	// endpoint with no cookie and no bearer credential, and the buyer may have no
 	// jennah account at all. Exemption from bearer-token auth is not exemption from
-	// authentication — this method authenticates its caller by exchanging the
+	// authentication: this method authenticates its caller by exchanging the
 	// provider-issued token with AWS, and rejects the request when that fails.
 	//
 	// The resolve-and-persist-before-login ordering is the point: the token is
@@ -221,18 +221,18 @@ type BillingServiceServer interface {
 	// a reason below carry a `google.rpc.ErrorInfo` whose `domain` is
 	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
 	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
-	// carry NO ErrorInfo — for those the status code is the whole signal.
+	// carry NO ErrorInfo; for those the status code is the whole signal.
 	//
-	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID — missing or malformed token,
+	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
 	//	  or one AWS refuses. Permanent; do not retry.
-	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED — the token resolved to a
+	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
 	//	  product code this deployment has no mapping for. Permanent, and no
 	//	  subscription record is written.
-	//	UNAVAILABLE — AWS was unreachable or throttled. Retryable, and no handle is
+	//	UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
 	//	  minted and no partial subscription is left behind. The purchase still
 	//	  reaches us independently as a marketplace notification, so no revenue is
 	//	  lost by a failed registration.
-	//	UNIMPLEMENTED — the deployment has no billing configuration at all.
+	//	UNIMPLEMENTED: the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(context.Context, *ResolveMarketplaceRegistrationRequest) (*ResolveMarketplaceRegistrationResponse, error)
 	mustEmbedUnimplementedBillingServiceServer()
 }

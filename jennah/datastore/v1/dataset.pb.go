@@ -93,8 +93,8 @@ type Dataset struct {
 	// for clarity; it is never accepted from a request body.
 	EnterpriseId string `protobuf:"bytes,1,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
 	// Unique within the enterprise. Constrained to the same shape as an
-	// agent_instance_id — at most 128 characters of lowercase letters, digits,
-	// '.', '_' or '-', starting and ending with a letter or digit — and that
+	// agent_instance_id (at most 128 characters of lowercase letters, digits,
+	// '.', '_' or '-', starting and ending with a letter or digit), and that
 	// constraint is load-bearing for authorization, not cosmetic: '.' is the
 	// selector hierarchy separator, so an id permitted to carry a selector
 	// metacharacter could be crafted to collide with a pattern and widen access.
@@ -105,7 +105,7 @@ type Dataset struct {
 	// Where this dataset's data lives: a single-region location for locality, or a
 	// multi-region one for globally strongly-consistent low-latency reads. Chosen at
 	// creation and fixed for the dataset's lifetime. The available locations are
-	// operator-defined topology, discoverable through the platform's own listing —
+	// operator-defined topology, discoverable through the platform's own listing:
 	// they are deliberately NOT a backend vendor's configuration names, so the set
 	// can change without becoming a breaking API change.
 	//
@@ -218,8 +218,8 @@ type CreateDatasetRequest struct {
 	// The result is an ORDINARY API key on the api-keys surface: its secret is
 	// shown exactly once, its scopes and dataset selectors are immutable, and it
 	// is revocable and re-creatable independently of the dataset. There is no
-	// key-rotation RPC anywhere in the platform — "rotate" means revoke and
-	// create — so nothing about this key's lifecycle is coupled to the dataset's.
+	// key-rotation RPC anywhere in the platform ("rotate" means revoke and
+	// create), so nothing about this key's lifecycle is coupled to the dataset's.
 	//
 	// The key receives a dataset selector naming exactly this dataset. It is
 	// subject to the same anti-escalation rule as any key: the caller must already
@@ -228,7 +228,7 @@ type CreateDatasetRequest struct {
 	// Scopes for the key minted when create_api_key is set. Each MUST be a subset
 	// of the caller's own effective permissions and MUST NOT be management-class.
 	// When empty the key defaults to the member-equivalent data-plane scope, which
-	// includes datastore.data:read/write but NOT datastore.schema:manage — so a key
+	// includes datastore.data:read/write but NOT datastore.schema:manage, so a key
 	// meant to declare tables must name that permission explicitly.
 	ApiKeyScopes  []string `protobuf:"bytes,5,rep,name=api_key_scopes,json=apiKeyScopes,proto3" json:"api_key_scopes,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -310,7 +310,7 @@ type CreateDatasetResponse struct {
 	ApiKeySecret string `protobuf:"bytes,2,opt,name=api_key_secret,json=apiKeySecret,proto3" json:"api_key_secret,omitempty"`
 	// Stable id of the minted key, for revoking it later through the api-keys
 	// surface. Empty when no key was minted. The key's non-secret metadata is read
-	// through AuthService.ListApiKeys like any other key's — it is deliberately not
+	// through AuthService.ListApiKeys like any other key's: it is deliberately not
 	// duplicated here, so there is one surface describing a key and not two.
 	ApiKeyId      string `protobuf:"bytes,3,opt,name=api_key_id,json=apiKeyId,proto3" json:"api_key_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -464,7 +464,7 @@ type ListDatasetsRequest struct {
 	PageSize int32                  `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"` // max datasets to return; server picks a default when 0
 	// Resume a walk of this listing. Empty starts one. Pass back the
 	// `next_page_token` from the prior response; when that comes back EMPTY the
-	// listing is exhausted and there is nothing further to fetch — so a caller can
+	// listing is exhausted and there is nothing further to fetch, so a caller can
 	// tell "this is everything" from "this page happened to end here".
 	//
 	// The token is opaque and server-generated. Do not construct, parse, or edit

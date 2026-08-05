@@ -83,7 +83,7 @@ type AuthServiceClient interface {
 	// Mints a new API key for the caller's active enterprise. External (gateway)
 	// RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN, resolved live from the
 	// Memberships table (never trusted from a claim). The plaintext secret is
-	// returned exactly once, in this response, and is NOT retrievable afterward —
+	// returned exactly once, in this response, and is NOT retrievable afterward,
 	// only its sha256 hash is stored. The key resolves to a ROLE_MEMBER-equivalent
 	// service principal scoped to the enterprise.
 	CreateApiKey(ctx context.Context, in *CreateApiKeyRequest, opts ...grpc.CallOption) (*CreateApiKeyResponse, error)
@@ -95,7 +95,7 @@ type AuthServiceClient interface {
 	// Revokes an API key the caller's enterprise owns, taking effect on the next
 	// request (validation is a per-request lookup, so there is no TTL lag).
 	// External (gateway) RPC, modeled as a custom method (POST ...:revoke) rather
-	// than DELETE because it does not remove the resource — the row is retained
+	// than DELETE because it does not remove the resource: the row is retained
 	// with RevokedAt set, so the key stays listable as revoked. Authenticated AND
 	// gated to ROLE_ROOT/ROLE_ADMIN. A key_id not owned by the caller's active
 	// enterprise is treated as not found.
@@ -105,7 +105,7 @@ type AuthServiceClient interface {
 	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN (resolved live from the
 	// Memberships table). Membership is NOT granted by email match: this only
 	// creates a pending invitation bound to a single-use token, returned exactly
-	// once in the response for the inviter to share — the grant happens when the
+	// once in the response for the inviter to share. The grant happens when the
 	// invitee accepts (AcceptInvitation) while signed in. Rejects an email already
 	// a member and a second pending invite for the same email.
 	InviteMember(ctx context.Context, in *InviteMemberRequest, opts ...grpc.CallOption) (*InviteMemberResponse, error)
@@ -141,18 +141,18 @@ type AuthServiceClient interface {
 	// Memberships row and revoking their refresh sessions scoped to it (so no new
 	// access token can be minted for it; an already-issued one lasts until it
 	// expires). External (gateway) RPC. Authenticated AND gated to
-	// ROLE_ROOT/ROLE_ADMIN (a member MAY remove themselves — leave). The
+	// ROLE_ROOT/ROLE_ADMIN (a member MAY remove themselves, which is a leave). The
 	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
 	// active enterprise is treated as not found.
 	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
 	// Transfers the caller's active enterprise's ROLE_ROOT to another member of
 	// that enterprise: the target becomes ROLE_ROOT and the caller becomes
 	// ROLE_ADMIN, atomically. External (gateway) RPC. Authenticated AND authorized
-	// by identity — ONLY the enterprise's current ROLE_ROOT may call it. Holding
+	// by identity: ONLY the enterprise's current ROLE_ROOT may call it. Holding
 	// every permission is not sufficient: a ROLE_ADMIN (whose permission set is
 	// identical to ROLE_ROOT's) is refused, and so is an API-key caller. This is
 	// the only authority ROLE_ROOT holds that ROLE_ADMIN does not, and the only way
-	// ROLE_ROOT ever moves — it remains non-grantable by ChangeMemberRole and by
+	// ROLE_ROOT ever moves: it remains non-grantable by ChangeMemberRole and by
 	// invitation. The target must already be a live member (a user_id, never an
 	// email); no membership is created and no pending offer is minted. Takes effect
 	// without re-minting a token, because roles are resolved live server-side.
@@ -165,7 +165,7 @@ type AuthServiceClient interface {
 	UpdateEnterprise(ctx context.Context, in *UpdateEnterpriseRequest, opts ...grpc.CallOption) (*UpdateEnterpriseResponse, error)
 	// Lists the fixed permission catalog: every grantable "group.resource:action"
 	// permission and whether it is management-class. External (gateway) RPC.
-	// Authenticated, but requires no specific permission — the catalog is
+	// Authenticated, but requires no specific permission: the catalog is
 	// non-sensitive metadata any member (or the console) may read to discover what
 	// is grantable.
 	ListPermissions(ctx context.Context, in *ListPermissionsRequest, opts ...grpc.CallOption) (*ListPermissionsResponse, error)
@@ -190,7 +190,7 @@ type AuthServiceClient interface {
 	UpdateRole(ctx context.Context, in *UpdateRoleRequest, opts ...grpc.CallOption) (*UpdateRoleResponse, error)
 	// Deletes a custom role. External (gateway) RPC. Authenticated AND requires the
 	// "iam.roles:manage" permission. Hard-fails with FAILED_PRECONDITION when the
-	// role is still assigned to any member — those members must be reassigned
+	// role is still assigned to any member: those members must be reassigned
 	// first, so a live membership can never dangle.
 	DeleteRole(ctx context.Context, in *DeleteRoleRequest, opts ...grpc.CallOption) (*DeleteRoleResponse, error)
 }
@@ -499,7 +499,7 @@ type AuthServiceServer interface {
 	// Mints a new API key for the caller's active enterprise. External (gateway)
 	// RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN, resolved live from the
 	// Memberships table (never trusted from a claim). The plaintext secret is
-	// returned exactly once, in this response, and is NOT retrievable afterward —
+	// returned exactly once, in this response, and is NOT retrievable afterward,
 	// only its sha256 hash is stored. The key resolves to a ROLE_MEMBER-equivalent
 	// service principal scoped to the enterprise.
 	CreateApiKey(context.Context, *CreateApiKeyRequest) (*CreateApiKeyResponse, error)
@@ -511,7 +511,7 @@ type AuthServiceServer interface {
 	// Revokes an API key the caller's enterprise owns, taking effect on the next
 	// request (validation is a per-request lookup, so there is no TTL lag).
 	// External (gateway) RPC, modeled as a custom method (POST ...:revoke) rather
-	// than DELETE because it does not remove the resource — the row is retained
+	// than DELETE because it does not remove the resource: the row is retained
 	// with RevokedAt set, so the key stays listable as revoked. Authenticated AND
 	// gated to ROLE_ROOT/ROLE_ADMIN. A key_id not owned by the caller's active
 	// enterprise is treated as not found.
@@ -521,7 +521,7 @@ type AuthServiceServer interface {
 	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN (resolved live from the
 	// Memberships table). Membership is NOT granted by email match: this only
 	// creates a pending invitation bound to a single-use token, returned exactly
-	// once in the response for the inviter to share — the grant happens when the
+	// once in the response for the inviter to share. The grant happens when the
 	// invitee accepts (AcceptInvitation) while signed in. Rejects an email already
 	// a member and a second pending invite for the same email.
 	InviteMember(context.Context, *InviteMemberRequest) (*InviteMemberResponse, error)
@@ -557,18 +557,18 @@ type AuthServiceServer interface {
 	// Memberships row and revoking their refresh sessions scoped to it (so no new
 	// access token can be minted for it; an already-issued one lasts until it
 	// expires). External (gateway) RPC. Authenticated AND gated to
-	// ROLE_ROOT/ROLE_ADMIN (a member MAY remove themselves — leave). The
+	// ROLE_ROOT/ROLE_ADMIN (a member MAY remove themselves, which is a leave). The
 	// enterprise's ROLE_ROOT cannot be removed. A user_id not in the caller's
 	// active enterprise is treated as not found.
 	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
 	// Transfers the caller's active enterprise's ROLE_ROOT to another member of
 	// that enterprise: the target becomes ROLE_ROOT and the caller becomes
 	// ROLE_ADMIN, atomically. External (gateway) RPC. Authenticated AND authorized
-	// by identity — ONLY the enterprise's current ROLE_ROOT may call it. Holding
+	// by identity: ONLY the enterprise's current ROLE_ROOT may call it. Holding
 	// every permission is not sufficient: a ROLE_ADMIN (whose permission set is
 	// identical to ROLE_ROOT's) is refused, and so is an API-key caller. This is
 	// the only authority ROLE_ROOT holds that ROLE_ADMIN does not, and the only way
-	// ROLE_ROOT ever moves — it remains non-grantable by ChangeMemberRole and by
+	// ROLE_ROOT ever moves: it remains non-grantable by ChangeMemberRole and by
 	// invitation. The target must already be a live member (a user_id, never an
 	// email); no membership is created and no pending offer is minted. Takes effect
 	// without re-minting a token, because roles are resolved live server-side.
@@ -581,7 +581,7 @@ type AuthServiceServer interface {
 	UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error)
 	// Lists the fixed permission catalog: every grantable "group.resource:action"
 	// permission and whether it is management-class. External (gateway) RPC.
-	// Authenticated, but requires no specific permission — the catalog is
+	// Authenticated, but requires no specific permission: the catalog is
 	// non-sensitive metadata any member (or the console) may read to discover what
 	// is grantable.
 	ListPermissions(context.Context, *ListPermissionsRequest) (*ListPermissionsResponse, error)
@@ -606,7 +606,7 @@ type AuthServiceServer interface {
 	UpdateRole(context.Context, *UpdateRoleRequest) (*UpdateRoleResponse, error)
 	// Deletes a custom role. External (gateway) RPC. Authenticated AND requires the
 	// "iam.roles:manage" permission. Hard-fails with FAILED_PRECONDITION when the
-	// role is still assigned to any member — those members must be reassigned
+	// role is still assigned to any member: those members must be reassigned
 	// first, so a live membership can never dangle.
 	DeleteRole(context.Context, *DeleteRoleRequest) (*DeleteRoleResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()

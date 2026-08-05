@@ -44,7 +44,7 @@ const (
 	// Matching NO row is not an error: the operation is a no-op and the receipt
 	// reports zero rows for the table. Read the receipt's row count when the
 	// difference matters, rather than treating a successful commit as proof a row
-	// was there to update — or set `expect` to make the count a precondition of
+	// was there to update, or set `expect` to make the count a precondition of
 	// the commit, which refuses it before anything is written.
 	OperationType_OPERATION_TYPE_UPDATE OperationType = 3
 	// Deletes rows matching `where`.
@@ -99,7 +99,7 @@ func (OperationType) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{0}
 }
 
-// How a join combines rows. Both sides must be tables in the SAME dataset —
+// How a join combines rows. Both sides must be tables in the SAME dataset:
 // cross-dataset joins are not expressible, because each query is clamped to one
 // dataset slice exactly as a memory query is clamped to one agent.
 type JoinType int32
@@ -533,7 +533,7 @@ func (x *Row) GetColumns() map[string]*Value {
 // The operator set is deliberately IDENTICAL to the memory plane's metadata
 // filter grammar, including what it leaves out: there is no inequality operator
 // and no disjunction between predicates, both of which were considered and cut
-// there rather than overlooked. Predicates combine conjunctively — all must
+// there rather than overlooked. Predicates combine conjunctively: all must
 // match. Reproducing that set exactly is the point: two predicate languages on
 // one platform is how a filter that means subtly different things in two places
 // eventually gets written.
@@ -545,7 +545,7 @@ func (x *Row) GetColumns() map[string]*Value {
 // (10 > 9), a TIMESTAMP column chronologically. The metadata plane's
 // zero-pad-your-numbers advice does not apply and must not be carried over.
 //
-// A row whose column is NULL matches NO operator, including OPERATOR_EQUALS —
+// A row whose column is NULL matches NO operator, including OPERATOR_EQUALS:
 // there is no value to compare or order against, so a NULL excludes. This
 // matches the metadata plane's absent-key rule.
 type Predicate struct {
@@ -627,7 +627,7 @@ type RowOperation struct {
 	// least one column to set.
 	//
 	// A vector column's value is supplied here like any other, as a
-	// VectorValue — and its ABSENCE is meaningful. When the column declares a
+	// VectorValue, and its ABSENCE is meaningful. When the column declares a
 	// source column, an absent vector is GENERATED server-side from that column's
 	// content, inline in the same statement as the row write, so the row and its
 	// embedding are never separately visible. When the column declares no source
@@ -637,7 +637,7 @@ type RowOperation struct {
 	// A SUPPLIED vector is stored exactly as given and the model is not invoked,
 	// so a caller may use its own embedding model provided the width matches. The
 	// platform can dimension-check a supplied vector but cannot verify which model
-	// produced it — as is already true of the memory plane.
+	// produced it, as is already true of the memory plane.
 	Row *Row `protobuf:"bytes,3,opt,name=row,proto3" json:"row,omitempty"`
 	// Row selector for UPDATE and DELETE, combined conjunctively with the
 	// dataset clamp (which is injected and cannot be omitted or widened). Ignored
@@ -649,7 +649,7 @@ type RowOperation struct {
 	// operation is intended.
 	Where []*Predicate `protobuf:"bytes,4,rep,name=where,proto3" json:"where,omitempty"`
 	// A precondition on THIS operation's own effect. When set and not met, the
-	// WHOLE commit is refused and no row from any table in it is written — the
+	// WHOLE commit is refused and no row from any table in it is written: the
 	// same consequence a table absent from the catalog already carries, not a
 	// per-operation skip.
 	//
@@ -661,7 +661,7 @@ type RowOperation struct {
 	//
 	// Valid on UPDATE and DELETE only. On INSERT and UPSERT it is refused as an
 	// invalid argument rather than ignored, because a mutation's affected count
-	// is a prediction the transaction never checks — an expectation over it would
+	// is a prediction the transaction never checks: an expectation over it would
 	// attest to something no one measured. Insert-if-absent needs no expectation:
 	// a duplicate primary key already refuses the whole commit.
 	//
@@ -822,7 +822,7 @@ type RowExpectation_Exactly struct {
 	//
 	// Use this for a KEYED write, where the predicate names one row by primary
 	// key and any other count means something the caller did not model:
-	// `exactly: 1` is the compare-and-set. `exactly: 0` asserts absence — the
+	// `exactly: 1` is the compare-and-set. `exactly: 0` asserts absence: the
 	// rows the predicate selects must not exist.
 	//
 	// Do not use it for a predicate that legitimately matches a number of rows
@@ -835,7 +835,7 @@ type RowExpectation_AtLeastOne struct {
 	// The operation must affect ONE OR MORE rows, whatever the number.
 	//
 	// Use this for a PREDICATE-SELECTED write whose count is not known in
-	// advance — "close every open session for this user, and fail if there were
+	// advance: "close every open session for this user, and fail if there were
 	// none". Set to true to require it; false is not a condition and is treated
 	// as no precondition at all.
 	AtLeastOne bool `protobuf:"varint,2,opt,name=at_least_one,json=atLeastOne,proto3,oneof"`
@@ -868,8 +868,62 @@ type CommitDataRequest struct {
 	// would in fact have accepted. It never fires for a caller-supplied vector:
 	// the platform embedded nothing there and has nothing to report about it.
 	RejectOnTruncation bool `protobuf:"varint,3,opt,name=reject_on_truncation,json=rejectOnTruncation,proto3" json:"reject_on_truncation,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// An optional caller-chosen key making this commit SAFELY RESENDABLE. Where it
+	// is set, the commit is applied AT MOST ONCE: a repeat of a key already
+	// committed applies nothing and returns the ORIGINAL commit's receipt.
+	//
+	// THE RECOVERY IT EXISTS FOR. A commit that times out, or whose connection
+	// drops, leaves the caller unable to tell whether it applied, and resending it
+	// without a key is answered wrongly in a way that depends on what the commit
+	// contained: an INSERT collides on its own earlier row, absolute UPDATEs apply
+	// again and mint a second receipt, and a compare-and-set is refused with
+	// FAILED_PRECONDITION because the first attempt already moved the row it
+	// guarded. That last one reports failure for work that SUCCEEDED. So: on any
+	// ambiguous failure, resend the identical request with the same key. Do not
+	// read tables back to guess, and do not mint a new key.
+	//
+	// IT NAMES AN INTENT, NOT AN ATTEMPT. This is the one thing to get right, and
+	// the natural reading is the wrong one. The key identifies the WORK the caller
+	// wants done once, "charge invoice 4021", "apply ledger batch 88", not the
+	// individual wire attempt. Every retry of that work, whether by an SDK's
+	// automatic retry or by a caller's own loop, must reuse the SAME key; a new
+	// logical operation gets a NEW one. A fresh key per attempt provides exactly
+	// nothing: each attempt then looks like a separate intent, which is the
+	// behavior of supplying no key at all.
+	//
+	// THE RECEIPT IS THE ORIGINAL'S. A repeat returns the first commit's commit
+	// timestamp, its per-table counts, and its truncations, not a receipt
+	// describing the resend. A timestamp of "now" would let a caller conclude a
+	// write happened at a moment when nothing did, and would break any ordering
+	// derived from commit timestamps. There is deliberately no "this was a replay"
+	// flag: the honest answer to "was my intent carried out" is the receipt for the
+	// commit that carried it out. A caller that must distinguish a replay can
+	// compare the returned timestamp against its own attempt.
+	//
+	// REUSE WITH A DIFFERENT REQUEST IS REFUSED with INVALID_ARGUMENT, not answered
+	// from the stored receipt. The platform fingerprints the request behind the key,
+	// so presenting a spent key with different operations (a client bug, a
+	// recycled counter) is an error rather than a plausible receipt for work that
+	// was never requested. Mint a new key. Note the asymmetry: an IDENTICAL resend
+	// is a success carrying the original receipt, a DIFFERENT one is an error, and
+	// the two must not be confused.
+	//
+	// RETENTION IS BOUNDED, and the bound is part of this contract rather than an
+	// implementation detail: a key is remembered for AT LEAST 24 hours after the
+	// commit it names. Beyond that the record may be reclaimed and a resend applies
+	// again as a new commit. It is a floor, not a window: a key may keep answering
+	// for some time beyond it. So never treat a resend outside the window as safe,
+	// and never depend on one becoming unsafe at a particular moment. Retry budgets
+	// measured in seconds or minutes sit far inside it.
+	//
+	// Keys are scoped to the DATASET: the same key may be used independently in two
+	// datasets, and the record does not survive the dataset's deletion. The key is
+	// caller-chosen and opaque to the platform: a UUID or any other value unique
+	// to the intent within the dataset. Leave it unset for the historical behavior,
+	// where a resend is treated as a new commit.
+	IdempotencyKey string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CommitDataRequest) Reset() {
@@ -923,6 +977,13 @@ func (x *CommitDataRequest) GetRejectOnTruncation() bool {
 	return false
 }
 
+func (x *CommitDataRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
 // One server-generated embedding the model truncated. The row was written (or,
 // with reject_on_truncation, the commit was refused): the stored content is
 // complete, the stored embedding is not, so the tail of the source column is
@@ -935,8 +996,8 @@ type TruncationReport struct {
 	// knows exactly which row to split and re-commit. A count could not say that
 	// in a multi-row commit.
 	PrimaryKey map[string]*Value `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Tokens the model counted in the content it was GIVEN — not in the prefix it
-	// embedded — so this EXCEEDS the model's input limit rather than equalling it.
+	// Tokens the model counted in the content it was GIVEN, not in the prefix it
+	// embedded, so this EXCEEDS the model's input limit rather than equalling it.
 	// Dividing it by the limit is roughly how many pieces the content needs
 	// splitting into.
 	TokenCount    int64 `protobuf:"varint,4,opt,name=token_count,json=tokenCount,proto3" json:"token_count,omitempty"`
@@ -1207,7 +1268,7 @@ type RelationalQuery struct {
 	Joins   []*Join    `protobuf:"bytes,4,rep,name=joins,proto3" json:"joins,omitempty"`
 	OrderBy []*OrderBy `protobuf:"bytes,5,rep,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
 	// Max rows to return. When it exceeds the tier's ceiling the query is served
-	// AT the ceiling rather than refused — asking for more rows than the plan
+	// AT the ceiling rather than refused: asking for more rows than the plan
 	// allows is served short, not rejected.
 	Limit int32 `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
 	// Resume a walk of this section. Empty starts one. See
@@ -1303,7 +1364,7 @@ func (x *RelationalQuery) GetPageToken() string {
 //
 // Ranking is by EXACT cosine distance, not an approximate index. Each query is
 // already clamped to a dataset slice, which makes the scan small and an ANN
-// index pointless — the same conclusion the memory plane reached.
+// index pointless: the same conclusion the memory plane reached.
 type VectorQuery struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Table  string                 `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`   // logical table name
@@ -1313,7 +1374,7 @@ type VectorQuery struct {
 	// than silently returning nonsense.
 	Embedding *VectorValue `protobuf:"bytes,3,opt,name=embedding,proto3" json:"embedding,omitempty"`
 	// Text to embed server-side as the query vector, as an alternative to
-	// `embedding`. Requires the target column to declare a source column — the
+	// `embedding`. Requires the target column to declare a source column: the
 	// platform will not guess which model to embed a query with for a column whose
 	// vectors it did not produce. Exactly one of `embedding` or `query_text` must
 	// be supplied.
@@ -1326,7 +1387,7 @@ type VectorQuery struct {
 	//
 	// These are evaluated in the WHERE clause BEFORE ranking, never as a
 	// post-filter over an already-ranked or already-limited set. So the result is
-	// the nearest `limit` rows AMONG those matching the predicates — not the
+	// the nearest `limit` rows AMONG those matching the predicates, not the
 	// predicates applied to an unfiltered nearest-`limit` set, which would return
 	// fewer rows (often zero) for reasons a caller could not predict. Same rule
 	// the memory plane applies to metadata filters.
@@ -1420,7 +1481,7 @@ func (x *VectorQuery) GetLimit() int32 {
 }
 
 // Read staleness for the whole query. Absent means a STRONG, externally
-// consistent read — the default, and the right one unless latency demands
+// consistent read: the default, and the right one unless latency demands
 // otherwise.
 //
 // A staleness bound is applied UNIFORMLY to every section, so sections can never
@@ -1758,7 +1819,7 @@ type QueryDataResponse struct {
 	// The single read timestamp every section was evaluated at.
 	ReadTimestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=read_timestamp,json=readTimestamp,proto3" json:"read_timestamp,omitempty"`
 	// Continuation token for the RELATIONAL section. An EMPTY token means the
-	// listing is EXHAUSTED — not merely that this page ended — so a caller can
+	// listing is EXHAUSTED, not merely that this page ended, so a caller can
 	// tell "this is every matching row" from "this is the first page of an unknown
 	// amount". Feed it back as RelationalQuery.page_token.
 	//
@@ -1884,14 +1945,15 @@ const file_jennah_datastore_v1_data_proto_rawDesc = "" +
 	"\aexactly\x18\x01 \x01(\x03H\x00R\aexactly\x12\"\n" +
 	"\fat_least_one\x18\x02 \x01(\bH\x00R\n" +
 	"atLeastOneB\x06\n" +
-	"\x04kind\"\xaa\x01\n" +
+	"\x04kind\"\xd3\x01\n" +
 	"\x11CommitDataRequest\x12\x1d\n" +
 	"\n" +
 	"dataset_id\x18\x01 \x01(\tR\tdatasetId\x12D\n" +
 	"\n" +
 	"operations\x18\x02 \x03(\v2$.jennahapi.datastore.v1.RowOperationR\n" +
 	"operations\x120\n" +
-	"\x14reject_on_truncation\x18\x03 \x01(\bR\x12rejectOnTruncation\"\x9a\x02\n" +
+	"\x14reject_on_truncation\x18\x03 \x01(\bR\x12rejectOnTruncation\x12'\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tR\x0eidempotencyKey\"\x9a\x02\n" +
 	"\x10TruncationReport\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\tR\x05table\x12\x16\n" +
 	"\x06column\x18\x02 \x01(\tR\x06column\x12Y\n" +

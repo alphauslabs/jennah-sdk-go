@@ -159,8 +159,8 @@ func (ColumnType) EnumDescriptor() ([]byte, []int) {
 // Options for a COLUMN_TYPE_VECTOR column.
 type VectorOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Vector width. Every value written to this column — caller-supplied or
-	// server-generated — must have exactly this many elements, and so must a query
+	// Vector width. Every value written to this column, caller-supplied or
+	// server-generated, must have exactly this many elements, and so must a query
 	// vector ranked against it. A width mismatch is refused rather than padded or
 	// truncated.
 	Dimensions int32 `protobuf:"varint,1,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
@@ -171,12 +171,12 @@ type VectorOptions struct {
 	//
 	// This is the whole of the opt-in, and the two paths differ sharply:
 	//
-	//	source_column SET    — a row committed without this vector has it
+	//	source_column SET    : a row committed without this vector has it
 	//	                       generated from source_column in the same
 	//	                       transaction as the row. A row that DOES supply a
 	//	                       vector still stores exactly what was supplied; the
 	//	                       model is not invoked.
-	//	source_column UNSET  — a row committed without this vector is a typed
+	//	source_column UNSET  : a row committed without this vector is a typed
 	//	                       error. It is never silently generated, and never
 	//	                       written as NULL: a column declared to hold an
 	//	                       embedding that silently holds nothing is invisible
@@ -193,7 +193,7 @@ type VectorOptions struct {
 	SourceColumn string `protobuf:"bytes,2,opt,name=source_column,json=sourceColumn,proto3" json:"source_column,omitempty"`
 	// Output-only. The embedding generation this column's stored vectors were
 	// produced under, assigned by the platform when the column is declared. It is
-	// recorded so a later re-embed is scopable and reversible — you can tell which
+	// recorded so a later re-embed is scopable and reversible: you can tell which
 	// vectors came from which model without re-deriving it from write timestamps.
 	// Empty for a caller-supplied-only column, where the platform embedded nothing
 	// and can attest to nothing.
@@ -397,7 +397,7 @@ type TableDeclaration struct {
 	Name    string               `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Columns []*ColumnDeclaration `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Logical column names forming the table's primary key, in order. The
-	// platform PREPENDS `(EnterpriseId, DatasetId)` to whatever is named here —
+	// platform PREPENDS `(EnterpriseId, DatasetId)` to whatever is named here:
 	// that is not expressible in the declaration and cannot be overridden or
 	// reordered, because it is what makes cross-slice access structurally
 	// impossible rather than merely denied.
@@ -688,7 +688,7 @@ type ColumnSchema struct {
 	// content it was given).
 	//
 	// A managed column is readable and returned by queries like any other, but it
-	// cannot be declared, altered, or written by a caller — the platform maintains
+	// cannot be declared, altered, or written by a caller: the platform maintains
 	// it in the same transaction as the row it describes. It counts against the
 	// table's column ceiling.
 	Managed       bool `protobuf:"varint,5,opt,name=managed,proto3" json:"managed,omitempty"`
@@ -766,7 +766,7 @@ type TableSchema struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // logical name
 	Columns []*ColumnSchema        `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
-	// Logical primary-key columns AS DECLARED — the `(EnterpriseId, DatasetId)`
+	// Logical primary-key columns AS DECLARED: the `(EnterpriseId, DatasetId)`
 	// prefix the platform prepends is not listed, because it is not a tenant
 	// concept and naming it here would imply it were optional.
 	PrimaryKey    []string               `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
@@ -871,7 +871,7 @@ func (x *TableSchema) GetUpdatedAt() *timestamppb.Timestamp {
 //
 // A limit of -1 means unlimited. A limit currently in report-only rollout is
 // reported here with its real value but does not refuse a declaration; the
-// response cannot distinguish the two, deliberately — a caller should build
+// response cannot distinguish the two, deliberately: a caller should build
 // against the published ceiling regardless of whether it is being enforced yet.
 type SchemaUsage struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`

@@ -41,7 +41,7 @@ type DatasetServiceClient interface {
 	// DATASET_STATUS_PROVISIONING; poll GetDataset until DATASET_STATUS_ACTIVE.
 	//
 	// Requires datastore.datasets:create AND a dataset selector already covering
-	// the requested dataset_id — creating a dataset grants no access to it, for
+	// the requested dataset_id: creating a dataset grants no access to it, for
 	// the same reason spawning an agent does not: selectors live on roles and
 	// keys, so an auto-grant would mutate a role shared with other members.
 	CreateDataset(ctx context.Context, in *CreateDatasetRequest, opts ...grpc.CallOption) (*CreateDatasetResponse, error)
@@ -52,12 +52,12 @@ type DatasetServiceClient interface {
 	GetDataset(ctx context.Context, in *GetDatasetRequest, opts ...grpc.CallOption) (*GetDatasetResponse, error)
 	// Lists the caller enterprise's datasets, ordered by dataset_id, with keyset
 	// pagination. The listing is FILTERED to the datasets the caller's dataset
-	// selectors reach — it is not gated with a yes/no, so a caller with no
+	// selectors reach: it is not gated with a yes/no, so a caller with no
 	// selectors receives an empty page rather than a permission error.
 	ListDatasets(ctx context.Context, in *ListDatasetsRequest, opts ...grpc.CallOption) (*ListDatasetsResponse, error)
 	// Deletes a dataset the caller owns: drops its declared tables and removes its
 	// catalog and directory records, cascading to all of its application rows.
-	// Returns an erasure receipt — the commit timestamp and per-table row counts —
+	// Returns an erasure receipt (the commit timestamp and per-table row counts),
 	// so a caller can evidence a complete erasure. A dataset_id not owned by the
 	// caller's enterprise is treated as not found.
 	DeleteDataset(ctx context.Context, in *DeleteDatasetRequest, opts ...grpc.CallOption) (*DeleteDatasetResponse, error)
@@ -127,7 +127,7 @@ type DatasetServiceServer interface {
 	// DATASET_STATUS_PROVISIONING; poll GetDataset until DATASET_STATUS_ACTIVE.
 	//
 	// Requires datastore.datasets:create AND a dataset selector already covering
-	// the requested dataset_id — creating a dataset grants no access to it, for
+	// the requested dataset_id: creating a dataset grants no access to it, for
 	// the same reason spawning an agent does not: selectors live on roles and
 	// keys, so an auto-grant would mutate a role shared with other members.
 	CreateDataset(context.Context, *CreateDatasetRequest) (*CreateDatasetResponse, error)
@@ -138,12 +138,12 @@ type DatasetServiceServer interface {
 	GetDataset(context.Context, *GetDatasetRequest) (*GetDatasetResponse, error)
 	// Lists the caller enterprise's datasets, ordered by dataset_id, with keyset
 	// pagination. The listing is FILTERED to the datasets the caller's dataset
-	// selectors reach — it is not gated with a yes/no, so a caller with no
+	// selectors reach: it is not gated with a yes/no, so a caller with no
 	// selectors receives an empty page rather than a permission error.
 	ListDatasets(context.Context, *ListDatasetsRequest) (*ListDatasetsResponse, error)
 	// Deletes a dataset the caller owns: drops its declared tables and removes its
 	// catalog and directory records, cascading to all of its application rows.
-	// Returns an erasure receipt — the commit timestamp and per-table row counts —
+	// Returns an erasure receipt (the commit timestamp and per-table row counts),
 	// so a caller can evidence a complete erasure. A dataset_id not owned by the
 	// caller's enterprise is treated as not found.
 	DeleteDataset(context.Context, *DeleteDatasetRequest) (*DeleteDatasetResponse, error)

@@ -35,7 +35,7 @@ type AgentServiceClient interface {
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
 	// the region's data-plane instance is provisioned on first use (its tables are
-	// created once per database, and tenancy is row-level — the AgentInstances row
+	// created once per database, and tenancy is row-level: the AgentInstances row
 	// is keyed by EnterpriseId). The EnterpriseId is taken from the token, never
 	// the body.
 	//
@@ -43,8 +43,8 @@ type AgentServiceClient interface {
 	// the returned AgentInstance carries status AGENT_STATUS_PROVISIONING; poll
 	// GetAgent until it reaches AGENT_STATUS_ACTIVE. (The first implementation
 	// provisions inline and returns ACTIVE directly; the PROVISIONING status is
-	// the forward-compatible signal for when region/instance creation — which can
-	// take minutes — is made asynchronous.)
+	// the forward-compatible signal for when region/instance creation, which can
+	// take minutes, is made asynchronous.)
 	CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error)
 	// Reads a single agent workspace the caller owns, including its current
 	// lifecycle status. This is the readiness-poll surface for a create that is
@@ -121,7 +121,7 @@ type AgentServiceServer interface {
 	// is resolved from the optional `region` field (a Jennah region identifier
 	// validated against the configured allowlist) or the platform default region;
 	// the region's data-plane instance is provisioned on first use (its tables are
-	// created once per database, and tenancy is row-level — the AgentInstances row
+	// created once per database, and tenancy is row-level: the AgentInstances row
 	// is keyed by EnterpriseId). The EnterpriseId is taken from the token, never
 	// the body.
 	//
@@ -129,8 +129,8 @@ type AgentServiceServer interface {
 	// the returned AgentInstance carries status AGENT_STATUS_PROVISIONING; poll
 	// GetAgent until it reaches AGENT_STATUS_ACTIVE. (The first implementation
 	// provisions inline and returns ACTIVE directly; the PROVISIONING status is
-	// the forward-compatible signal for when region/instance creation — which can
-	// take minutes — is made asynchronous.)
+	// the forward-compatible signal for when region/instance creation, which can
+	// take minutes, is made asynchronous.)
 	CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error)
 	// Reads a single agent workspace the caller owns, including its current
 	// lifecycle status. This is the readiness-poll surface for a create that is
