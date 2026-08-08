@@ -212,6 +212,63 @@ func (Predicate_Operator) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{3, 0}
 }
 
+// The arithmetic applied. There is no default: an unspecified operator is
+// refused rather than treated as ADD, because guessing the operator on a
+// value the caller cannot re-derive is precisely the class of silent wrong
+// answer this message exists to avoid. (Predicate.Operator defaults to
+// EQUALS; that is a comparison, and a wrong guess there returns wrong rows
+// rather than storing a wrong number.)
+type ColumnExpression_Operator int32
+
+const (
+	ColumnExpression_OPERATOR_UNSPECIFIED ColumnExpression_Operator = 0
+	ColumnExpression_OPERATOR_ADD         ColumnExpression_Operator = 1
+	// Kept as its own operator rather than expressed as adding a negative
+	// literal: a caller writing a debit should not have to encode it as a sign.
+	ColumnExpression_OPERATOR_SUBTRACT ColumnExpression_Operator = 2
+)
+
+// Enum value maps for ColumnExpression_Operator.
+var (
+	ColumnExpression_Operator_name = map[int32]string{
+		0: "OPERATOR_UNSPECIFIED",
+		1: "OPERATOR_ADD",
+		2: "OPERATOR_SUBTRACT",
+	}
+	ColumnExpression_Operator_value = map[string]int32{
+		"OPERATOR_UNSPECIFIED": 0,
+		"OPERATOR_ADD":         1,
+		"OPERATOR_SUBTRACT":    2,
+	}
+)
+
+func (x ColumnExpression_Operator) Enum() *ColumnExpression_Operator {
+	p := new(ColumnExpression_Operator)
+	*p = x
+	return p
+}
+
+func (x ColumnExpression_Operator) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ColumnExpression_Operator) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_datastore_v1_data_proto_enumTypes[3].Descriptor()
+}
+
+func (ColumnExpression_Operator) Type() protoreflect.EnumType {
+	return &file_jennah_datastore_v1_data_proto_enumTypes[3]
+}
+
+func (x ColumnExpression_Operator) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ColumnExpression_Operator.Descriptor instead.
+func (ColumnExpression_Operator) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{4, 0}
+}
+
 // One typed column value.
 //
 // Values are explicitly typed rather than carried as free-form JSON because
@@ -612,6 +669,83 @@ func (x *Predicate) GetValue() *Value {
 	return nil
 }
 
+// An assignment that computes a column's new value from that column's CURRENT
+// value: `column = column ± operand`, evaluated by the backend inside the
+// commit's transaction.
+//
+// This is what makes an atomic counter and a write-side rollup possible without
+// a read: no prior SELECT, no client-side arithmetic, and no compare-and-set
+// retry loop. It is deliberately NOT an expression language — one column
+// reference, one operator, one literal, no nesting. A tree would need
+// precedence, type inference, and NULL-propagation rules, and at that point
+// whether caller input can reach query text stops being auditable by reading
+// the compiler.
+type ColumnExpression struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Logical column name, resolved through the dataset catalog. It MUST equal
+	// the map key this expression is stored under — the redundancy is checked,
+	// not ignored, so a mismatch is a typed error rather than a silent write to
+	// whichever of the two the server happened to read.
+	Column   string                    `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
+	Operator ColumnExpression_Operator `protobuf:"varint,2,opt,name=operator,proto3,enum=jennahapi.datastore.v1.ColumnExpression_Operator" json:"operator,omitempty"`
+	// The right-hand literal, bound as a query parameter and never interpolated,
+	// exactly as Predicate.value is. Must be an int64 matching the column's type.
+	Operand       *Value `protobuf:"bytes,3,opt,name=operand,proto3" json:"operand,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ColumnExpression) Reset() {
+	*x = ColumnExpression{}
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ColumnExpression) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ColumnExpression) ProtoMessage() {}
+
+func (x *ColumnExpression) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ColumnExpression.ProtoReflect.Descriptor instead.
+func (*ColumnExpression) Descriptor() ([]byte, []int) {
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ColumnExpression) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *ColumnExpression) GetOperator() ColumnExpression_Operator {
+	if x != nil {
+		return x.Operator
+	}
+	return ColumnExpression_OPERATOR_UNSPECIFIED
+}
+
+func (x *ColumnExpression) GetOperand() *Value {
+	if x != nil {
+		return x.Operand
+	}
+	return nil
+}
+
 // One structured row operation.
 type RowOperation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -670,14 +804,69 @@ type RowOperation struct {
 	// under contention; the platform does not retry a failed precondition, and
 	// must not, because a blind replay either fails identically or succeeds
 	// against a state the caller never evaluated.
-	Expect        *RowExpectation `protobuf:"bytes,5,opt,name=expect,proto3" json:"expect,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Expect *RowExpectation `protobuf:"bytes,5,opt,name=expect,proto3" json:"expect,omitempty"`
+	// Assignments computed from a column's own current value, keyed by logical
+	// column name. Combined with `row`: a commit may set some columns to literals
+	// and compute others in the same operation.
+	//
+	// This is a SEPARATE MAP rather than an expression branch on `Value`, and it
+	// must stay one. `Value` is also the type of `Predicate.value`, so a branch
+	// there would make "compare a column against an expression" syntactically
+	// valid and then have to be refused at runtime. A type that admits states the
+	// system must police is worse than a second field.
+	//
+	// Rules, each of which is a refusal and not a silent adjustment:
+	//
+	//   - UPDATE ONLY. An expression reads the row it writes, and INSERT/UPSERT
+	//     are addressed by key as mutations that carry no reference to a current
+	//     value. On INSERT, UPSERT, and DELETE an expression is an invalid
+	//     argument rather than ignored.
+	//   - INT64, NOT NULL columns only. Arithmetic over an absent value yields an
+	//     absent value, so an expression on a nullable column would silently
+	//     erase the counter; the platform will not substitute zero for absent
+	//     either, since that makes "absent" and "zero" indistinguishable.
+	//     FLOAT64 is excluded because its overflow is a silent +Inf and because
+	//     accumulated float addition is order-dependent, which would make a
+	//     rollup's value depend on interleaving.
+	//   - ONE ASSIGNMENT PER COLUMN. A column named in both `row` and
+	//     `set_expressions` is refused rather than resolved by precedence.
+	//   - NO TENANCY OR PLATFORM-MANAGED COLUMN may be a target, enforced on this
+	//     path independently of the literal path.
+	//   - AN UNREPRESENTABLE RESULT ABORTS THE WHOLE COMMIT with OUT_OF_RANGE.
+	//     Nothing wrapped or saturated is ever stored.
+	//
+	// AN ABSENT ROW IS A NO-OP, NOT AN IMPLICIT CREATE. `total = total + 1`
+	// against a row that does not exist affects zero rows and does nothing —
+	// there is no value to compute from, and no upsert-with-expression to offer
+	// because Spanner's INSERT-OR-UPDATE is mutation-only. An increment that
+	// vanishes is indistinguishable in the receipt from one that landed, and for
+	// a value accumulated over many commits that loss is unrecoverable. So PAIR
+	// EVERY EXPRESSION WITH `expect`: create the counter row once, tolerating
+	// AlreadyExists, then increment with `expect.exactly: 1` forever after.
+	//
+	// AN IDEMPOTENCY KEY IS REQUIRED on any commit carrying an expression. Every
+	// other write this API accepts is naturally idempotent — INSERT collides on
+	// its key, UPSERT and UPDATE assign absolute values — so a caller whose
+	// request times out with an unknown outcome may safely resend it. This is the
+	// first write where a resend DOUBLE-APPLIES, silently, with a second receipt
+	// that looks exactly like a first. A commit with an expression and no
+	// `CommitDataRequest.idempotency_key` is refused before any transaction
+	// opens. A commit of absolute values still needs no key.
+	//
+	// WRITE-RATE CEILING: a single Spanner row tops out at a few hundred writes
+	// per second under lock contention, and expressions make it easy to aim every
+	// writer at one counter. Above that rate use SHARDED COUNTERS — N rows
+	// incremented at random, summed on read — accepting the trade-off that a
+	// sharded counter gives up whole-counter conditionals, since no single row
+	// holds the total to compare against.
+	SetExpressions map[string]*ColumnExpression `protobuf:"bytes,6,rep,name=set_expressions,json=setExpressions,proto3" json:"set_expressions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *RowOperation) Reset() {
 	*x = RowOperation{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[4]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -689,7 +878,7 @@ func (x *RowOperation) String() string {
 func (*RowOperation) ProtoMessage() {}
 
 func (x *RowOperation) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[4]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -702,7 +891,7 @@ func (x *RowOperation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RowOperation.ProtoReflect.Descriptor instead.
 func (*RowOperation) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{4}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RowOperation) GetTable() string {
@@ -740,6 +929,13 @@ func (x *RowOperation) GetExpect() *RowExpectation {
 	return nil
 }
 
+func (x *RowOperation) GetSetExpressions() map[string]*ColumnExpression {
+	if x != nil {
+		return x.SetExpressions
+	}
+	return nil
+}
+
 // A precondition on how many rows an operation affects.
 //
 // A message rather than a bare integer because proto3 scalars have no field
@@ -760,7 +956,7 @@ type RowExpectation struct {
 
 func (x *RowExpectation) Reset() {
 	*x = RowExpectation{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[5]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -772,7 +968,7 @@ func (x *RowExpectation) String() string {
 func (*RowExpectation) ProtoMessage() {}
 
 func (x *RowExpectation) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[5]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -785,7 +981,7 @@ func (x *RowExpectation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RowExpectation.ProtoReflect.Descriptor instead.
 func (*RowExpectation) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{5}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RowExpectation) GetKind() isRowExpectation_Kind {
@@ -928,7 +1124,7 @@ type CommitDataRequest struct {
 
 func (x *CommitDataRequest) Reset() {
 	*x = CommitDataRequest{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[6]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -940,7 +1136,7 @@ func (x *CommitDataRequest) String() string {
 func (*CommitDataRequest) ProtoMessage() {}
 
 func (x *CommitDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[6]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -953,7 +1149,7 @@ func (x *CommitDataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitDataRequest.ProtoReflect.Descriptor instead.
 func (*CommitDataRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{6}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *CommitDataRequest) GetDatasetId() string {
@@ -1007,7 +1203,7 @@ type TruncationReport struct {
 
 func (x *TruncationReport) Reset() {
 	*x = TruncationReport{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[7]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1019,7 +1215,7 @@ func (x *TruncationReport) String() string {
 func (*TruncationReport) ProtoMessage() {}
 
 func (x *TruncationReport) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[7]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1032,7 +1228,7 @@ func (x *TruncationReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TruncationReport.ProtoReflect.Descriptor instead.
 func (*TruncationReport) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{7}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *TruncationReport) GetTable() string {
@@ -1079,7 +1275,7 @@ type CommitDataResponse struct {
 
 func (x *CommitDataResponse) Reset() {
 	*x = CommitDataResponse{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[8]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1091,7 +1287,7 @@ func (x *CommitDataResponse) String() string {
 func (*CommitDataResponse) ProtoMessage() {}
 
 func (x *CommitDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[8]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1104,7 +1300,7 @@ func (x *CommitDataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommitDataResponse.ProtoReflect.Descriptor instead.
 func (*CommitDataResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{8}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CommitDataResponse) GetCommitTimestamp() *timestamppb.Timestamp {
@@ -1144,7 +1340,7 @@ type Join struct {
 
 func (x *Join) Reset() {
 	*x = Join{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[9]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1156,7 +1352,7 @@ func (x *Join) String() string {
 func (*Join) ProtoMessage() {}
 
 func (x *Join) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[9]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1169,7 +1365,7 @@ func (x *Join) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Join.ProtoReflect.Descriptor instead.
 func (*Join) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{9}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Join) GetTable() string {
@@ -1211,7 +1407,7 @@ type OrderBy struct {
 
 func (x *OrderBy) Reset() {
 	*x = OrderBy{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[10]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1223,7 +1419,7 @@ func (x *OrderBy) String() string {
 func (*OrderBy) ProtoMessage() {}
 
 func (x *OrderBy) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[10]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1236,7 +1432,7 @@ func (x *OrderBy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrderBy.ProtoReflect.Descriptor instead.
 func (*OrderBy) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{10}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *OrderBy) GetColumn() string {
@@ -1283,7 +1479,7 @@ type RelationalQuery struct {
 
 func (x *RelationalQuery) Reset() {
 	*x = RelationalQuery{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[11]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1295,7 +1491,7 @@ func (x *RelationalQuery) String() string {
 func (*RelationalQuery) ProtoMessage() {}
 
 func (x *RelationalQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[11]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1308,7 +1504,7 @@ func (x *RelationalQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelationalQuery.ProtoReflect.Descriptor instead.
 func (*RelationalQuery) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{11}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RelationalQuery) GetTable() string {
@@ -1403,7 +1599,7 @@ type VectorQuery struct {
 
 func (x *VectorQuery) Reset() {
 	*x = VectorQuery{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[12]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1415,7 +1611,7 @@ func (x *VectorQuery) String() string {
 func (*VectorQuery) ProtoMessage() {}
 
 func (x *VectorQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[12]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1428,7 +1624,7 @@ func (x *VectorQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VectorQuery.ProtoReflect.Descriptor instead.
 func (*VectorQuery) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{12}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *VectorQuery) GetTable() string {
@@ -1501,7 +1697,7 @@ type ReadStaleness struct {
 
 func (x *ReadStaleness) Reset() {
 	*x = ReadStaleness{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[13]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1513,7 +1709,7 @@ func (x *ReadStaleness) String() string {
 func (*ReadStaleness) ProtoMessage() {}
 
 func (x *ReadStaleness) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[13]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1526,7 +1722,7 @@ func (x *ReadStaleness) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadStaleness.ProtoReflect.Descriptor instead.
 func (*ReadStaleness) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{13}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ReadStaleness) GetMode() isReadStaleness_Mode {
@@ -1610,7 +1806,7 @@ type QueryDataRequest struct {
 
 func (x *QueryDataRequest) Reset() {
 	*x = QueryDataRequest{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[14]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1622,7 +1818,7 @@ func (x *QueryDataRequest) String() string {
 func (*QueryDataRequest) ProtoMessage() {}
 
 func (x *QueryDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[14]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1635,7 +1831,7 @@ func (x *QueryDataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryDataRequest.ProtoReflect.Descriptor instead.
 func (*QueryDataRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{14}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *QueryDataRequest) GetDatasetId() string {
@@ -1676,7 +1872,7 @@ type RelationalResult struct {
 
 func (x *RelationalResult) Reset() {
 	*x = RelationalResult{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[15]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1688,7 +1884,7 @@ func (x *RelationalResult) String() string {
 func (*RelationalResult) ProtoMessage() {}
 
 func (x *RelationalResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[15]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1701,7 +1897,7 @@ func (x *RelationalResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelationalResult.ProtoReflect.Descriptor instead.
 func (*RelationalResult) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{15}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RelationalResult) GetRows() []*Row {
@@ -1723,7 +1919,7 @@ type VectorMatch struct {
 
 func (x *VectorMatch) Reset() {
 	*x = VectorMatch{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[16]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1735,7 +1931,7 @@ func (x *VectorMatch) String() string {
 func (*VectorMatch) ProtoMessage() {}
 
 func (x *VectorMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[16]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1748,7 +1944,7 @@ func (x *VectorMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VectorMatch.ProtoReflect.Descriptor instead.
 func (*VectorMatch) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{16}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *VectorMatch) GetRow() *Row {
@@ -1775,7 +1971,7 @@ type VectorResult struct {
 
 func (x *VectorResult) Reset() {
 	*x = VectorResult{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[17]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1787,7 +1983,7 @@ func (x *VectorResult) String() string {
 func (*VectorResult) ProtoMessage() {}
 
 func (x *VectorResult) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[17]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1800,7 +1996,7 @@ func (x *VectorResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VectorResult.ProtoReflect.Descriptor instead.
 func (*VectorResult) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{17}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *VectorResult) GetMatches() []*VectorMatch {
@@ -1837,7 +2033,7 @@ type QueryDataResponse struct {
 
 func (x *QueryDataResponse) Reset() {
 	*x = QueryDataResponse{}
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[18]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1849,7 +2045,7 @@ func (x *QueryDataResponse) String() string {
 func (*QueryDataResponse) ProtoMessage() {}
 
 func (x *QueryDataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_data_proto_msgTypes[18]
+	mi := &file_jennah_datastore_v1_data_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1862,7 +2058,7 @@ func (x *QueryDataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryDataResponse.ProtoReflect.Descriptor instead.
 func (*QueryDataResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{18}
+	return file_jennah_datastore_v1_data_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *QueryDataResponse) GetRelational() *RelationalResult {
@@ -1934,13 +2130,25 @@ const file_jennah_datastore_v1_data_proto_rawDesc = "" +
 	"\x12OPERATOR_LESS_THAN\x10\x02\x12\x1f\n" +
 	"\x1bOPERATOR_LESS_THAN_OR_EQUAL\x10\x03\x12\x19\n" +
 	"\x15OPERATOR_GREATER_THAN\x10\x04\x12\"\n" +
-	"\x1eOPERATOR_GREATER_THAN_OR_EQUAL\x10\x05\"\x87\x02\n" +
+	"\x1eOPERATOR_GREATER_THAN_OR_EQUAL\x10\x05\"\x81\x02\n" +
+	"\x10ColumnExpression\x12\x16\n" +
+	"\x06column\x18\x01 \x01(\tR\x06column\x12M\n" +
+	"\boperator\x18\x02 \x01(\x0e21.jennahapi.datastore.v1.ColumnExpression.OperatorR\boperator\x127\n" +
+	"\aoperand\x18\x03 \x01(\v2\x1d.jennahapi.datastore.v1.ValueR\aoperand\"M\n" +
+	"\bOperator\x12\x18\n" +
+	"\x14OPERATOR_UNSPECIFIED\x10\x00\x12\x10\n" +
+	"\fOPERATOR_ADD\x10\x01\x12\x15\n" +
+	"\x11OPERATOR_SUBTRACT\x10\x02\"\xd7\x03\n" +
 	"\fRowOperation\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\tR\x05table\x129\n" +
 	"\x04type\x18\x02 \x01(\x0e2%.jennahapi.datastore.v1.OperationTypeR\x04type\x12-\n" +
 	"\x03row\x18\x03 \x01(\v2\x1b.jennahapi.datastore.v1.RowR\x03row\x127\n" +
 	"\x05where\x18\x04 \x03(\v2!.jennahapi.datastore.v1.PredicateR\x05where\x12>\n" +
-	"\x06expect\x18\x05 \x01(\v2&.jennahapi.datastore.v1.RowExpectationR\x06expect\"X\n" +
+	"\x06expect\x18\x05 \x01(\v2&.jennahapi.datastore.v1.RowExpectationR\x06expect\x12a\n" +
+	"\x0fset_expressions\x18\x06 \x03(\v28.jennahapi.datastore.v1.RowOperation.SetExpressionsEntryR\x0esetExpressions\x1ak\n" +
+	"\x13SetExpressionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12>\n" +
+	"\x05value\x18\x02 \x01(\v2(.jennahapi.datastore.v1.ColumnExpressionR\x05value:\x028\x01\"X\n" +
 	"\x0eRowExpectation\x12\x1a\n" +
 	"\aexactly\x18\x01 \x01(\x03H\x00R\aexactly\x12\"\n" +
 	"\fat_least_one\x18\x02 \x01(\bH\x00R\n" +
@@ -2054,81 +2262,88 @@ func file_jennah_datastore_v1_data_proto_rawDescGZIP() []byte {
 	return file_jennah_datastore_v1_data_proto_rawDescData
 }
 
-var file_jennah_datastore_v1_data_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_jennah_datastore_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_jennah_datastore_v1_data_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_jennah_datastore_v1_data_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_jennah_datastore_v1_data_proto_goTypes = []any{
-	(OperationType)(0),            // 0: jennahapi.datastore.v1.OperationType
-	(JoinType)(0),                 // 1: jennahapi.datastore.v1.JoinType
-	(Predicate_Operator)(0),       // 2: jennahapi.datastore.v1.Predicate.Operator
-	(*Value)(nil),                 // 3: jennahapi.datastore.v1.Value
-	(*VectorValue)(nil),           // 4: jennahapi.datastore.v1.VectorValue
-	(*Row)(nil),                   // 5: jennahapi.datastore.v1.Row
-	(*Predicate)(nil),             // 6: jennahapi.datastore.v1.Predicate
-	(*RowOperation)(nil),          // 7: jennahapi.datastore.v1.RowOperation
-	(*RowExpectation)(nil),        // 8: jennahapi.datastore.v1.RowExpectation
-	(*CommitDataRequest)(nil),     // 9: jennahapi.datastore.v1.CommitDataRequest
-	(*TruncationReport)(nil),      // 10: jennahapi.datastore.v1.TruncationReport
-	(*CommitDataResponse)(nil),    // 11: jennahapi.datastore.v1.CommitDataResponse
-	(*Join)(nil),                  // 12: jennahapi.datastore.v1.Join
-	(*OrderBy)(nil),               // 13: jennahapi.datastore.v1.OrderBy
-	(*RelationalQuery)(nil),       // 14: jennahapi.datastore.v1.RelationalQuery
-	(*VectorQuery)(nil),           // 15: jennahapi.datastore.v1.VectorQuery
-	(*ReadStaleness)(nil),         // 16: jennahapi.datastore.v1.ReadStaleness
-	(*QueryDataRequest)(nil),      // 17: jennahapi.datastore.v1.QueryDataRequest
-	(*RelationalResult)(nil),      // 18: jennahapi.datastore.v1.RelationalResult
-	(*VectorMatch)(nil),           // 19: jennahapi.datastore.v1.VectorMatch
-	(*VectorResult)(nil),          // 20: jennahapi.datastore.v1.VectorResult
-	(*QueryDataResponse)(nil),     // 21: jennahapi.datastore.v1.QueryDataResponse
-	nil,                           // 22: jennahapi.datastore.v1.Row.ColumnsEntry
-	nil,                           // 23: jennahapi.datastore.v1.TruncationReport.PrimaryKeyEntry
-	nil,                           // 24: jennahapi.datastore.v1.CommitDataResponse.RowsByTableEntry
-	(*timestamppb.Timestamp)(nil), // 25: google.protobuf.Timestamp
-	(*durationpb.Duration)(nil),   // 26: google.protobuf.Duration
+	(OperationType)(0),             // 0: jennahapi.datastore.v1.OperationType
+	(JoinType)(0),                  // 1: jennahapi.datastore.v1.JoinType
+	(Predicate_Operator)(0),        // 2: jennahapi.datastore.v1.Predicate.Operator
+	(ColumnExpression_Operator)(0), // 3: jennahapi.datastore.v1.ColumnExpression.Operator
+	(*Value)(nil),                  // 4: jennahapi.datastore.v1.Value
+	(*VectorValue)(nil),            // 5: jennahapi.datastore.v1.VectorValue
+	(*Row)(nil),                    // 6: jennahapi.datastore.v1.Row
+	(*Predicate)(nil),              // 7: jennahapi.datastore.v1.Predicate
+	(*ColumnExpression)(nil),       // 8: jennahapi.datastore.v1.ColumnExpression
+	(*RowOperation)(nil),           // 9: jennahapi.datastore.v1.RowOperation
+	(*RowExpectation)(nil),         // 10: jennahapi.datastore.v1.RowExpectation
+	(*CommitDataRequest)(nil),      // 11: jennahapi.datastore.v1.CommitDataRequest
+	(*TruncationReport)(nil),       // 12: jennahapi.datastore.v1.TruncationReport
+	(*CommitDataResponse)(nil),     // 13: jennahapi.datastore.v1.CommitDataResponse
+	(*Join)(nil),                   // 14: jennahapi.datastore.v1.Join
+	(*OrderBy)(nil),                // 15: jennahapi.datastore.v1.OrderBy
+	(*RelationalQuery)(nil),        // 16: jennahapi.datastore.v1.RelationalQuery
+	(*VectorQuery)(nil),            // 17: jennahapi.datastore.v1.VectorQuery
+	(*ReadStaleness)(nil),          // 18: jennahapi.datastore.v1.ReadStaleness
+	(*QueryDataRequest)(nil),       // 19: jennahapi.datastore.v1.QueryDataRequest
+	(*RelationalResult)(nil),       // 20: jennahapi.datastore.v1.RelationalResult
+	(*VectorMatch)(nil),            // 21: jennahapi.datastore.v1.VectorMatch
+	(*VectorResult)(nil),           // 22: jennahapi.datastore.v1.VectorResult
+	(*QueryDataResponse)(nil),      // 23: jennahapi.datastore.v1.QueryDataResponse
+	nil,                            // 24: jennahapi.datastore.v1.Row.ColumnsEntry
+	nil,                            // 25: jennahapi.datastore.v1.RowOperation.SetExpressionsEntry
+	nil,                            // 26: jennahapi.datastore.v1.TruncationReport.PrimaryKeyEntry
+	nil,                            // 27: jennahapi.datastore.v1.CommitDataResponse.RowsByTableEntry
+	(*timestamppb.Timestamp)(nil),  // 28: google.protobuf.Timestamp
+	(*durationpb.Duration)(nil),    // 29: google.protobuf.Duration
 }
 var file_jennah_datastore_v1_data_proto_depIdxs = []int32{
-	25, // 0: jennahapi.datastore.v1.Value.timestamp_value:type_name -> google.protobuf.Timestamp
-	4,  // 1: jennahapi.datastore.v1.Value.vector_value:type_name -> jennahapi.datastore.v1.VectorValue
-	22, // 2: jennahapi.datastore.v1.Row.columns:type_name -> jennahapi.datastore.v1.Row.ColumnsEntry
+	28, // 0: jennahapi.datastore.v1.Value.timestamp_value:type_name -> google.protobuf.Timestamp
+	5,  // 1: jennahapi.datastore.v1.Value.vector_value:type_name -> jennahapi.datastore.v1.VectorValue
+	24, // 2: jennahapi.datastore.v1.Row.columns:type_name -> jennahapi.datastore.v1.Row.ColumnsEntry
 	2,  // 3: jennahapi.datastore.v1.Predicate.operator:type_name -> jennahapi.datastore.v1.Predicate.Operator
-	3,  // 4: jennahapi.datastore.v1.Predicate.value:type_name -> jennahapi.datastore.v1.Value
-	0,  // 5: jennahapi.datastore.v1.RowOperation.type:type_name -> jennahapi.datastore.v1.OperationType
-	5,  // 6: jennahapi.datastore.v1.RowOperation.row:type_name -> jennahapi.datastore.v1.Row
-	6,  // 7: jennahapi.datastore.v1.RowOperation.where:type_name -> jennahapi.datastore.v1.Predicate
-	8,  // 8: jennahapi.datastore.v1.RowOperation.expect:type_name -> jennahapi.datastore.v1.RowExpectation
-	7,  // 9: jennahapi.datastore.v1.CommitDataRequest.operations:type_name -> jennahapi.datastore.v1.RowOperation
-	23, // 10: jennahapi.datastore.v1.TruncationReport.primary_key:type_name -> jennahapi.datastore.v1.TruncationReport.PrimaryKeyEntry
-	25, // 11: jennahapi.datastore.v1.CommitDataResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	24, // 12: jennahapi.datastore.v1.CommitDataResponse.rows_by_table:type_name -> jennahapi.datastore.v1.CommitDataResponse.RowsByTableEntry
-	10, // 13: jennahapi.datastore.v1.CommitDataResponse.truncations:type_name -> jennahapi.datastore.v1.TruncationReport
-	1,  // 14: jennahapi.datastore.v1.Join.type:type_name -> jennahapi.datastore.v1.JoinType
-	6,  // 15: jennahapi.datastore.v1.RelationalQuery.where:type_name -> jennahapi.datastore.v1.Predicate
-	12, // 16: jennahapi.datastore.v1.RelationalQuery.joins:type_name -> jennahapi.datastore.v1.Join
-	13, // 17: jennahapi.datastore.v1.RelationalQuery.order_by:type_name -> jennahapi.datastore.v1.OrderBy
-	4,  // 18: jennahapi.datastore.v1.VectorQuery.embedding:type_name -> jennahapi.datastore.v1.VectorValue
-	6,  // 19: jennahapi.datastore.v1.VectorQuery.where:type_name -> jennahapi.datastore.v1.Predicate
-	26, // 20: jennahapi.datastore.v1.ReadStaleness.max_staleness:type_name -> google.protobuf.Duration
-	26, // 21: jennahapi.datastore.v1.ReadStaleness.exact_staleness:type_name -> google.protobuf.Duration
-	25, // 22: jennahapi.datastore.v1.ReadStaleness.read_timestamp:type_name -> google.protobuf.Timestamp
-	14, // 23: jennahapi.datastore.v1.QueryDataRequest.relational:type_name -> jennahapi.datastore.v1.RelationalQuery
-	15, // 24: jennahapi.datastore.v1.QueryDataRequest.vector:type_name -> jennahapi.datastore.v1.VectorQuery
-	16, // 25: jennahapi.datastore.v1.QueryDataRequest.staleness:type_name -> jennahapi.datastore.v1.ReadStaleness
-	5,  // 26: jennahapi.datastore.v1.RelationalResult.rows:type_name -> jennahapi.datastore.v1.Row
-	5,  // 27: jennahapi.datastore.v1.VectorMatch.row:type_name -> jennahapi.datastore.v1.Row
-	19, // 28: jennahapi.datastore.v1.VectorResult.matches:type_name -> jennahapi.datastore.v1.VectorMatch
-	18, // 29: jennahapi.datastore.v1.QueryDataResponse.relational:type_name -> jennahapi.datastore.v1.RelationalResult
-	20, // 30: jennahapi.datastore.v1.QueryDataResponse.vector:type_name -> jennahapi.datastore.v1.VectorResult
-	25, // 31: jennahapi.datastore.v1.QueryDataResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	3,  // 32: jennahapi.datastore.v1.Row.ColumnsEntry.value:type_name -> jennahapi.datastore.v1.Value
-	3,  // 33: jennahapi.datastore.v1.TruncationReport.PrimaryKeyEntry.value:type_name -> jennahapi.datastore.v1.Value
-	9,  // 34: jennahapi.datastore.v1.DataService.CommitData:input_type -> jennahapi.datastore.v1.CommitDataRequest
-	17, // 35: jennahapi.datastore.v1.DataService.QueryData:input_type -> jennahapi.datastore.v1.QueryDataRequest
-	11, // 36: jennahapi.datastore.v1.DataService.CommitData:output_type -> jennahapi.datastore.v1.CommitDataResponse
-	21, // 37: jennahapi.datastore.v1.DataService.QueryData:output_type -> jennahapi.datastore.v1.QueryDataResponse
-	36, // [36:38] is the sub-list for method output_type
-	34, // [34:36] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	4,  // 4: jennahapi.datastore.v1.Predicate.value:type_name -> jennahapi.datastore.v1.Value
+	3,  // 5: jennahapi.datastore.v1.ColumnExpression.operator:type_name -> jennahapi.datastore.v1.ColumnExpression.Operator
+	4,  // 6: jennahapi.datastore.v1.ColumnExpression.operand:type_name -> jennahapi.datastore.v1.Value
+	0,  // 7: jennahapi.datastore.v1.RowOperation.type:type_name -> jennahapi.datastore.v1.OperationType
+	6,  // 8: jennahapi.datastore.v1.RowOperation.row:type_name -> jennahapi.datastore.v1.Row
+	7,  // 9: jennahapi.datastore.v1.RowOperation.where:type_name -> jennahapi.datastore.v1.Predicate
+	10, // 10: jennahapi.datastore.v1.RowOperation.expect:type_name -> jennahapi.datastore.v1.RowExpectation
+	25, // 11: jennahapi.datastore.v1.RowOperation.set_expressions:type_name -> jennahapi.datastore.v1.RowOperation.SetExpressionsEntry
+	9,  // 12: jennahapi.datastore.v1.CommitDataRequest.operations:type_name -> jennahapi.datastore.v1.RowOperation
+	26, // 13: jennahapi.datastore.v1.TruncationReport.primary_key:type_name -> jennahapi.datastore.v1.TruncationReport.PrimaryKeyEntry
+	28, // 14: jennahapi.datastore.v1.CommitDataResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	27, // 15: jennahapi.datastore.v1.CommitDataResponse.rows_by_table:type_name -> jennahapi.datastore.v1.CommitDataResponse.RowsByTableEntry
+	12, // 16: jennahapi.datastore.v1.CommitDataResponse.truncations:type_name -> jennahapi.datastore.v1.TruncationReport
+	1,  // 17: jennahapi.datastore.v1.Join.type:type_name -> jennahapi.datastore.v1.JoinType
+	7,  // 18: jennahapi.datastore.v1.RelationalQuery.where:type_name -> jennahapi.datastore.v1.Predicate
+	14, // 19: jennahapi.datastore.v1.RelationalQuery.joins:type_name -> jennahapi.datastore.v1.Join
+	15, // 20: jennahapi.datastore.v1.RelationalQuery.order_by:type_name -> jennahapi.datastore.v1.OrderBy
+	5,  // 21: jennahapi.datastore.v1.VectorQuery.embedding:type_name -> jennahapi.datastore.v1.VectorValue
+	7,  // 22: jennahapi.datastore.v1.VectorQuery.where:type_name -> jennahapi.datastore.v1.Predicate
+	29, // 23: jennahapi.datastore.v1.ReadStaleness.max_staleness:type_name -> google.protobuf.Duration
+	29, // 24: jennahapi.datastore.v1.ReadStaleness.exact_staleness:type_name -> google.protobuf.Duration
+	28, // 25: jennahapi.datastore.v1.ReadStaleness.read_timestamp:type_name -> google.protobuf.Timestamp
+	16, // 26: jennahapi.datastore.v1.QueryDataRequest.relational:type_name -> jennahapi.datastore.v1.RelationalQuery
+	17, // 27: jennahapi.datastore.v1.QueryDataRequest.vector:type_name -> jennahapi.datastore.v1.VectorQuery
+	18, // 28: jennahapi.datastore.v1.QueryDataRequest.staleness:type_name -> jennahapi.datastore.v1.ReadStaleness
+	6,  // 29: jennahapi.datastore.v1.RelationalResult.rows:type_name -> jennahapi.datastore.v1.Row
+	6,  // 30: jennahapi.datastore.v1.VectorMatch.row:type_name -> jennahapi.datastore.v1.Row
+	21, // 31: jennahapi.datastore.v1.VectorResult.matches:type_name -> jennahapi.datastore.v1.VectorMatch
+	20, // 32: jennahapi.datastore.v1.QueryDataResponse.relational:type_name -> jennahapi.datastore.v1.RelationalResult
+	22, // 33: jennahapi.datastore.v1.QueryDataResponse.vector:type_name -> jennahapi.datastore.v1.VectorResult
+	28, // 34: jennahapi.datastore.v1.QueryDataResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	4,  // 35: jennahapi.datastore.v1.Row.ColumnsEntry.value:type_name -> jennahapi.datastore.v1.Value
+	8,  // 36: jennahapi.datastore.v1.RowOperation.SetExpressionsEntry.value:type_name -> jennahapi.datastore.v1.ColumnExpression
+	4,  // 37: jennahapi.datastore.v1.TruncationReport.PrimaryKeyEntry.value:type_name -> jennahapi.datastore.v1.Value
+	11, // 38: jennahapi.datastore.v1.DataService.CommitData:input_type -> jennahapi.datastore.v1.CommitDataRequest
+	19, // 39: jennahapi.datastore.v1.DataService.QueryData:input_type -> jennahapi.datastore.v1.QueryDataRequest
+	13, // 40: jennahapi.datastore.v1.DataService.CommitData:output_type -> jennahapi.datastore.v1.CommitDataResponse
+	23, // 41: jennahapi.datastore.v1.DataService.QueryData:output_type -> jennahapi.datastore.v1.QueryDataResponse
+	40, // [40:42] is the sub-list for method output_type
+	38, // [38:40] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_jennah_datastore_v1_data_proto_init() }
@@ -2148,11 +2363,11 @@ func file_jennah_datastore_v1_data_proto_init() {
 		(*Value_JsonValue)(nil),
 		(*Value_VectorValue)(nil),
 	}
-	file_jennah_datastore_v1_data_proto_msgTypes[5].OneofWrappers = []any{
+	file_jennah_datastore_v1_data_proto_msgTypes[6].OneofWrappers = []any{
 		(*RowExpectation_Exactly)(nil),
 		(*RowExpectation_AtLeastOne)(nil),
 	}
-	file_jennah_datastore_v1_data_proto_msgTypes[13].OneofWrappers = []any{
+	file_jennah_datastore_v1_data_proto_msgTypes[14].OneofWrappers = []any{
 		(*ReadStaleness_MaxStaleness)(nil),
 		(*ReadStaleness_ExactStaleness)(nil),
 		(*ReadStaleness_ReadTimestamp)(nil),
@@ -2162,8 +2377,8 @@ func file_jennah_datastore_v1_data_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_datastore_v1_data_proto_rawDesc), len(file_jennah_datastore_v1_data_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   22,
+			NumEnums:      4,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
