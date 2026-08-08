@@ -675,7 +675,7 @@ func (x *Predicate) GetValue() *Value {
 //
 // This is what makes an atomic counter and a write-side rollup possible without
 // a read: no prior SELECT, no client-side arithmetic, and no compare-and-set
-// retry loop. It is deliberately NOT an expression language — one column
+// retry loop. It is deliberately NOT an expression language - one column
 // reference, one operator, one literal, no nesting. A tree would need
 // precedence, type inference, and NULL-propagation rules, and at that point
 // whether caller input can reach query text stops being auditable by reading
@@ -683,7 +683,7 @@ func (x *Predicate) GetValue() *Value {
 type ColumnExpression struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Logical column name, resolved through the dataset catalog. It MUST equal
-	// the map key this expression is stored under — the redundancy is checked,
+	// the map key this expression is stored under - the redundancy is checked,
 	// not ignored, so a mismatch is a typed error rather than a silent write to
 	// whichever of the two the server happened to read.
 	Column   string                    `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
@@ -836,7 +836,7 @@ type RowOperation struct {
 	//     Nothing wrapped or saturated is ever stored.
 	//
 	// AN ABSENT ROW IS A NO-OP, NOT AN IMPLICIT CREATE. `total = total + 1`
-	// against a row that does not exist affects zero rows and does nothing —
+	// against a row that does not exist affects zero rows and does nothing -
 	// there is no value to compute from, and no upsert-with-expression to offer
 	// because Spanner's INSERT-OR-UPDATE is mutation-only. An increment that
 	// vanishes is indistinguishable in the receipt from one that landed, and for
@@ -845,8 +845,8 @@ type RowOperation struct {
 	// AlreadyExists, then increment with `expect.exactly: 1` forever after.
 	//
 	// AN IDEMPOTENCY KEY IS REQUIRED on any commit carrying an expression. Every
-	// other write this API accepts is naturally idempotent — INSERT collides on
-	// its key, UPSERT and UPDATE assign absolute values — so a caller whose
+	// other write this API accepts is naturally idempotent - INSERT collides on
+	// its key, UPSERT and UPDATE assign absolute values - so a caller whose
 	// request times out with an unknown outcome may safely resend it. This is the
 	// first write where a resend DOUBLE-APPLIES, silently, with a second receipt
 	// that looks exactly like a first. A commit with an expression and no
@@ -855,8 +855,8 @@ type RowOperation struct {
 	//
 	// WRITE-RATE CEILING: a single Spanner row tops out at a few hundred writes
 	// per second under lock contention, and expressions make it easy to aim every
-	// writer at one counter. Above that rate use SHARDED COUNTERS — N rows
-	// incremented at random, summed on read — accepting the trade-off that a
+	// writer at one counter. Above that rate use SHARDED COUNTERS - N rows
+	// incremented at random, summed on read - accepting the trade-off that a
 	// sharded counter gives up whole-counter conditionals, since no single row
 	// holds the total to compare against.
 	SetExpressions map[string]*ColumnExpression `protobuf:"bytes,6,rep,name=set_expressions,json=setExpressions,proto3" json:"set_expressions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
