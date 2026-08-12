@@ -120,11 +120,14 @@ type ApprovalServiceClient interface {
 	// RPC. Authenticated, gated on `approval.requests:create` (a resend sends mail,
 	// so it is a create-class act, not a read).
 	//
-	// Reuses the approver's EXISTING token rather than minting a new one: a resend
-	// must never invalidate a message already in flight, since the first copy may
-	// be in a mailbox the approver is about to open. Both copies therefore work,
-	// and the first one used spends the token for both. Resends count against the
-	// enterprise's notification ceiling.
+	// Mints an ADDITIONAL token rather than re-rendering the approver's existing
+	// one, which is impossible by design: tokens are stored only as a hash, so no
+	// node can recover a value it did not mint. A resend therefore invalidates
+	// nothing — the copy already in the approver's mailbox keeps working. Single
+	// use is a property of the APPROVER, not of a token: whichever copy they act on
+	// first records their one decision, and every other token outstanding for them
+	// is then refused as already-decided. Resends count against the enterprise's
+	// notification ceiling.
 	ResendApprovalNotification(ctx context.Context, in *ResendApprovalNotificationRequest, opts ...grpc.CallOption) (*ResendApprovalNotificationResponse, error)
 	// Renders one approval to the holder of an emailed capability token. External
 	// (gateway) RPC. UNAUTHENTICATED in the bearer sense and on the interceptor's
@@ -397,11 +400,14 @@ type ApprovalServiceServer interface {
 	// RPC. Authenticated, gated on `approval.requests:create` (a resend sends mail,
 	// so it is a create-class act, not a read).
 	//
-	// Reuses the approver's EXISTING token rather than minting a new one: a resend
-	// must never invalidate a message already in flight, since the first copy may
-	// be in a mailbox the approver is about to open. Both copies therefore work,
-	// and the first one used spends the token for both. Resends count against the
-	// enterprise's notification ceiling.
+	// Mints an ADDITIONAL token rather than re-rendering the approver's existing
+	// one, which is impossible by design: tokens are stored only as a hash, so no
+	// node can recover a value it did not mint. A resend therefore invalidates
+	// nothing — the copy already in the approver's mailbox keeps working. Single
+	// use is a property of the APPROVER, not of a token: whichever copy they act on
+	// first records their one decision, and every other token outstanding for them
+	// is then refused as already-decided. Resends count against the enterprise's
+	// notification ceiling.
 	ResendApprovalNotification(context.Context, *ResendApprovalNotificationRequest) (*ResendApprovalNotificationResponse, error)
 	// Renders one approval to the holder of an emailed capability token. External
 	// (gateway) RPC. UNAUTHENTICATED in the bearer sense and on the interceptor's

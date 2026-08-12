@@ -643,8 +643,9 @@ type Approval struct {
 	// When set, the user who created this approval may not decide it, even if they
 	// are a listed approver (four-eyes).
 	RequireDistinctApprover bool `protobuf:"varint,11,opt,name=require_distinct_approver,json=requireDistinctApprover,proto3" json:"require_distinct_approver,omitempty"`
-	// When set, the emailed capability link will not be accepted as authority: only
-	// an authenticated listed approver may decide. Creatable only where every
+	// When set, no capability token is minted for any approver and the notification
+	// carries no one-click link at all — it directs the approver to sign in, and
+	// only an authenticated listed approver may decide. Creatable only where every
 	// approver is a member, since a non-member has no account to sign in with.
 	RequireAuthenticatedDecider bool `protobuf:"varint,12,opt,name=require_authenticated_decider,json=requireAuthenticatedDecider,proto3" json:"require_authenticated_decider,omitempty"`
 	// Carries the outcome once terminal: APPROVED and REJECTED are the recorded
@@ -1922,10 +1923,11 @@ type DescribeApprovalByTokenResponse struct {
 	// deadline has not passed, and this approver has not decided. False means the
 	// page should explain the outcome rather than offer buttons.
 	Decidable bool `protobuf:"varint,12,opt,name=decidable,proto3" json:"decidable,omitempty"`
-	// Set when the approval requires an authenticated decider. The link still
-	// renders the request — that is what the approver needs to see — but the
-	// decision must come from a signed-in session, and the page directs them to
-	// sign in rather than offering an action that will be refused.
+	// Set when the approval requires an authenticated decider. False in practice:
+	// such an approval mints no token, so there is no link that reaches this
+	// response at all. It is reported anyway as a fail-safe — a client that somehow
+	// arrives here sees `decidable` false and must direct the approver to sign in
+	// rather than offer an action that would be refused.
 	RequireAuthenticatedDecider bool `protobuf:"varint,13,opt,name=require_authenticated_decider,json=requireAuthenticatedDecider,proto3" json:"require_authenticated_decider,omitempty"`
 	// Digest of the content in THIS response. Echo it back as `seen_digest` when
 	// submitting a decision; it is recorded on the audit row as evidence of what
