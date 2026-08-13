@@ -2,14 +2,18 @@ package jennah_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
 	jennah "github.com/alphauslabs/jennah-sdk-go"
+	"github.com/alphauslabs/jennah-sdk-go/credentials"
 	agentv1 "github.com/alphauslabs/jennah-sdk-go/jennah/agent/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
@@ -23,11 +27,17 @@ type fakeServer struct {
 	agentv1.UnimplementedAgentServiceServer
 	agentv1.UnimplementedMemoryServiceServer
 
-	lastAuth   string
-	lastCreate *agentv1.CreateAgentRequest
-	lastDelete *agentv1.DeleteAgentRequest
-	lastCommit *agentv1.CommitMemoryRequest
-	lastQuery  *agentv1.QueryMemoryRequest
+	// health is the standard gRPC health service the real endpoint registers and
+	// the load balancer probes; Ping is checked against it.
+	health *health.Server
+
+	lastAuth      string
+	lastCreate    *agentv1.CreateAgentRequest
+	lastDelete    *agentv1.DeleteAgentRequest
+	lastCommit    *agentv1.CommitMemoryRequest
+	lastQuery     *agentv1.QueryMemoryRequest
+	lastInspect   *agentv1.InspectMemoryRequest
+	lastSupersede *agentv1.SupersedeEdgeRequest
 }
 
 func (f *fakeServer) recordAuth(ctx context.Context) {
@@ -70,6 +80,21 @@ func (f *fakeServer) QueryMemory(ctx context.Context, in *agentv1.QueryMemoryReq
 	}}, nil
 }
 
+func (f *fakeServer) InspectMemory(ctx context.Context, in *agentv1.InspectMemoryRequest) (*agentv1.InspectMemoryResponse, error) {
+	f.recordAuth(ctx)
+	f.lastInspect = in
+	return &agentv1.InspectMemoryResponse{
+		Vectors:        &agentv1.VectorInspectResult{Chunks: []*agentv1.VectorChunkInfo{{ChunkId: "c1"}}},
+		NextChunkToken: "next-chunk",
+	}, nil
+}
+
+func (f *fakeServer) SupersedeEdge(ctx context.Context, in *agentv1.SupersedeEdgeRequest) (*agentv1.SupersedeEdgeResponse, error) {
+	f.recordAuth(ctx)
+	f.lastSupersede = in
+	return &agentv1.SupersedeEdgeResponse{}, nil
+}
+
 // newTestClient spins up the fake server on an in-memory listener and returns a
 // Client wired to it.
 func newTestClient(t *testing.T) (*jennah.Client, *fakeServer) {
@@ -77,9 +102,10 @@ func newTestClient(t *testing.T) (*jennah.Client, *fakeServer) {
 
 	lis := bufconn.Listen(1 << 20)
 	srv := grpc.NewServer()
-	fake := &fakeServer{}
+	fake := &fakeServer{health: health.NewServer()}
 	agentv1.RegisterAgentServiceServer(srv, fake)
 	agentv1.RegisterMemoryServiceServer(srv, fake)
+	healthpb.RegisterHealthServer(srv, fake.health)
 	go func() { _ = srv.Serve(lis) }()
 
 	jc, err := jennah.NewClient(jennah.Config{
@@ -104,12 +130,50 @@ func newTestClient(t *testing.T) (*jennah.Client, *fakeServer) {
 	return jc, fake
 }
 
+// With no credential configured and none to be resolved, construction fails —
+// and fails here, rather than dialing and returning a rejection on the first
+// call. The environment is isolated first: without that, this test would pass or
+// fail depending on whether whoever ran it happens to be logged in.
 func TestNewClientValidation(t *testing.T) {
-	if _, err := jennah.NewClient(jennah.Config{APIKey: "k"}); err == nil {
-		t.Error("expected error when Endpoint is empty")
+	isolateCredentials(t)
+
+	_, err := jennah.NewClient(jennah.Config{Endpoint: "e:443"})
+	if !errors.Is(err, credentials.ErrNoCredential) {
+		t.Errorf("NewClient with no credential anywhere: err = %v, want ErrNoCredential", err)
 	}
-	if _, err := jennah.NewClient(jennah.Config{Endpoint: "e:443"}); err == nil {
-		t.Error("expected error when APIKey is empty")
+}
+
+// An empty Endpoint must resolve to the public gRPC front door, not to the HTTP
+// gateway hostname: the gateway cannot answer gRPC, so a caller who omits the
+// endpoint has to land on the door that can.
+func TestEndpointDefaultsToPublicGRPC(t *testing.T) {
+	jc, err := jennah.NewClient(jennah.Config{APIKey: "jennah_sk_x"})
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	defer jc.Close()
+
+	if got := jc.Endpoint(); got != jennah.DefaultEndpoint {
+		t.Errorf("Endpoint() = %q, want %q", got, jennah.DefaultEndpoint)
+	}
+	if jennah.DefaultEndpoint != "jennah-grpc.alphaus.cloud:443" {
+		t.Errorf("DefaultEndpoint = %q, want the public gRPC hostname", jennah.DefaultEndpoint)
+	}
+}
+
+// Ping must report the endpoint's own health service, and must not be satisfied
+// by anything less than SERVING.
+func TestPing(t *testing.T) {
+	jc, fake := newTestClient(t)
+	ctx := context.Background()
+
+	if err := jc.Ping(ctx); err != nil {
+		t.Fatalf("Ping: %v", err)
+	}
+
+	fake.health.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
+	if err := jc.Ping(ctx); err == nil {
+		t.Error("Ping succeeded against a NOT_SERVING endpoint")
 	}
 }
 
@@ -179,11 +243,71 @@ func TestConveniencesAreSingleSection(t *testing.T) {
 	}
 }
 
+// The escape hatch has to be credentialed, or it is not an escape hatch: a stub
+// a caller builds for an unwrapped RPC must authenticate the same way the
+// wrappers do, since the bearer comes from the connection and not from them.
+func TestConnIsCredentialed(t *testing.T) {
+	jc, fake := newTestClient(t)
+
+	// Reach an RPC through a hand-built stub rather than through the wrapper.
+	stub := agentv1.NewAgentServiceClient(jc.Conn())
+	if _, err := stub.DeleteAgent(context.Background(),
+		&agentv1.DeleteAgentRequest{AgentInstanceId: "a9"}); err != nil {
+		t.Fatalf("DeleteAgent via Conn: %v", err)
+	}
+	if fake.lastAuth != "Bearer jennah_sk_testkey" {
+		t.Errorf("authorization = %q, want the Client's bearer", fake.lastAuth)
+	}
+	if fake.lastDelete.GetAgentInstanceId() != "a9" {
+		t.Errorf("DeleteAgent id = %q, want a9", fake.lastDelete.GetAgentInstanceId())
+	}
+}
+
+// Inspect must route the agent id and set only the sections asked for, and it
+// must hand back the whole response: the continuation tokens live there, so a
+// caller that cannot see them cannot page.
+func TestInspectSectionsAndTokens(t *testing.T) {
+	jc, fake := newTestClient(t)
+
+	resp, err := jc.Agent("a3").Memory.Inspect(context.Background(), jennah.InspectInput{
+		Vectors: &jennah.InspectVectors{Limit: 10},
+	})
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if in := fake.lastInspect; in.GetAgentInstanceId() != "a3" || in.GetVectors() == nil ||
+		in.GetGraph() != nil || in.GetLog() != nil {
+		t.Errorf("InspectMemory sent %+v", fake.lastInspect)
+	}
+	if resp.GetNextChunkToken() != "next-chunk" {
+		t.Errorf("NextChunkToken = %q, want next-chunk", resp.GetNextChunkToken())
+	}
+}
+
+// Supersede must carry the prior edge id and the replacement together: that pairing
+// is what makes the close-and-rewrite one transaction rather than two writes.
+func TestSupersedeCarriesBothEdges(t *testing.T) {
+	jc, fake := newTestClient(t)
+
+	if _, err := jc.Agent("a4").Graph.Supersede(context.Background(), "edge-old",
+		&jennah.GraphEdge{EdgeId: "edge-new"}); err != nil {
+		t.Fatalf("Graph.Supersede: %v", err)
+	}
+	in := fake.lastSupersede
+	if in.GetAgentInstanceId() != "a4" || in.GetPriorEdgeId() != "edge-old" ||
+		in.GetNewEdge().GetEdgeId() != "edge-new" {
+		t.Errorf("SupersedeEdge sent %+v", in)
+	}
+}
+
 // A deferred backend section (graph query) must surface its gRPC status
 // unchanged through the convenience.
 func TestGraphQueryUnimplementedPassthrough(t *testing.T) {
 	jc, _ := newTestClient(t)
-	_, err := jc.Agent("a1").Graph.Query(context.Background(), "MATCH (n) RETURN n")
+	_, err := jc.Agent("a1").Graph.Query(context.Background(), &jennah.GraphQuery{
+		Start: &jennah.GraphNodeMatch{Label: "Person"},
+		Steps: []*jennah.GraphStep{{RelationshipType: "KNOWS"}},
+	})
 	if status.Code(err) != codes.Unimplemented {
 		t.Errorf("Graph.Query code = %v, want Unimplemented", status.Code(err))
 	}

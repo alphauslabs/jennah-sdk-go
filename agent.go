@@ -94,6 +94,39 @@ func (m memoryAPI) Query(ctx context.Context, in QueryInput) (*agentv1.QueryMemo
 	})
 }
 
+// InspectInput lists an agent's stored rows with no query anchor: no embedding,
+// no traversal, no relevance. Any subset of the sections may be set, and each
+// section pages independently through the tokens on its own result.
+//
+// It answers "what is actually in there", which is a different question from
+// Query's "what is relevant to this". Reach for it when debugging or when
+// showing an operator the raw contents.
+type InspectInput struct {
+	Vectors *agentv1.InspectVectors // chunk listing
+	Graph   *agentv1.InspectGraph   // node and edge listings, paged separately
+	Log     *agentv1.InspectLog     // log-step listing
+
+	// AsOf lists every section at the same historical instant. Nil reads latest,
+	// and the instant must fall inside the backend's version-retention window.
+	AsOf *timestamppb.Timestamp
+}
+
+// Inspect lists the requested sections' raw rows over one snapshot.
+//
+// It returns the whole response, and has no per-type conveniences the way Query
+// does, because the continuation tokens live on the response, one per section
+// (chunk, node, edge, log). A wrapper handing back a single section's rows would
+// drop the caller's cursor and quietly cap them at the first page.
+func (m memoryAPI) Inspect(ctx context.Context, in InspectInput) (*agentv1.InspectMemoryResponse, error) {
+	return m.a.c.memory.InspectMemory(ctx, &agentv1.InspectMemoryRequest{
+		AgentInstanceId: m.a.id,
+		Vectors:         in.Vectors,
+		Graph:           in.Graph,
+		Log:             in.Log,
+		AsOf:            in.AsOf,
+	})
+}
+
 // ---------------------------------------------------------------------------
 // Per-type conveniences: thin single-section wrappers over Commit/Query
 // ---------------------------------------------------------------------------
@@ -140,10 +173,23 @@ func (g graphAPI) Write(ctx context.Context, w *agentv1.GraphWrite) (*agentv1.Co
 	return g.a.Memory.Commit(ctx, CommitInput{Graph: w})
 }
 
-// Query runs a GQL traversal (the graph section of Query). The gateway injects
-// the tenant/agent clamp into the GQL before execution.
-func (g graphAPI) Query(ctx context.Context, gql string) (*agentv1.GraphResult, error) {
-	resp, err := g.a.Memory.Query(ctx, QueryInput{Graph: &agentv1.GraphQuery{Gql: gql}})
+// Supersede closes the prior edge's validity and writes newEdge in its place, in
+// one transaction, so the graph records that a fact stopped holding rather than
+// losing that it ever did. The returned receipt carries the commit timestamp.
+func (g graphAPI) Supersede(ctx context.Context, priorEdgeID string, newEdge *agentv1.GraphEdge) (*agentv1.SupersedeEdgeResponse, error) {
+	return g.a.c.memory.SupersedeEdge(ctx, &agentv1.SupersedeEdgeRequest{
+		AgentInstanceId: g.a.id,
+		PriorEdgeId:     priorEdgeID,
+		NewEdge:         newEdge,
+	})
+}
+
+// Query runs a graph traversal (the graph section of Query). The traversal is
+// described structurally: an anchor node match plus single-hop steps, from which
+// the server generates the GQL. That is what lets the tenant/agent clamp be
+// injected onto every hop rather than trusted to a caller-supplied query string.
+func (g graphAPI) Query(ctx context.Context, q *agentv1.GraphQuery) (*agentv1.GraphResult, error) {
+	resp, err := g.a.Memory.Query(ctx, QueryInput{Graph: q})
 	if err != nil {
 		return nil, err
 	}
