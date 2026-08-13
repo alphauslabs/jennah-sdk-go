@@ -64,9 +64,7 @@ func TestNewClientFallsBackToStoredSession(t *testing.T) {
 	}
 }
 
-// An explicit credential wins, and the losing sources are not merely outranked —
-// they are never read. A broken session file must not fail a caller who supplied
-// a key, because that caller has no reason to care the file exists.
+// Explicit API keys override stored session files.
 func TestExplicitCredentialBeatsAndIgnoresTheFile(t *testing.T) {
 	path := isolateCredentials(t)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -102,9 +100,7 @@ func TestEnvironmentCredentialIsResolved(t *testing.T) {
 	}
 }
 
-// A stored session whose expiry has passed and that nothing can renew fails at
-// construction, naming the way out. Returning a client that can only produce
-// rejections would be worse than not returning one.
+// Expired sessions without refresh tokens fail construction.
 func TestUnrenewableExpiredSessionFailsConstruction(t *testing.T) {
 	isolateCredentials(t)
 	s := liveSession()
@@ -150,9 +146,7 @@ func TestUnexpiredStoredSessionIsNotSecondGuessed(t *testing.T) {
 	jc.Close()
 }
 
-// The endpoint recorded in a stored session is provenance, not instruction. A
-// client that adopted it would dial the HTTP gateway, which cannot answer a gRPC
-// call — breaking precisely the callers the fallback exists to serve.
+// Stored session endpoints do not override client configuration.
 func TestStoredEndpointDoesNotSelectTheEndpoint(t *testing.T) {
 	isolateCredentials(t)
 	writeStoredSession(t, liveSession())
@@ -178,8 +172,7 @@ func TestStoredEndpointDoesNotSelectTheEndpoint(t *testing.T) {
 	}
 }
 
-// A supplied source outranks everything, including an explicit APIKey, and is
-// what the client actually presents.
+// Config.Credentials overrides Config.APIKey and stored sessions.
 func TestConfigCredentialsOutranksAPIKey(t *testing.T) {
 	isolateCredentials(t)
 	src := credentials.NewStatic("jennah_sk_supplied", credentials.OriginExplicit)

@@ -15,7 +15,7 @@ import (
 
 // Every method the API publishes must be classified exactly once: replayable
 // because it only reads, conditional because its safety depends on the request, or
-// deliberately not replayed.
+// excluded from retries.
 //
 // The default in safeToReplay is "do not replay", which is the safe default but
 // also a silent one: a new RPC would inherit it without anyone deciding. This test

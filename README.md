@@ -62,13 +62,7 @@ log.Printf("authenticated with %s", jc.Credential()) // "session from stored ses
 `Client.Credential` reports what the credential is and where it came from, never
 its value, so it is safe to log.
 
-Two things this deliberately does not do. It does not adopt the endpoint recorded
-inside a stored session: that field names the front door the session was obtained
-through, which for a CLI-written session is the HTTP gateway, and that hostname
-cannot answer a gRPC call. And it does not treat the session's recorded expiry as
-authoritative in the client's favor — a session that cannot be renewed and has
-expired fails at construction with an actionable error, but a session that merely
-looks valid is still the platform's to accept or reject.
+It ignores endpoints recorded in stored sessions, which point to HTTP gateways unsuited for gRPC calls. Expired sessions without refresh tokens fail construction immediately, whereas renewable sessions are checked upon call execution.
 
 ### Renewal
 
@@ -77,22 +71,9 @@ client refreshes it and reissues the call exactly once; a second rejection is
 returned. So a long-running program keeps working across an expiry without
 handling one, and there is nothing to schedule or refresh ahead of time.
 
-Three properties are worth knowing about:
-
-- **The reissue needs no idempotency key.** An `UNAUTHENTICATED` rejection is
-  decided before the call reaches the operation, so it had no effect and cannot
-  be applied twice. This is why a `data:commit` with no `IdempotencyKey` is
-  reissued here even though the transport retry would refuse to replay it.
-- **A renewal is written back to `~/.config/jennah/credentials`.** Refreshing
-  rotates the refresh token, so a client that renewed privately would leave every
-  other reader of that file — the CLI included — holding one the platform will
-  never accept again. Concurrent calls renew once, and a renewal that fails
-  because another process rotated first adopts what that process wrote rather
-  than reporting a dead session.
-- **An API key is never renewed.** It has no refresh token, so a rejection means
-  the key itself was refused. The error says so (`credentials.ErrKeyRefused`)
-  rather than pointing at a login that would not help, and still reads as
-  `jennah.IsUnauthenticated`.
+- **Reissues require no idempotency key.** An `UNAUTHENTICATED` rejection occurs prior to operation execution.
+- **Renewals update `~/.config/jennah/credentials`.** Token rotation updates local credentials so concurrent processes share valid sessions.
+- **API keys do not renew.** Rejections return `credentials.ErrKeyRefused`, which matches `jennah.IsUnauthenticated`.
 
 ## Surface
 

@@ -315,8 +315,7 @@ func TestDatasetHandleOwnsTheID(t *testing.T) {
 	}
 }
 
-// Create returns the response alongside the handle so the one-time API key it can
-// carry is not dropped on the floor.
+// Create returns the response alongside the handle.
 func TestDatasetCreateSurfacesTheOneTimeKey(t *testing.T) {
 	jc, _ := newServicesClient(t)
 

@@ -9,18 +9,9 @@ import (
 	platformv1 "github.com/alphauslabs/jennah-sdk-go/jennah/platform/v1"
 )
 
-// Aliases for every generated message and enum the API exposes, so a caller can
-// build requests and read results with only this package imported. They are the
-// exact generated types, not translations: the SDK stays thin by reusing them.
-//
-// Enum constants keep their generated names minus the package qualifier
-// (Role_ROLE_ADMIN, not RoleAdmin). One mapping, mechanically checkable against
-// the protos, beats a second set of invented names that can drift from them. The
-// three Fusion* constants in doc.go predate this rule and stay for compatibility.
-//
-// The generated datastore Dataset message is deliberately absent: the Dataset
-// handle in dataset.go owns that name here. Read the record through
-// Dataset.Get, whose type is inferred, or name it as datastorev1.Dataset.
+// Type aliases for generated messages and enums.
+// Enum constants retain their generated names without package qualifiers.
+// The datastore Dataset message is available as datastorev1.Dataset.
 
 // Agent memory (jennah/agent/v1).
 type (

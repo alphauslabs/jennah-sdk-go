@@ -84,7 +84,7 @@ func (s *SessionSource) Renewable() bool {
 // Renew obtains a fresh access token after presented was rejected.
 //
 // It spends a rotation only when it has to. Before renewing it checks whether
-// the credential has already moved on — in this process, because a concurrent
+// the credential has already moved on: in this process, because a concurrent
 // call renewed while this one waited for the lock, or on disk, because another
 // process did. Either way the answer is that replacement, and renewing again
 // would invalidate a perfectly good token to obtain a second one.
@@ -130,8 +130,8 @@ func (s *SessionSource) Renew(ctx context.Context, presented string) (string, er
 	s.session.ExpiresAt = renewed.ExpiresAt
 
 	// Publish before relying on it. The token just spent is dead, so a renewal
-	// kept in memory would leave every other reader of this file — the CLI
-	// included — holding something that can never be renewed again. A write
+	// kept in memory would leave every other reader of this file (the CLI
+	// included) holding something that can never be renewed again. A write
 	// failure is reported for the same reason: proceeding would lose the rotation
 	// the moment this process exits.
 	if s.origin == OriginFile {

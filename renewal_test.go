@@ -227,7 +227,7 @@ func TestRenewalIsWrittenBackToTheSharedFile(t *testing.T) {
 		t.Errorf("stored access token = %q, want the renewed one", stored.AccessToken)
 	}
 	if stored.RefreshToken != "rt_rotated" {
-		t.Errorf("stored refresh token = %q, want the rotated one — the old one is dead", stored.RefreshToken)
+		t.Errorf("stored refresh token = %q, want the rotated one; the old one is dead", stored.RefreshToken)
 	}
 	if stored.Endpoint != "https://jennah.alphaus.cloud" {
 		t.Errorf("the renewal clobbered an unrelated field: endpoint = %q", stored.Endpoint)
@@ -352,7 +352,7 @@ func TestFailedRenewalAdoptsAnotherProcessesSession(t *testing.T) {
 
 // A renewal that cannot be persisted is reported, not quietly used. Proceeding
 // would spend the rotation and then lose it when the process exits, leaving the
-// file holding a refresh token the platform has already invalidated — the exact
+// file holding a refresh token the platform has already invalidated, the exact
 // state that costs a user their session.
 func TestUnpersistableRenewalIsSurfaced(t *testing.T) {
 	if os.Geteuid() == 0 {
@@ -380,7 +380,7 @@ func TestUnpersistableRenewalIsSurfaced(t *testing.T) {
 	// The failure has to be the write, not something earlier: the rotation was
 	// spent, which is exactly why losing it silently would matter.
 	if _, refreshes, _ := srv.stats(); refreshes != 1 {
-		t.Errorf("refreshes = %d, want 1 — the test is not exercising the write path", refreshes)
+		t.Errorf("refreshes = %d, want 1; the test is not exercising the write path", refreshes)
 	}
 }
 
@@ -406,7 +406,7 @@ func TestUnrenewableSessionReportsExpiry(t *testing.T) {
 // The transport retry sits outside the credential interceptor, so a replay after
 // a connection failure re-resolves the credential rather than reusing the one
 // the failed attempt carried. Without that ordering, a replay would present a
-// credential renewed in the meantime — or worse, one captured at dial.
+// credential renewed in the meantime, or worse, one captured at dial.
 func TestTransportRetryPresentsTheCurrentCredential(t *testing.T) {
 	isolateCredentials(t)
 	srv := &authServer{valid: "at_current", acceptedRefresh: "rt_valid", unavailableFirst: 1}

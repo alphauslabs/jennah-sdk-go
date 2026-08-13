@@ -72,7 +72,7 @@ const (
 
 // WaitUntilDecided blocks until the approval is approved, rejected, cancelled or
 // expired, and returns it. It is the loop every caller of Wait would otherwise
-// write, and writing it by hand is the mistake worth avoiding: a wait that reaches
+// write. A wait that reaches
 // the server's ceiling comes back as a SUCCESS carrying the still-pending approval
 // and TimedOut set, so code that treats a returned approval as a decision will act
 // on a pending one.
@@ -131,7 +131,7 @@ func (a ApprovalsAPI) Resend(ctx context.Context, in *approvalv1.ResendApprovalN
 
 // DescribeByToken reads what an approver's link refers to, authorized by the token
 // alone. It is what the decision page calls before a decision is submitted, so it
-// deliberately needs no credential of its own.
+// requires no credentials.
 func (a ApprovalsAPI) DescribeByToken(ctx context.Context, token string) (*approvalv1.DescribeApprovalByTokenResponse, error) {
 	return a.c.approvals.DescribeApprovalByToken(ctx, &approvalv1.DescribeApprovalByTokenRequest{Token: token})
 }

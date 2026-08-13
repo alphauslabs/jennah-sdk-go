@@ -20,11 +20,8 @@ import (
 // RetryPolicy configures automatic retries. The zero value is the default policy
 // described on Config.Retry.
 //
-// The loop itself is gax's (github.com/googleapis/gax-go/v2), the same one Google's
-// own generated clients run, so the backoff is the AIP-4221 shape: jittered, a
-// random wait between 1ns and the current ceiling, growing by Multiplier and capped
-// at MaxBackoff. What this package decides is what gax deliberately leaves out,
-// namely which calls may be replayed at all and how many times.
+// The loop itself is gax's, using the AIP-4221 jittered backoff.
+// This package defines which calls may be replayed and how many times.
 type RetryPolicy struct {
 	// Disabled turns retries off completely, including for reads.
 	Disabled bool
@@ -66,8 +63,7 @@ func (p RetryPolicy) maxBackoff() time.Duration {
 	return 2 * time.Second
 }
 
-// retryableCodes is what a replay is worth attempting for, and it is deliberately
-// narrow.
+// retryableCodes defines gRPC codes eligible for retry.
 //
 // UNAVAILABLE is the transient one: a dropped connection, a draining instance, a
 // rolling deploy. RESOURCE_EXHAUSTED is an entitlement limit and would return the
@@ -126,7 +122,7 @@ func safeToReplay(method string, req any) bool {
 // costs a round trip and nothing else. Enumerated rather than pattern-matched on
 // the name, because "Get", "List" and "Query" are conventions the server is not
 // obliged to keep, and TestEveryMethodIsClassified fails if a new method lands in
-// neither this set nor the deliberate no-replay list.
+// method retry policy list.
 var replayableReads = map[string]bool{
 	agentv1.AgentService_GetAgent_FullMethodName:       true,
 	agentv1.AgentService_ListAgents_FullMethodName:     true,
@@ -168,7 +164,7 @@ var conditionalReplay = map[string]bool{
 	approvalv1.ApprovalService_CreateApproval_FullMethodName: true,
 }
 
-// neverReplay is every remaining method, reviewed and deliberately not replayed.
+// neverReplay contains methods excluded from automatic retries.
 // It exists so TestEveryMethodIsClassified can prove no method was simply
 // overlooked: a new RPC lands in none of these three sets and fails the test,
 // which is the point at which someone has to think about its write semantics.
@@ -229,20 +225,9 @@ var neverReplay = map[string]bool{
 	billingv1.BillingService_ResolveMarketplaceRegistration_FullMethodName: true,
 }
 
-// retryInterceptor replays an eligible call while the error stays transient, using
-// gax.Invoke as the loop.
-//
-// A call that is not safe to replay skips gax entirely rather than being handed a
-// retryer that refuses everything. That keeps the ineligible path free of the extra
-// frame, and keeps "may this be replayed" a decision made once per call, in
-// safeToReplay, instead of being re-derived inside a retryer that cannot see the
-// request.
-//
-// One behavior worth knowing: when the caller's context expires while gax is
-// backing off, gax returns the context's error rather than the last RPC failure. So
-// a call abandoned mid-backoff reports DeadlineExceeded, not Unavailable, and
-// IsTransient is false for it. That matches every other Google client library, and
-// the deadline is the more useful thing to report.
+// retryInterceptor replays eligible calls on transient errors using gax.Invoke.
+// Non-retryable calls bypass gax. If context expires during backoff, gax returns
+// the context error.
 func retryInterceptor(p RetryPolicy) grpc.UnaryClientInterceptor {
 	attempts, base, max := p.attempts(), p.baseBackoff(), p.maxBackoff()
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {

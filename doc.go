@@ -62,15 +62,9 @@
 //  3. the JENNAH_API_KEY environment variable;
 //  4. the session stored by "jnh login".
 //
-// So a developer who has logged in with the CLI can construct a client with no
-// configuration at all, while a deployed service that sets a key is unaffected —
-// a later source is never read, so a machine with no session file cannot fail a
-// caller who supplied one. Client.Credential reports which credential was
-// resolved and where from, without exposing it.
+// Default client configurations resolve credentials from CLI logins or environment variables.
 //
-// The endpoint recorded inside a stored session is deliberately ignored: it
-// names the front door the session was obtained through, which for a CLI-written
-// session is the HTTP gateway, and that hostname cannot answer a gRPC call.
+// Stored session endpoints are ignored because CLI sessions record HTTP gateway hostnames.
 //
 // A resolved session renews itself: when the platform rejects the access token,
 // the client refreshes it and reissues the call once. The reissue asks for none
@@ -103,7 +97,7 @@
 //     IsUnauthenticated, IsNotFound and IsTransient name the statuses this API
 //     actually returns, so callers never match on message text.
 //
-// Every generated message and enum is aliased into this package (see types.go),
+// Generated messages and enums are aliased in types.go,
 // so building a request needs no deep import. For anything these wrappers do not
 // cover, Client.Conn returns the live connection, and stubs built on it carry the
 // same credential.

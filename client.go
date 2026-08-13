@@ -26,7 +26,7 @@ import (
 // the load balancer on 443; the backend listener holds no certificate, so
 // ordinary TLS transport credentials are all a caller needs.
 //
-// It is deliberately NOT "jennah.alphaus.cloud": that hostname routes to the
+// Default gRPC endpoint. "jennah.alphaus.cloud" routes to the
 // HTTP gateway, which speaks HTTP/JSON and cannot answer a gRPC call. The two
 // front doors terminate on the same server behind the same auth chain, so the
 // choice of hostname changes the wire protocol and nothing about authority.
@@ -51,9 +51,8 @@ type Config struct {
 	// a credential wins and the rest are never consulted.
 	APIKey string
 
-	// Credentials supplies the bearer per call, for a program that holds its
-	// credential somewhere this package knows nothing about — a secret manager, a
-	// test double, or a session it renews on its own terms.
+	// Credentials supplies the bearer per call from custom sources, such as a
+	// secret manager, test double, or custom renewal implementation.
 	//
 	// It takes precedence over APIKey, which is itself shorthand for a source
 	// holding one fixed credential. Left nil, the client builds a source from
@@ -128,20 +127,14 @@ type Client struct {
 // lazy: no network round trip happens until the first RPC (see Ping to force
 // one).
 //
-// The credential comes from Config.Credentials, Config.APIKey, or — when neither
-// is set — from the resolution order described on Config.APIKey. Construction
-// fails when no source yields one, so a missing credential is reported here
-// rather than as a rejection on the first call.
+// Resolves credentials from Config.Credentials, Config.APIKey, or default sources.
+// Returns an error if no credentials are found.
 func NewClient(cfg Config) (*Client, error) {
 	source, err := resolveSource(cfg)
 	if err != nil {
 		return nil, err
 	}
-	// Config.Endpoint or the default, never the endpoint recorded in a stored
-	// session: that field names the front door the session was obtained through,
-	// which for a session written by the CLI is the HTTP gateway. A gateway
-	// hostname cannot answer a gRPC call, so adopting it would break exactly the
-	// callers this fallback is meant to serve.
+	// Uses Config.Endpoint or DefaultEndpoint, ignoring stored HTTP gateway endpoints.
 	endpoint := cfg.Endpoint
 	if endpoint == "" {
 		endpoint = DefaultEndpoint
@@ -156,10 +149,7 @@ func NewClient(cfg Config) (*Client, error) {
 	default:
 		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 	}
-	// Order matters: the retry interceptor wraps the credential one, so every
-	// replay re-resolves the bearer rather than reusing the first attempt's
-	// metadata — which is what lets a replay present a credential renewed since
-	// the attempt that failed.
+	// Wraps bearer interceptors inside retry interceptors so replayed calls fetch refreshed credentials.
 	chain := []grpc.UnaryClientInterceptor{}
 	if !cfg.Retry.Disabled {
 		chain = append(chain, retryInterceptor(cfg.Retry))
@@ -233,7 +223,7 @@ func (c *Client) Credential() CredentialInfo {
 }
 
 // Conn returns the underlying connection, so a caller can build a generated stub
-// for anything this package does not wrap and still reach it over the same
+// for unwrapped calls over the same connection.
 // connection.
 //
 // Stubs built on it are credentialed: the bearer is attached by a dial-time
@@ -314,14 +304,8 @@ func (c *Client) List(ctx context.Context, in ListInput) (*agentv1.ListAgentsRes
 	})
 }
 
-// resolveSource decides what this client authenticates with, in the order a
-// caller would expect to be honored: what the program supplied, then what the
-// environment holds, then what the machine is logged in as.
-//
-// An expired stored session is refused here rather than at first use — but only
-// when nothing can renew it. Once the source can renew, an expired access token
-// is an ordinary condition the first call resolves, and refusing to construct
-// would be refusing a client that works.
+// resolveSource checks configured credentials, environment variables, and stored sessions.
+// Unrenewable expired sessions return errors immediately during source resolution.
 func resolveSource(cfg Config) (jennahcreds.Source, error) {
 	if cfg.Credentials != nil {
 		return cfg.Credentials, nil
@@ -345,14 +329,7 @@ func resolveSource(cfg Config) (jennahcreds.Source, error) {
 	return source, nil
 }
 
-// attachRenewer teaches a session source to renew over this client's own
-// connection.
-//
-// It happens after dialing because the renewal is itself an RPC: the source has
-// to exist before the connection (the interceptor chain closes over it) and the
-// connection has to exist before the source can renew over it. Ordering is not a
-// hazard here — renewing takes a rejection, and a rejection takes a call, so the
-// renewer is always in place before anything asks for it.
+// Attaches client connection to session sources for token renewal RPCs.
 func (c *Client) attachRenewer(source jennahcreds.Source) {
 	src, ok := source.(*jennahcreds.SessionSource)
 	if !ok {
@@ -390,7 +367,7 @@ func (c *Client) attachRenewer(source jennahcreds.Source) {
 // resolved the credential would be the inner one, and the value would have to be
 // smuggled back out through a mutable context holder to reach the outer one.
 //
-// Unary only, deliberately: the server's governance chain of authentication,
+// Unary RPC interceptor. Server governance
 // entitlement, permission and selector enforcement runs on unary calls alone, and
 // it refuses every streaming method outside its own infrastructure set. There is
 // no tenant-facing stream for a stream interceptor to credential.
@@ -426,7 +403,7 @@ func bearerInterceptor(source jennahcreds.Source) grpc.UnaryClientInterceptor {
 		// token expiring mid-program breaks exactly the calls that matter most.
 		renewed, rerr := source.Renew(ctx, cred)
 		if rerr != nil {
-			// Both halves are worth keeping: the sentinel says what to do about
+			// The sentinel indicates handling for
 			// it, the original status keeps Code and IsUnauthenticated working.
 			return fmt.Errorf("%w: %w", rerr, err)
 		}

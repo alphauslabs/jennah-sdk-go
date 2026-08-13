@@ -15,7 +15,7 @@ import (
 // cliWritten is a stored session exactly as the command-line client writes one:
 // two-space indent, this field order, no trailing newline. It is the format
 // contract between the two clients, so it is pinned here as a literal rather
-// than produced by the code under test — a fixture the implementation generated
+// than produced by the code under test: a fixture the implementation generated
 // would agree with itself no matter what it did.
 const cliWritten = `{
   "endpoint": "https://jennah.alphaus.cloud",

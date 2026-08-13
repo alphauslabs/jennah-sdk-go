@@ -130,7 +130,7 @@ func newTestClient(t *testing.T) (*jennah.Client, *fakeServer) {
 	return jc, fake
 }
 
-// With no credential configured and none to be resolved, construction fails —
+// With no credential configured and none to be resolved, construction fails,
 // and fails here, rather than dialing and returning a rejection on the first
 // call. The environment is isolated first: without that, this test would pass or
 // fail depending on whether whoever ran it happens to be logged in.

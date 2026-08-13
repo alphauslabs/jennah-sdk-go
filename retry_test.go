@@ -331,8 +331,7 @@ func TestErrorClassifiers(t *testing.T) {
 	}
 }
 
-// gax has no attempt cap of its own, so the cap this package adds has to be the
-// thing that stops an endless loop when the caller set no deadline.
+// Configured attempt caps limit retries.
 func TestRetryHonoursTheAttemptCap(t *testing.T) {
 	fake := flaky(50) // never recovers
 	jc := newFlakyClient(t, fake, fastRetry)
@@ -364,7 +363,7 @@ func TestRetryStopsAtTheDeadline(t *testing.T) {
 		t.Fatalf("error = %v, want the caller's deadline", err)
 	}
 	// The context error arrives unwrapped, so Code has to map it rather than call it
-	// Unknown, and IsTransient must not claim a spent budget is worth retrying.
+	// Unknown.
 	if got := jennah.Code(err); got != codes.DeadlineExceeded {
 		t.Errorf("Code = %v, want DeadlineExceeded", got)
 	}

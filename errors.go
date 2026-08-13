@@ -8,10 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Failures arrive as ordinary gRPC statuses, and the SDK does not wrap them: the
-// code carries the meaning and the message carries the detail. These helpers name
-// the codes this API actually uses, so callers branch on a named condition instead
-// of matching on message text that is free to change.
+// Helpers for identifying error categories.
 //
 // Anything not covered here is read with Code, or with the status package
 // directly.
@@ -54,7 +51,7 @@ func IsLimitExceeded(err error) bool { return Code(err) == codes.ResourceExhaust
 // Two cases produce it today: vector and graph fusion, which is not built, and a
 // memory write or query that left the embedding to the server in a region with no
 // embedding endpoint configured. The second is fixed by sending a precomputed
-// embedding, so the message is worth surfacing.
+// embedding.
 func IsUnsupported(err error) bool { return Code(err) == codes.Unimplemented }
 
 // IsDenied reports whether the credential was understood and refused: a permission
@@ -64,7 +61,7 @@ func IsDenied(err error) bool { return Code(err) == codes.PermissionDenied }
 
 // IsUnauthenticated reports whether the credential was rejected or missing: an
 // unknown or revoked API key, or an expired access token. A token that expired is
-// worth refreshing before the call is retried.
+// indicates the session should be refreshed before retrying.
 func IsUnauthenticated(err error) bool { return Code(err) == codes.Unauthenticated }
 
 // IsNotFound reports whether the named resource does not exist for this credential.
