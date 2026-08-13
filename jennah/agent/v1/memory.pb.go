@@ -132,25 +132,7 @@ func (GraphDirection) EnumDescriptor() ([]byte, []int) {
 }
 
 // Operator selects how `value` is compared against the chunk's stored value
-// for `key`. An operator this version does not implement is rejected with
-// UNIMPLEMENTED rather than silently treated as equality: a filter that
-// quietly means something other than what you asked for returns a
-// plausible-looking result set that is wrong.
-//
-// ORDERED COMPARISON IS LEXICOGRAPHIC, over the stored string. A metadata
-// value carries no type tag and the platform deliberately does not infer one,
-// so comparison is byte order, NOT numeric. That is exact for values encoded
-// so byte order matches their natural order, and wrong for values that are
-// not:
-//
-//	ISO-8601 timestamps  "2026-07-01" < "2026-07-15"   correct
-//	zero-padded numbers  "007" < "042"                 correct
-//	unpadded numbers     "10" < "9"                    SURPRISING but correct
-//	                                                   byte order
-//	ordinal words        "High" < "Low" < "Medium"     alphabetical, not
-//	                                                   ordinal
-//
-// Encode values for the ordering you want; the platform never coerces.
+// for `key`.
 //
 // A chunk that does not carry `key` at all matches NO operator, including
 // EQUALS: there is no value to compare or order against, so absence excludes.
@@ -235,18 +217,7 @@ type CommitMemoryRequest struct {
 	Graph *GraphWrite `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`
 	// When set, embedding truncation is FATAL to the whole commit instead of
 	// merely reported: if the model truncates any chunk whose vector the server
-	// generated, the commit is rejected and no section's rows are written (the
-	// all-or-nothing guarantee applies to the rejection).
-	//
-	// Truncation policy belongs to the caller. An audit-trail writer may prefer a
-	// degraded embedding over a lost commit; a retrieval-critical writer prefers
-	// to fail, split the content, and re-commit. Defaults to false so a caller
-	// that does not care keeps today's behavior: the receipt's
-	// `truncated_chunk_ids` reports the same fact without refusing the write.
-	//
-	// Rejection fires only on the model's OWN report of truncation, never on an
-	// estimated token count, so a caller is never refused for content the model
-	// would in fact have accepted.
+	// generated, the commit is rejected and no section's rows are written.
 	RejectOnTruncation bool `protobuf:"varint,5,opt,name=reject_on_truncation,json=rejectOnTruncation,proto3" json:"reject_on_truncation,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -426,9 +397,7 @@ type VectorChunk struct {
 	// otherwise dilute similarity and still not be filterable.
 	//
 	// An upsert REPLACES the chunk's whole metadata set rather than merging into it:
-	// a key absent from this map is removed. Merge semantics would make a key
-	// impossible to delete and would make a chunk's metadata depend on its write
-	// history rather than its most recent write.
+	// a key absent from this map is removed.
 	//
 	// Keys must match `[A-Za-z0-9_.-]{1,128}`; a key outside that set is rejected
 	// with INVALID_ARGUMENT. At most 32 keys per chunk.
@@ -959,11 +928,8 @@ type SemanticQuery struct {
 	// key, e.g. date >= "2026-07-01" AND date <= "2026-07-31".
 	//
 	// ORDERED COMPARISON IS LEXICOGRAPHIC, over the stored string. A metadata value
-	// carries no type tag and the platform never infers one, so comparison is byte
-	// order, NOT numeric. Encode values for the ordering you want: ISO-8601
-	// timestamps and zero-padded numbers sort correctly ("2026-07-01" < "2026-07-15",
-	// "007" < "042"); unpadded numbers do not ("10" < "9"), and ordinal words sort
-	// alphabetically rather than by rank ("High" < "Low" < "Medium").
+	// carries no type tag and the platform does not infer one, so comparison is byte
+	// order, NOT numeric.
 	//
 	// A chunk that does not carry the filtered key matches NO operator, including
 	// OPERATOR_EQUALS: there is no value to compare or order against, so absence
@@ -1104,14 +1070,8 @@ func (x *MetadataFilter) GetOperator() MetadataFilter_Operator {
 }
 
 // Graph-section query: a STRUCTURED traversal over the agent's knowledge graph.
-// The platform BUILDS the graph query server-side from these typed
-// fields, so no caller-authored query text is ever executed: every generated
-// pattern element carries the (EnterpriseId, AgentInstanceId) clamp
-// unconditionally and the slice cannot be widened. All caller values bind as
-// query parameters; the few caller-supplied identifiers (property keys) are
-// validated against a strict allowlist. This is the "structural injection, not
-// trust" clamp: a free-form query-string surface was rejected because it would
-// require parsing and rewriting untrusted query text.
+// The platform ensures graph queries remain within the caller's authorized
+// (EnterpriseId, AgentInstanceId) slice.
 //
 // A query is an anchor node set plus zero or more single-hop traversals. Each
 // hop is one `GraphStep`; multi-hop traversal is expressed as successive steps.
@@ -1128,11 +1088,8 @@ type GraphQuery struct {
 	// as_of_tx additionally constrains transaction-time ("as known at as_of_tx"),
 	// and is only meaningful together with as_of_valid.
 	//
-	// These are DELIBERATELY DISTINCT from QueryMemoryRequest.as_of. That field is
-	// the physical read snapshot, bounded by the backend's version-retention window
-	// (~1h) and applied to every section's physical read. Graph valid-time must
-	// reach arbitrarily far back, so it is evaluated as a bound
-	// predicate over the validity columns at the current snapshot, never by moving
+	// Graph valid-time is evaluated as a bound predicate over the validity columns
+	// at the current snapshot, never by moving
 	// the physical read timestamp. Both bounds bind as query parameters; the clamp
 	// is injected onto every hop exactly like the tenant/agent clamp and cannot be
 	// omitted or widened.

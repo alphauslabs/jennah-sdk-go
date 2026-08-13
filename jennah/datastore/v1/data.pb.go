@@ -272,10 +272,7 @@ func (ColumnExpression_Operator) EnumDescriptor() ([]byte, []int) {
 // One typed column value.
 //
 // Values are explicitly typed rather than carried as free-form JSON because
-// application columns are real typed columns: routing an INT64 through a
-// JSON number silently loses precision past 2^53, and TIMESTAMP, DATE, and BYTES
-// have no faithful JSON scalar at all. A money column or an id that quietly
-// changes value in transit is exactly the failure this shape exists to prevent.
+// application columns are real typed columns.
 type Value struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Kind:
@@ -588,12 +585,7 @@ func (x *Row) GetColumns() map[string]*Value {
 // One predicate over a column.
 //
 // The operator set is deliberately IDENTICAL to the memory plane's metadata
-// filter grammar, including what it leaves out: there is no inequality operator
-// and no disjunction between predicates, both of which were considered and cut
-// there rather than overlooked. Predicates combine conjunctively: all must
-// match. Reproducing that set exactly is the point: two predicate languages on
-// one platform is how a filter that means subtly different things in two places
-// eventually gets written.
+// filter grammar. Predicates combine conjunctively: all must match.
 //
 // ONE SEMANTIC DIFFERENCE, and it is deliberate. Metadata comparison is
 // LEXICOGRAPHIC, because a metadata value is an untyped string and the platform
@@ -670,16 +662,7 @@ func (x *Predicate) GetValue() *Value {
 }
 
 // An assignment that computes a column's new value from that column's CURRENT
-// value: `column = column ± operand`, evaluated by the backend inside the
-// commit's transaction.
-//
-// This is what makes an atomic counter and a write-side rollup possible without
-// a read: no prior SELECT, no client-side arithmetic, and no compare-and-set
-// retry loop. It is deliberately NOT an expression language - one column
-// reference, one operator, one literal, no nesting. A tree would need
-// precedence, type inference, and NULL-propagation rules, and at that point
-// whether caller input can reach query text stops being auditable by reading
-// the compiler.
+// value: `column = column ± operand`.
 type ColumnExpression struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Logical column name, resolved through the dataset catalog. It MUST equal
@@ -806,14 +789,7 @@ type RowOperation struct {
 	// against a state the caller never evaluated.
 	Expect *RowExpectation `protobuf:"bytes,5,opt,name=expect,proto3" json:"expect,omitempty"`
 	// Assignments computed from a column's own current value, keyed by logical
-	// column name. Combined with `row`: a commit may set some columns to literals
-	// and compute others in the same operation.
-	//
-	// This is a SEPARATE MAP rather than an expression branch on `Value`, and it
-	// must stay one. `Value` is also the type of `Predicate.value`, so a branch
-	// there would make "compare a column against an expression" syntactically
-	// valid and then have to be refused at runtime. A type that admits states the
-	// system must police is worse than a second field.
+	// column name.
 	//
 	// Rules, each of which is a refusal and not a silent adjustment:
 	//
@@ -834,31 +810,6 @@ type RowOperation struct {
 	//     path independently of the literal path.
 	//   - AN UNREPRESENTABLE RESULT ABORTS THE WHOLE COMMIT with OUT_OF_RANGE.
 	//     Nothing wrapped or saturated is ever stored.
-	//
-	// AN ABSENT ROW IS A NO-OP, NOT AN IMPLICIT CREATE. `total = total + 1`
-	// against a row that does not exist affects zero rows and does nothing -
-	// there is no value to compute from, and no upsert-with-expression to offer
-	// because Spanner's INSERT-OR-UPDATE is mutation-only. An increment that
-	// vanishes is indistinguishable in the receipt from one that landed, and for
-	// a value accumulated over many commits that loss is unrecoverable. So PAIR
-	// EVERY EXPRESSION WITH `expect`: create the counter row once, tolerating
-	// AlreadyExists, then increment with `expect.exactly: 1` forever after.
-	//
-	// AN IDEMPOTENCY KEY IS REQUIRED on any commit carrying an expression. Every
-	// other write this API accepts is naturally idempotent - INSERT collides on
-	// its key, UPSERT and UPDATE assign absolute values - so a caller whose
-	// request times out with an unknown outcome may safely resend it. This is the
-	// first write where a resend DOUBLE-APPLIES, silently, with a second receipt
-	// that looks exactly like a first. A commit with an expression and no
-	// `CommitDataRequest.idempotency_key` is refused before any transaction
-	// opens. A commit of absolute values still needs no key.
-	//
-	// WRITE-RATE CEILING: a single Spanner row tops out at a few hundred writes
-	// per second under lock contention, and expressions make it easy to aim every
-	// writer at one counter. Above that rate use SHARDED COUNTERS - N rows
-	// incremented at random, summed on read - accepting the trade-off that a
-	// sharded counter gives up whole-counter conditionals, since no single row
-	// holds the total to compare against.
 	SetExpressions map[string]*ColumnExpression `protobuf:"bytes,6,rep,name=set_expressions,json=setExpressions,proto3" json:"set_expressions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -1065,58 +1016,7 @@ type CommitDataRequest struct {
 	// the platform embedded nothing there and has nothing to report about it.
 	RejectOnTruncation bool `protobuf:"varint,3,opt,name=reject_on_truncation,json=rejectOnTruncation,proto3" json:"reject_on_truncation,omitempty"`
 	// An optional caller-chosen key making this commit SAFELY RESENDABLE. Where it
-	// is set, the commit is applied AT MOST ONCE: a repeat of a key already
-	// committed applies nothing and returns the ORIGINAL commit's receipt.
-	//
-	// THE RECOVERY IT EXISTS FOR. A commit that times out, or whose connection
-	// drops, leaves the caller unable to tell whether it applied, and resending it
-	// without a key is answered wrongly in a way that depends on what the commit
-	// contained: an INSERT collides on its own earlier row, absolute UPDATEs apply
-	// again and mint a second receipt, and a compare-and-set is refused with
-	// FAILED_PRECONDITION because the first attempt already moved the row it
-	// guarded. That last one reports failure for work that SUCCEEDED. So: on any
-	// ambiguous failure, resend the identical request with the same key. Do not
-	// read tables back to guess, and do not mint a new key.
-	//
-	// IT NAMES AN INTENT, NOT AN ATTEMPT. This is the one thing to get right, and
-	// the natural reading is the wrong one. The key identifies the WORK the caller
-	// wants done once, "charge invoice 4021", "apply ledger batch 88", not the
-	// individual wire attempt. Every retry of that work, whether by an SDK's
-	// automatic retry or by a caller's own loop, must reuse the SAME key; a new
-	// logical operation gets a NEW one. A fresh key per attempt provides exactly
-	// nothing: each attempt then looks like a separate intent, which is the
-	// behavior of supplying no key at all.
-	//
-	// THE RECEIPT IS THE ORIGINAL'S. A repeat returns the first commit's commit
-	// timestamp, its per-table counts, and its truncations, not a receipt
-	// describing the resend. A timestamp of "now" would let a caller conclude a
-	// write happened at a moment when nothing did, and would break any ordering
-	// derived from commit timestamps. There is deliberately no "this was a replay"
-	// flag: the honest answer to "was my intent carried out" is the receipt for the
-	// commit that carried it out. A caller that must distinguish a replay can
-	// compare the returned timestamp against its own attempt.
-	//
-	// REUSE WITH A DIFFERENT REQUEST IS REFUSED with INVALID_ARGUMENT, not answered
-	// from the stored receipt. The platform fingerprints the request behind the key,
-	// so presenting a spent key with different operations (a client bug, a
-	// recycled counter) is an error rather than a plausible receipt for work that
-	// was never requested. Mint a new key. Note the asymmetry: an IDENTICAL resend
-	// is a success carrying the original receipt, a DIFFERENT one is an error, and
-	// the two must not be confused.
-	//
-	// RETENTION IS BOUNDED, and the bound is part of this contract rather than an
-	// implementation detail: a key is remembered for AT LEAST 24 hours after the
-	// commit it names. Beyond that the record may be reclaimed and a resend applies
-	// again as a new commit. It is a floor, not a window: a key may keep answering
-	// for some time beyond it. So never treat a resend outside the window as safe,
-	// and never depend on one becoming unsafe at a particular moment. Retry budgets
-	// measured in seconds or minutes sit far inside it.
-	//
-	// Keys are scoped to the DATASET: the same key may be used independently in two
-	// datasets, and the record does not survive the dataset's deletion. The key is
-	// caller-chosen and opaque to the platform: a UUID or any other value unique
-	// to the intent within the dataset. Leave it unset for the historical behavior,
-	// where a resend is treated as a new commit.
+	// is set, the commit is applied AT MOST ONCE.
 	IdempotencyKey string `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache

@@ -37,23 +37,6 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // ApprovalService puts a decision to a named human and records the answer.
-//
-// The shape of the feature in one paragraph: an agent (usually a key-authenticated
-// service principal) creates an approval naming one or more approvers; each
-// approver is emailed a single-use capability token; the approver's browser reads
-// the request read-only and then submits an explicit decision; the first decision
-// that satisfies the quorum — or any rejection — moves the approval to a terminal
-// status that never changes again. An approval that reaches its deadline undecided
-// fails closed. Jennah RECORDS the decision; it does not enforce it. Nothing here
-// stops an agent that ignores a rejection — the enforcement point is the caller's
-// own code.
-//
-// Two methods (DescribeApprovalByToken, SubmitApprovalDecision) are unauthenticated
-// in the bearer-token sense: their caller is a human holding an emailed token who
-// may have no jennah account at all. Exemption from bearer-token auth is not
-// exemption from authentication — they authenticate their caller by validating the
-// presented token, exactly as the marketplace registration method authenticates by
-// exchanging a provider token.
 type ApprovalServiceClient interface {
 	// Creates an approval request under the caller's enterprise and attempts to
 	// notify its approvers. External (gateway) RPC. Authenticated, and gated on
@@ -72,7 +55,7 @@ type ApprovalServiceClient interface {
 	// content is ALREADY_EXISTS rather than a silent hand-back of the first
 	// question's receipt.
 	//
-	// Refused in full — no approval row, no mail to anyone in the request — when
+	// Refused in full (no approval row and no mail sent) when
 	// any listed approver is unaddressable (see AddApprover for what makes an
 	// address reachable), when `require_authenticated_decider` is set alongside a
 	// non-member approver, when the approvers eligible to decide are fewer than
@@ -80,7 +63,7 @@ type ApprovalServiceClient interface {
 	CreateApproval(ctx context.Context, in *CreateApprovalRequest, opts ...grpc.CallOption) (*CreateApprovalResponse, error)
 	// Reads one approval with its approvers, their delivery state, and its recorded
 	// decisions. External (gateway) RPC. Authenticated. Readable by a holder of
-	// `approval.requests:read`, and — with no permission at all — by a listed
+	// `approval.requests:read`, and (with no permission at all) by a listed
 	// approver reading what was addressed to them.
 	//
 	// Expiry is applied at READ: an approval past its deadline is reported terminal
@@ -101,29 +84,23 @@ type ApprovalServiceClient interface {
 	// every outstanding capability token unspendable. External (gateway) RPC.
 	// Authenticated, gated on `approval.requests:cancel`.
 	//
-	// Cancelling an already-terminal approval is FAILED_PRECONDITION, not a silent
-	// success: the caller asked to stop something that had already happened, and
-	// needs to know which.
+	// Cancelling an already-terminal approval is FAILED_PRECONDITION.
 	CancelApproval(ctx context.Context, in *CancelApprovalRequest, opts ...grpc.CallOption) (*CancelApprovalResponse, error)
 	// Blocks until the approval reaches a terminal status or the wait elapses, then
 	// returns its current state. External (gateway) RPC. Authenticated, same read
 	// authority as GetApproval.
 	//
 	// A bounded server-side poll, not a stream: the effective wait is clamped to a
-	// platform maximum well under the load balancer's idle timeout, and reaching
-	// that maximum returns the still-PENDING approval AS A SUCCESS. A caller that
-	// treats a pending return as an error will thrash; the correct loop is to call
-	// again. Safe to call repeatedly, and it holds no resource a caller must
-	// release.
+	// platform maximum, and reaching that maximum returns the still-PENDING approval.
+	// Safe to call repeatedly, and it holds no resource a caller must release.
 	WaitApproval(ctx context.Context, in *WaitApprovalRequest, opts ...grpc.CallOption) (*WaitApprovalResponse, error)
 	// Re-sends the notification for a still-PENDING approval. External (gateway)
 	// RPC. Authenticated, gated on `approval.requests:create` (a resend sends mail,
 	// so it is a create-class act, not a read).
 	//
 	// Mints an ADDITIONAL token rather than re-rendering the approver's existing
-	// one, which is impossible by design: tokens are stored only as a hash, so no
-	// node can recover a value it did not mint. A resend therefore invalidates
-	// nothing — the copy already in the approver's mailbox keeps working. Single
+	// one. A resend therefore invalidates
+	// nothing: the copy already in the approver's mailbox keeps working. Single
 	// use is a property of the APPROVER, not of a token: whichever copy they act on
 	// first records their one decision, and every other token outstanding for them
 	// is then refused as already-decided. Resends count against the enterprise's
@@ -134,15 +111,12 @@ type ApprovalServiceClient interface {
 	// unauthenticated allowlist; it authenticates its caller by resolving the
 	// presented token to a live approver record, and refuses when it cannot.
 	//
-	// STRICTLY READ-ONLY, and that is a security requirement rather than a
-	// nicety: mail scanners, corporate link-rewriting proxies, and client
-	// prefetchers fetch every URL in a message, so nothing reachable by a fetch may
-	// record a decision or spend a token. Calling this repeatedly is safe and
-	// changes nothing.
+	// Read-only: nothing reachable by a fetch may record a decision or spend a token.
+	// Calling this repeatedly is safe and changes nothing.
 	//
 	// The token is taken in the BODY. It appears in no path and no query string
 	// anywhere in this service, because the emailed link carries it in the URL
-	// FRAGMENT — which browsers do not send to servers — so it reaches the
+	// FRAGMENT (which browsers do not send to servers) so it reaches the
 	// approver's browser and neither the console's access log, a referrer header, a
 	// link-rewriting proxy's telemetry, nor jennah's own logs.
 	//
@@ -152,7 +126,7 @@ type ApprovalServiceClient interface {
 	DescribeApprovalByToken(ctx context.Context, in *DescribeApprovalByTokenRequest, opts ...grpc.CallOption) (*DescribeApprovalByTokenResponse, error)
 	// Records a decision, once. External (gateway) RPC. On the unauthenticated
 	// allowlist for the token origin, and dynamically authorized in the handler for
-	// both origins — the permission catalog deliberately has NO decide action,
+	// both origins: the permission catalog deliberately has NO decide action,
 	// because authority to decide is capability-based (holding the emailed token,
 	// or being a listed approver) rather than something a role can grant.
 	//
@@ -167,8 +141,7 @@ type ApprovalServiceClient interface {
 	// human who is not a listed approver is refused too, enterprise admin or not.
 	//
 	// This is the explicit submission the read-only render is deliberately split
-	// from: it carries the decision value, and no fetch of any emailed URL reaches
-	// it. Terminal is terminal — a second submission, including one matching the
+	// from: it carries the decision value. Terminal is terminal: a second submission, including one matching the
 	// recorded outcome, is refused as already-decided rather than recorded twice.
 	SubmitApprovalDecision(ctx context.Context, in *SubmitApprovalDecisionRequest, opts ...grpc.CallOption) (*SubmitApprovalDecisionResponse, error)
 	// Lists the enterprise's approver allowlist entries. External (gateway) RPC.
@@ -177,7 +150,7 @@ type ApprovalServiceClient interface {
 	// Adds an email address or a domain to the enterprise's approver allowlist.
 	// External (gateway) RPC. Authenticated, gated on `approval.approvers:manage`,
 	// which is management-class and therefore can never appear in an API key's
-	// scope — a key-authenticated caller is refused outright.
+	// scope: a key-authenticated caller is refused outright.
 	//
 	// Members of the enterprise are ALWAYS addressable and need no entry here. The
 	// allowlist exists only for non-members, and the refusal of key-authenticated
@@ -317,23 +290,6 @@ func (c *approvalServiceClient) RemoveApprover(ctx context.Context, in *RemoveAp
 // for forward compatibility.
 //
 // ApprovalService puts a decision to a named human and records the answer.
-//
-// The shape of the feature in one paragraph: an agent (usually a key-authenticated
-// service principal) creates an approval naming one or more approvers; each
-// approver is emailed a single-use capability token; the approver's browser reads
-// the request read-only and then submits an explicit decision; the first decision
-// that satisfies the quorum — or any rejection — moves the approval to a terminal
-// status that never changes again. An approval that reaches its deadline undecided
-// fails closed. Jennah RECORDS the decision; it does not enforce it. Nothing here
-// stops an agent that ignores a rejection — the enforcement point is the caller's
-// own code.
-//
-// Two methods (DescribeApprovalByToken, SubmitApprovalDecision) are unauthenticated
-// in the bearer-token sense: their caller is a human holding an emailed token who
-// may have no jennah account at all. Exemption from bearer-token auth is not
-// exemption from authentication — they authenticate their caller by validating the
-// presented token, exactly as the marketplace registration method authenticates by
-// exchanging a provider token.
 type ApprovalServiceServer interface {
 	// Creates an approval request under the caller's enterprise and attempts to
 	// notify its approvers. External (gateway) RPC. Authenticated, and gated on
@@ -352,7 +308,7 @@ type ApprovalServiceServer interface {
 	// content is ALREADY_EXISTS rather than a silent hand-back of the first
 	// question's receipt.
 	//
-	// Refused in full — no approval row, no mail to anyone in the request — when
+	// Refused in full (no approval row and no mail sent) when
 	// any listed approver is unaddressable (see AddApprover for what makes an
 	// address reachable), when `require_authenticated_decider` is set alongside a
 	// non-member approver, when the approvers eligible to decide are fewer than
@@ -360,7 +316,7 @@ type ApprovalServiceServer interface {
 	CreateApproval(context.Context, *CreateApprovalRequest) (*CreateApprovalResponse, error)
 	// Reads one approval with its approvers, their delivery state, and its recorded
 	// decisions. External (gateway) RPC. Authenticated. Readable by a holder of
-	// `approval.requests:read`, and — with no permission at all — by a listed
+	// `approval.requests:read`, and (with no permission at all) by a listed
 	// approver reading what was addressed to them.
 	//
 	// Expiry is applied at READ: an approval past its deadline is reported terminal
@@ -381,29 +337,23 @@ type ApprovalServiceServer interface {
 	// every outstanding capability token unspendable. External (gateway) RPC.
 	// Authenticated, gated on `approval.requests:cancel`.
 	//
-	// Cancelling an already-terminal approval is FAILED_PRECONDITION, not a silent
-	// success: the caller asked to stop something that had already happened, and
-	// needs to know which.
+	// Cancelling an already-terminal approval is FAILED_PRECONDITION.
 	CancelApproval(context.Context, *CancelApprovalRequest) (*CancelApprovalResponse, error)
 	// Blocks until the approval reaches a terminal status or the wait elapses, then
 	// returns its current state. External (gateway) RPC. Authenticated, same read
 	// authority as GetApproval.
 	//
 	// A bounded server-side poll, not a stream: the effective wait is clamped to a
-	// platform maximum well under the load balancer's idle timeout, and reaching
-	// that maximum returns the still-PENDING approval AS A SUCCESS. A caller that
-	// treats a pending return as an error will thrash; the correct loop is to call
-	// again. Safe to call repeatedly, and it holds no resource a caller must
-	// release.
+	// platform maximum, and reaching that maximum returns the still-PENDING approval.
+	// Safe to call repeatedly, and it holds no resource a caller must release.
 	WaitApproval(context.Context, *WaitApprovalRequest) (*WaitApprovalResponse, error)
 	// Re-sends the notification for a still-PENDING approval. External (gateway)
 	// RPC. Authenticated, gated on `approval.requests:create` (a resend sends mail,
 	// so it is a create-class act, not a read).
 	//
 	// Mints an ADDITIONAL token rather than re-rendering the approver's existing
-	// one, which is impossible by design: tokens are stored only as a hash, so no
-	// node can recover a value it did not mint. A resend therefore invalidates
-	// nothing — the copy already in the approver's mailbox keeps working. Single
+	// one. A resend therefore invalidates
+	// nothing: the copy already in the approver's mailbox keeps working. Single
 	// use is a property of the APPROVER, not of a token: whichever copy they act on
 	// first records their one decision, and every other token outstanding for them
 	// is then refused as already-decided. Resends count against the enterprise's
@@ -414,15 +364,12 @@ type ApprovalServiceServer interface {
 	// unauthenticated allowlist; it authenticates its caller by resolving the
 	// presented token to a live approver record, and refuses when it cannot.
 	//
-	// STRICTLY READ-ONLY, and that is a security requirement rather than a
-	// nicety: mail scanners, corporate link-rewriting proxies, and client
-	// prefetchers fetch every URL in a message, so nothing reachable by a fetch may
-	// record a decision or spend a token. Calling this repeatedly is safe and
-	// changes nothing.
+	// Read-only: nothing reachable by a fetch may record a decision or spend a token.
+	// Calling this repeatedly is safe and changes nothing.
 	//
 	// The token is taken in the BODY. It appears in no path and no query string
 	// anywhere in this service, because the emailed link carries it in the URL
-	// FRAGMENT — which browsers do not send to servers — so it reaches the
+	// FRAGMENT (which browsers do not send to servers) so it reaches the
 	// approver's browser and neither the console's access log, a referrer header, a
 	// link-rewriting proxy's telemetry, nor jennah's own logs.
 	//
@@ -432,7 +379,7 @@ type ApprovalServiceServer interface {
 	DescribeApprovalByToken(context.Context, *DescribeApprovalByTokenRequest) (*DescribeApprovalByTokenResponse, error)
 	// Records a decision, once. External (gateway) RPC. On the unauthenticated
 	// allowlist for the token origin, and dynamically authorized in the handler for
-	// both origins — the permission catalog deliberately has NO decide action,
+	// both origins: the permission catalog deliberately has NO decide action,
 	// because authority to decide is capability-based (holding the emailed token,
 	// or being a listed approver) rather than something a role can grant.
 	//
@@ -447,8 +394,7 @@ type ApprovalServiceServer interface {
 	// human who is not a listed approver is refused too, enterprise admin or not.
 	//
 	// This is the explicit submission the read-only render is deliberately split
-	// from: it carries the decision value, and no fetch of any emailed URL reaches
-	// it. Terminal is terminal — a second submission, including one matching the
+	// from: it carries the decision value. Terminal is terminal: a second submission, including one matching the
 	// recorded outcome, is refused as already-decided rather than recorded twice.
 	SubmitApprovalDecision(context.Context, *SubmitApprovalDecisionRequest) (*SubmitApprovalDecisionResponse, error)
 	// Lists the enterprise's approver allowlist entries. External (gateway) RPC.
@@ -457,7 +403,7 @@ type ApprovalServiceServer interface {
 	// Adds an email address or a domain to the enterprise's approver allowlist.
 	// External (gateway) RPC. Authenticated, gated on `approval.approvers:manage`,
 	// which is management-class and therefore can never appear in an API key's
-	// scope — a key-authenticated caller is refused outright.
+	// scope: a key-authenticated caller is refused outright.
 	//
 	// Members of the enterprise are ALWAYS addressable and need no entry here. The
 	// allowlist exists only for non-members, and the refusal of key-authenticated

@@ -196,9 +196,7 @@ type BoundSubscription struct {
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	State     SubscriptionState      `protobuf:"varint,7,opt,name=state,proto3,enum=jennahapi.billing.v1.SubscriptionState" json:"state,omitempty"`
 	// The purchased entitlement quantity. Recorded and surfaced but NOT enforced
-	// (seat limits are out of scope), and it never affects the resolved tier. A value
-	// above one is flagged for attention, because a buyer billed for five units and
-	// silently receiving one unit's service is the failure worth being loud about.
+	// (seat limits are out of scope), and it never affects the resolved tier.
 	Quantity      int64 `protobuf:"varint,8,opt,name=quantity,proto3" json:"quantity,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -488,15 +486,11 @@ type BindMarketplaceRegistrationResponse struct {
 	// The enterprise's effective tier after the bind.
 	Tier string `protobuf:"bytes,2,opt,name=tier,proto3" json:"tier,omitempty"`
 	// True when this bind actually moved the tier. A tier change invalidates the
-	// enterprise's outstanding access tokens (they carry the tier and are verified
-	// with no database lookup), so the client must refresh before the new plan takes
-	// effect. Stated explicitly rather than left implicit: a customer who just paid
-	// and is still blocked files a ticket.
+	// enterprise's outstanding access tokens.
 	//
 	// NOT always true. Re-binding a subscription already attached to the same
 	// enterprise is idempotent success and changes nothing, so no refresh is needed;
-	// buyers re-enter through the provider's "set up your account" link routinely. A
-	// client that refreshes unconditionally rotates a session token for no reason.
+	// buyers re-enter through the provider's "set up your account" link routinely.
 	AccessTokenRefreshRequired bool `protobuf:"varint,3,opt,name=access_token_refresh_required,json=accessTokenRefreshRequired,proto3" json:"access_token_refresh_required,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache

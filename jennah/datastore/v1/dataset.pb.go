@@ -94,12 +94,7 @@ type Dataset struct {
 	EnterpriseId string `protobuf:"bytes,1,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
 	// Unique within the enterprise. Constrained to the same shape as an
 	// agent_instance_id (at most 128 characters of lowercase letters, digits,
-	// '.', '_' or '-', starting and ending with a letter or digit), and that
-	// constraint is load-bearing for authorization, not cosmetic: '.' is the
-	// selector hierarchy separator, so an id permitted to carry a selector
-	// metacharacter could be crafted to collide with a pattern and widen access.
-	// The charset also excludes '/', which would make the dataset unreachable
-	// through the HTTP gateway, where dataset_id binds as a single path segment.
+	// '.', '_' or '-', starting and ending with a letter or digit).
 	DatasetId   string `protobuf:"bytes,2,opt,name=dataset_id,json=datasetId,proto3" json:"dataset_id,omitempty"`
 	DisplayName string `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	// Where this dataset's data lives: a single-region location for locality, or a
@@ -109,8 +104,7 @@ type Dataset struct {
 	// they are deliberately NOT a backend vendor's configuration names, so the set
 	// can change without becoming a breaking API change.
 	//
-	// The trade is real and the owner picks it deliberately: a multi-region location
-	// buys globally consistent reads at the cost of write latency. Bounded-staleness
+	// Bounded-staleness
 	// reads (see DataService.QueryData) mitigate read latency without giving up the
 	// write geography.
 	Location  string                 `protobuf:"bytes,4,opt,name=location,proto3" json:"location,omitempty"`

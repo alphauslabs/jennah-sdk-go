@@ -29,7 +29,7 @@ const (
 // A client MUST NOT infer a rule by exclusion. "Not ANY_ONE" does not mean ALL,
 // today or ever: a rule added in a later version arrives at an older client as
 // QUORUM_UNSPECIFIED, and treating that as any known rule would report an outcome
-// nobody authorized. The server holds itself to the same rule — an unrecognized
+// nobody authorized. The server holds itself to the same rule: an unrecognized
 // STORED rule is unresolvable rather than resolved under a default.
 type Quorum int32
 
@@ -150,10 +150,7 @@ func (ApprovalStatus) EnumDescriptor() ([]byte, []int) {
 
 // What an undecided approval becomes at its deadline.
 //
-// Note what is NOT here: there is no value that approves an undecided request.
-// That absence is the contract — no configuration, tier, entitlement, or request
-// field can auto-approve on timeout, because the alternative is approving things
-// nobody saw.
+// No value automatically approves an undecided request on timeout.
 type OnExpire int32
 
 const (
@@ -163,7 +160,7 @@ const (
 	// right choice when a downstream caller branches on approved-vs-not.
 	OnExpire_ON_EXPIRE_DENY OnExpire = 1
 	// Resolve as EXPIRED: nobody answered, and the caller wants that distinguishable
-	// from a human's refusal. Still fails closed — EXPIRED is not APPROVED.
+	// from a human's refusal. Still fails closed: EXPIRED is not APPROVED.
 	OnExpire_ON_EXPIRE_EXPIRE OnExpire = 2
 )
 
@@ -210,7 +207,7 @@ func (OnExpire) EnumDescriptor() ([]byte, []int) {
 
 // Where an approver's notification is in its delivery lifecycle. This exists so
 // that "the human has not responded" is distinguishable from "the human was never
-// reached" — an approver stranded by a bad address is a different operational
+// reached": an approver stranded by a bad address is a different operational
 // problem from one who is simply thinking about it.
 type DeliveryState int32
 
@@ -427,7 +424,7 @@ func (AllowlistKind) EnumDescriptor() ([]byte, []int) {
 // One human an approval was put to, with the delivery state of their notification.
 //
 // The capability token is NEVER carried here or anywhere else in a response: it is
-// stored only as a hash, and it reaches exactly one place — the emailed link.
+// stored only as a hash, and it reaches exactly one place: the emailed link.
 type Approver struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Stable id within the approval; the handle for a targeted resend and the
@@ -634,7 +631,7 @@ type Approval struct {
 	Quorum  Quorum           `protobuf:"varint,8,opt,name=quorum,proto3,enum=jennahapi.approval.v1.Quorum" json:"quorum,omitempty"`
 	// How many approvals resolve this request: 1 for ANY_ONE, the approver count
 	// for ALL. Assigned at creation and immutable thereafter. This column, not the
-	// rule name, is the sole authority on the threshold — resolution is a count
+	// rule name, is the sole authority on the threshold: resolution is a count
 	// comparison, which is why it stays correct for a rule this client predates.
 	RequiredApprovals int32 `protobuf:"varint,9,opt,name=required_approvals,json=requiredApprovals,proto3" json:"required_approvals,omitempty"`
 	// Approvals recorded so far, so a partially-approved request is legible rather
@@ -644,7 +641,7 @@ type Approval struct {
 	// are a listed approver (four-eyes).
 	RequireDistinctApprover bool `protobuf:"varint,11,opt,name=require_distinct_approver,json=requireDistinctApprover,proto3" json:"require_distinct_approver,omitempty"`
 	// When set, no capability token is minted for any approver and the notification
-	// carries no one-click link at all — it directs the approver to sign in, and
+	// carries no one-click link at all: it directs the approver to sign in, and
 	// only an authenticated listed approver may decide. Creatable only where every
 	// approver is a member, since a non-member has no account to sign in with.
 	RequireAuthenticatedDecider bool `protobuf:"varint,12,opt,name=require_authenticated_decider,json=requireAuthenticatedDecider,proto3" json:"require_authenticated_decider,omitempty"`
@@ -657,12 +654,12 @@ type Approval struct {
 	CreatedByKeyId  string                 `protobuf:"bytes,16,opt,name=created_by_key_id,json=createdByKeyId,proto3" json:"created_by_key_id,omitempty"`    // empty when created by a signed-in human
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                       // server-assigned commit timestamp
 	// The deadline. Reaching it undecided is terminal per `on_expire`, and that is
-	// evaluated at READ — a read after this instant never reports PENDING, whether
+	// evaluated at READ: a read after this instant never reports PENDING, whether
 	// or not a background pass has run.
 	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,18,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	OnExpire  OnExpire               `protobuf:"varint,19,opt,name=on_expire,json=onExpire,proto3,enum=jennahapi.approval.v1.OnExpire" json:"on_expire,omitempty"`
 	// Recorded at creation, returned unchanged, and INTERPRETED BY NOTHING in this
-	// version. They exist so a later durable-execution capability can deliver a
+	// version. They exist so a later execution capability can deliver a
 	// decision as a run signal without a change to stored state.
 	NotifyRunId      string `protobuf:"bytes,20,opt,name=notify_run_id,json=notifyRunId,proto3" json:"notify_run_id,omitempty"`
 	NotifySignalName string `protobuf:"bytes,21,opt,name=notify_signal_name,json=notifySignalName,proto3" json:"notify_signal_name,omitempty"`
@@ -881,7 +878,7 @@ type ApprovalDecision struct {
 	// is the approver record's email plus `approver_id`.
 	ActorUserId string `protobuf:"bytes,6,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
 	// True when the decision arrived over a capability token rather than an
-	// authenticated session — the difference between "someone with access to that
+	// authenticated session: the difference between "someone with access to that
 	// mailbox" and "that person, signed in".
 	ViaToken  bool   `protobuf:"varint,7,opt,name=via_token,json=viaToken,proto3" json:"via_token,omitempty"`
 	SourceIp  string `protobuf:"bytes,8,opt,name=source_ip,json=sourceIp,proto3" json:"source_ip,omitempty"`
@@ -1256,9 +1253,7 @@ type CreateApprovalResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Approval *Approval              `protobuf:"bytes,1,opt,name=approval,proto3" json:"approval,omitempty"`
 	// True when `request_key` resolved to an approval that already existed. The
-	// call is a success either way; this distinguishes "your retry was absorbed"
-	// from "your request created something", which is the difference between
-	// waiting on an outcome and having just asked for one.
+	// call is a success either way.
 	AlreadyExisted bool `protobuf:"varint,2,opt,name=already_existed,json=alreadyExisted,proto3" json:"already_existed,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -1417,8 +1412,8 @@ type ListApprovalsRequest struct {
 	// Optional: only approvals naming this agent. Agents outside the caller's reach
 	// are omitted from every listing whether or not this is set.
 	AgentId string `protobuf:"bytes,4,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	// Narrow to approvals awaiting the calling human's decision — the console's
-	// approvals inbox. Requires no permission, since it returns only what was
+	// Narrow to approvals awaiting the calling human's decision (the console's
+	// approvals inbox). Requires no permission, since it returns only what was
 	// addressed to the caller. Meaningless for a key-authenticated caller, which
 	// can never be an approver.
 	OnlyAwaitingMe bool `protobuf:"varint,5,opt,name=only_awaiting_me,json=onlyAwaitingMe,proto3" json:"only_awaiting_me,omitempty"`
@@ -1693,7 +1688,7 @@ func (x *WaitApprovalRequest) GetTimeoutSeconds() int32 {
 type WaitApprovalResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The approval's state when the wait returned. A PENDING approval here means
-	// the wait elapsed, NOT that anything failed — call again to keep waiting.
+	// the wait elapsed, NOT that anything failed: call again to keep waiting.
 	Approval *Approval `protobuf:"bytes,1,opt,name=approval,proto3" json:"approval,omitempty"`
 	// True when the wait returned because the ceiling was reached rather than
 	// because the approval resolved. Redundant with a PENDING status, and stated
@@ -1900,7 +1895,7 @@ func (x *DescribeApprovalByTokenRequest) GetToken() string {
 // Response message for the ApprovalService.DescribeApprovalByToken rpc.
 //
 // Deliberately NOT an `Approval`. The holder of a mailed token is authorized to
-// see the question put to them, not the enterprise's internal record — so there
+// see the question put to them, not the enterprise's internal record, so there
 // is no approver roster, no creator identity, and no delivery state here.
 type DescribeApprovalByTokenResponse struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
@@ -1924,8 +1919,6 @@ type DescribeApprovalByTokenResponse struct {
 	// page should explain the outcome rather than offer buttons.
 	Decidable bool `protobuf:"varint,12,opt,name=decidable,proto3" json:"decidable,omitempty"`
 	// Set when the approval requires an authenticated decider. False in practice:
-	// such an approval mints no token, so there is no link that reaches this
-	// response at all. It is reported anyway as a fail-safe — a client that somehow
 	// arrives here sees `decidable` false and must direct the approver to sign in
 	// rather than offer an action that would be refused.
 	RequireAuthenticatedDecider bool `protobuf:"varint,13,opt,name=require_authenticated_decider,json=requireAuthenticatedDecider,proto3" json:"require_authenticated_decider,omitempty"`

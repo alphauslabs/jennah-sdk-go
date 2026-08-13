@@ -148,12 +148,8 @@ type AuthServiceClient interface {
 	// Transfers the caller's active enterprise's ROLE_ROOT to another member of
 	// that enterprise: the target becomes ROLE_ROOT and the caller becomes
 	// ROLE_ADMIN, atomically. External (gateway) RPC. Authenticated AND authorized
-	// by identity: ONLY the enterprise's current ROLE_ROOT may call it. Holding
-	// every permission is not sufficient: a ROLE_ADMIN (whose permission set is
-	// identical to ROLE_ROOT's) is refused, and so is an API-key caller. This is
-	// the only authority ROLE_ROOT holds that ROLE_ADMIN does not, and the only way
-	// ROLE_ROOT ever moves: it remains non-grantable by ChangeMemberRole and by
-	// invitation. The target must already be a live member (a user_id, never an
+	// by identity: ONLY the enterprise's current ROLE_ROOT may call it.
+	// The target must already be a live member (a user_id, never an
 	// email); no membership is created and no pending offer is minted. Takes effect
 	// without re-minting a token, because roles are resolved live server-side.
 	TransferRoot(ctx context.Context, in *TransferRootRequest, opts ...grpc.CallOption) (*TransferRootResponse, error)
@@ -564,12 +560,8 @@ type AuthServiceServer interface {
 	// Transfers the caller's active enterprise's ROLE_ROOT to another member of
 	// that enterprise: the target becomes ROLE_ROOT and the caller becomes
 	// ROLE_ADMIN, atomically. External (gateway) RPC. Authenticated AND authorized
-	// by identity: ONLY the enterprise's current ROLE_ROOT may call it. Holding
-	// every permission is not sufficient: a ROLE_ADMIN (whose permission set is
-	// identical to ROLE_ROOT's) is refused, and so is an API-key caller. This is
-	// the only authority ROLE_ROOT holds that ROLE_ADMIN does not, and the only way
-	// ROLE_ROOT ever moves: it remains non-grantable by ChangeMemberRole and by
-	// invitation. The target must already be a live member (a user_id, never an
+	// by identity: ONLY the enterprise's current ROLE_ROOT may call it.
+	// The target must already be a live member (a user_id, never an
 	// email); no membership is created and no pending offer is minted. Takes effect
 	// without re-minting a token, because roles are resolved live server-side.
 	TransferRoot(context.Context, *TransferRootRequest) (*TransferRootResponse, error)

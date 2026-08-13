@@ -41,10 +41,7 @@ type AgentServiceClient interface {
 	//
 	// Returns the workspace synchronously. When provisioning is still in flight
 	// the returned AgentInstance carries status AGENT_STATUS_PROVISIONING; poll
-	// GetAgent until it reaches AGENT_STATUS_ACTIVE. (The first implementation
-	// provisions inline and returns ACTIVE directly; the PROVISIONING status is
-	// the forward-compatible signal for when region/instance creation, which can
-	// take minutes, is made asynchronous.)
+	// GetAgent until it reaches AGENT_STATUS_ACTIVE.
 	CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*CreateAgentResponse, error)
 	// Reads a single agent workspace the caller owns, including its current
 	// lifecycle status. This is the readiness-poll surface for a create that is
@@ -127,10 +124,7 @@ type AgentServiceServer interface {
 	//
 	// Returns the workspace synchronously. When provisioning is still in flight
 	// the returned AgentInstance carries status AGENT_STATUS_PROVISIONING; poll
-	// GetAgent until it reaches AGENT_STATUS_ACTIVE. (The first implementation
-	// provisions inline and returns ACTIVE directly; the PROVISIONING status is
-	// the forward-compatible signal for when region/instance creation, which can
-	// take minutes, is made asynchronous.)
+	// GetAgent until it reaches AGENT_STATUS_ACTIVE.
 	CreateAgent(context.Context, *CreateAgentRequest) (*CreateAgentResponse, error)
 	// Reads a single agent workspace the caller owns, including its current
 	// lifecycle status. This is the readiness-poll surface for a create that is

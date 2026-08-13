@@ -196,10 +196,6 @@ type CreateAgentRequest struct {
 	// offers for agents (see PlatformService.ListLocations, whose entries carry an
 	// `agents` block where they do), and when empty the default agent location is
 	// used.
-	//
-	// The field is named `region` for historical reasons: it predates the platform
-	// having any placement other than an agent's. A location is not required to be
-	// a single cloud region, so the NAME is narrower than the values it accepts.
 	Region        string `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -41,8 +41,7 @@ type BillingServiceClient interface {
 	// explains how to recover.
 	//
 	// When `externally_managed` is true the client MUST NOT offer an in-app plan
-	// change: a foreign source's tier write is rejected server-side, so the button
-	// would be one that cannot work. Send the user to `manage_url` instead.
+	// change. Send the user to `manage_url` instead.
 	GetBillingState(ctx context.Context, in *GetBillingStateRequest, opts ...grpc.CallOption) (*GetBillingStateResponse, error)
 	// Binds the subscription behind a single-use registration handle to the caller's
 	// active enterprise and applies its resolved tier. External (gateway) RPC.
@@ -52,9 +51,6 @@ type BillingServiceClient interface {
 	//
 	// The handle is a bearer capability with a deliberately small blast radius:
 	// whoever presents it attaches that subscription to THEIR active enterprise.
-	// AWS gives us no proof of the buyer's jennah identity, so the mitigations are a
-	// minutes-long TTL, single use, storage as a hash, the admin-role requirement
-	// above, and an operator rebind path, not a claim that the class is eliminated.
 	//
 	// Binding the same subscription to the same enterprise again is idempotent
 	// success: buyers re-enter through AWS's "Set up your account" button routinely.
@@ -166,8 +162,7 @@ type BillingServiceServer interface {
 	// explains how to recover.
 	//
 	// When `externally_managed` is true the client MUST NOT offer an in-app plan
-	// change: a foreign source's tier write is rejected server-side, so the button
-	// would be one that cannot work. Send the user to `manage_url` instead.
+	// change. Send the user to `manage_url` instead.
 	GetBillingState(context.Context, *GetBillingStateRequest) (*GetBillingStateResponse, error)
 	// Binds the subscription behind a single-use registration handle to the caller's
 	// active enterprise and applies its resolved tier. External (gateway) RPC.
@@ -177,9 +172,6 @@ type BillingServiceServer interface {
 	//
 	// The handle is a bearer capability with a deliberately small blast radius:
 	// whoever presents it attaches that subscription to THEIR active enterprise.
-	// AWS gives us no proof of the buyer's jennah identity, so the mitigations are a
-	// minutes-long TTL, single use, storage as a hash, the admin-role requirement
-	// above, and an operator rebind path, not a claim that the class is eliminated.
 	//
 	// Binding the same subscription to the same enterprise again is idempotent
 	// success: buyers re-enter through AWS's "Set up your account" button routinely.

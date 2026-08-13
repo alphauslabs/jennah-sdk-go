@@ -3497,11 +3497,7 @@ func (x *AgentSelectorList) GetSelectors() []string {
 // counterpart to AgentSelectorList and used for the same reason.
 //
 // It is a separate message rather than a reuse of AgentSelectorList because the
-// two are set independently (an update may replace one namespace's selectors
-// and leave the other's untouched), and a shared type would make "unset" mean
-// "leave both alone", collapsing that distinction. A shared, namespace-neutral
-// type would have been cleaner from the start, but renaming AgentSelectorList
-// now would break every generated client for no behavioral gain.
+// two are set independently.
 type DatasetSelectorList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Selectors     []string               `protobuf:"bytes,1,rep,name=selectors,proto3" json:"selectors,omitempty"` // may be empty, meaning "no dataset access"
