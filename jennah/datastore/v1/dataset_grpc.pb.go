@@ -57,9 +57,9 @@ type DatasetServiceClient interface {
 	ListDatasets(ctx context.Context, in *ListDatasetsRequest, opts ...grpc.CallOption) (*ListDatasetsResponse, error)
 	// Deletes a dataset the caller owns: drops its declared tables and removes its
 	// catalog and directory records, cascading to all of its application rows.
-	// Returns an erasure receipt (the commit timestamp and per-table row counts),
-	// so a caller can evidence a complete erasure. A dataset_id not owned by the
-	// caller's enterprise is treated as not found.
+	// Every table the dataset holds is dropped, whatever their number. Returns a
+	// receipt carrying the instant the teardown committed. A dataset_id not owned
+	// by the caller's enterprise is treated as not found.
 	DeleteDataset(ctx context.Context, in *DeleteDatasetRequest, opts ...grpc.CallOption) (*DeleteDatasetResponse, error)
 }
 
@@ -143,9 +143,9 @@ type DatasetServiceServer interface {
 	ListDatasets(context.Context, *ListDatasetsRequest) (*ListDatasetsResponse, error)
 	// Deletes a dataset the caller owns: drops its declared tables and removes its
 	// catalog and directory records, cascading to all of its application rows.
-	// Returns an erasure receipt (the commit timestamp and per-table row counts),
-	// so a caller can evidence a complete erasure. A dataset_id not owned by the
-	// caller's enterprise is treated as not found.
+	// Every table the dataset holds is dropped, whatever their number. Returns a
+	// receipt carrying the instant the teardown committed. A dataset_id not owned
+	// by the caller's enterprise is treated as not found.
 	DeleteDataset(context.Context, *DeleteDatasetRequest) (*DeleteDatasetResponse, error)
 	mustEmbedUnimplementedDatasetServiceServer()
 }

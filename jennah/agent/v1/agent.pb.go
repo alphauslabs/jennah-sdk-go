@@ -540,17 +540,18 @@ func (x *DeleteAgentRequest) GetAgentInstanceId() string {
 
 // Response message for the AgentService.DeleteAgent rpc.
 //
-// The erasure receipt: a commit timestamp plus how many rows were removed per
-// memory type, so a caller can evidence a complete, atomic erasure.
+// The deletion receipt: the instant the erasure committed. It deliberately does
+// NOT enumerate what was removed. The cascade prunes every table interleaved
+// under AgentInstances, including ones added after this message was written, so
+// an enumeration would have to be widened by every change that adds a table and
+// would report an internal row shape the caller cannot verify against anything.
+// What the receipt attests to is that the workspace and everything beneath it
+// were erased in one transaction, at one instant.
 type DeleteAgentResponse struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	DeletedAt        *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"` // cascade-delete commit timestamp
-	ExecutionLogRows int64                  `protobuf:"varint,2,opt,name=execution_log_rows,json=executionLogRows,proto3" json:"execution_log_rows,omitempty"`
-	VectorRows       int64                  `protobuf:"varint,3,opt,name=vector_rows,json=vectorRows,proto3" json:"vector_rows,omitempty"`
-	GraphNodeRows    int64                  `protobuf:"varint,4,opt,name=graph_node_rows,json=graphNodeRows,proto3" json:"graph_node_rows,omitempty"`
-	GraphEdgeRows    int64                  `protobuf:"varint,5,opt,name=graph_edge_rows,json=graphEdgeRows,proto3" json:"graph_edge_rows,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"` // cascade-delete commit timestamp
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeleteAgentResponse) Reset() {
@@ -590,34 +591,6 @@ func (x *DeleteAgentResponse) GetDeletedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *DeleteAgentResponse) GetExecutionLogRows() int64 {
-	if x != nil {
-		return x.ExecutionLogRows
-	}
-	return 0
-}
-
-func (x *DeleteAgentResponse) GetVectorRows() int64 {
-	if x != nil {
-		return x.VectorRows
-	}
-	return 0
-}
-
-func (x *DeleteAgentResponse) GetGraphNodeRows() int64 {
-	if x != nil {
-		return x.GraphNodeRows
-	}
-	return 0
-}
-
-func (x *DeleteAgentResponse) GetGraphEdgeRows() int64 {
-	if x != nil {
-		return x.GraphEdgeRows
-	}
-	return 0
-}
-
 var File_jennah_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_jennah_agent_v1_agent_proto_rawDesc = "" +
@@ -652,15 +625,10 @@ const file_jennah_agent_v1_agent_proto_rawDesc = "" +
 	"\x06agents\x18\x01 \x03(\v2!.jennahapi.agent.v1.AgentInstanceR\x06agents\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"@\n" +
 	"\x12DeleteAgentRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\"\xef\x01\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\"P\n" +
 	"\x13DeleteAgentResponse\x129\n" +
 	"\n" +
-	"deleted_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12,\n" +
-	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
-	"\vvector_rows\x18\x03 \x01(\x03R\n" +
-	"vectorRows\x12&\n" +
-	"\x0fgraph_node_rows\x18\x04 \x01(\x03R\rgraphNodeRows\x12&\n" +
-	"\x0fgraph_edge_rows\x18\x05 \x01(\x03R\rgraphEdgeRows*\xb1\x01\n" +
+	"deleted_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt*\xb1\x01\n" +
 	"\vAgentStatus\x12\x1c\n" +
 	"\x18AGENT_STATUS_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13AGENT_STATUS_ACTIVE\x10\x01\x12\x17\n" +

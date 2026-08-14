@@ -54,9 +54,9 @@ type AgentServiceClient interface {
 	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
 	// Deletes an agent workspace the caller owns with a single tenant-scoped
 	// delete that cascades to all of the agent's memory (execution logs, vectors,
-	// graph). Returns an erasure receipt: the commit timestamp and the per-memory-
-	// type row counts removed. An agent_instance_id not owned by the caller's
-	// enterprise is treated as not found.
+	// graph). Returns a receipt carrying the instant the erasure committed. An
+	// agent_instance_id not owned by the caller's enterprise is treated as not
+	// found.
 	DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*DeleteAgentResponse, error)
 }
 
@@ -137,9 +137,9 @@ type AgentServiceServer interface {
 	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
 	// Deletes an agent workspace the caller owns with a single tenant-scoped
 	// delete that cascades to all of the agent's memory (execution logs, vectors,
-	// graph). Returns an erasure receipt: the commit timestamp and the per-memory-
-	// type row counts removed. An agent_instance_id not owned by the caller's
-	// enterprise is treated as not found.
+	// graph). Returns a receipt carrying the instant the erasure committed. An
+	// agent_instance_id not owned by the caller's enterprise is treated as not
+	// found.
 	DeleteAgent(context.Context, *DeleteAgentRequest) (*DeleteAgentResponse, error)
 	mustEmbedUnimplementedAgentServiceServer()
 }

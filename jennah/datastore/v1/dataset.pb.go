@@ -616,17 +616,16 @@ func (x *DeleteDatasetRequest) GetDatasetId() string {
 
 // Response message for the DatasetService.DeleteDataset rpc.
 //
-// The erasure receipt: a commit timestamp plus how many rows were removed from
-// each of the dataset's tables, so a caller can evidence a complete erasure.
+// The deletion receipt: the instant the teardown committed. It deliberately
+// does NOT enumerate what was dropped, matching DeleteAgentResponse: the
+// platform does not make an itemised erasure claim on either plane. A caller
+// that needs to know what a dataset held reads its table catalog before
+// deleting it, which the schema surface already serves.
 type DeleteDatasetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"` // teardown commit timestamp
-	TablesDropped int64                  `protobuf:"varint,2,opt,name=tables_dropped,json=tablesDropped,proto3" json:"tables_dropped,omitempty"`
-	// Rows removed per logical table name. A table that held no rows is present
-	// with a count of zero, so the map also enumerates what was dropped.
-	RowsDeletedByTable map[string]int64 `protobuf:"bytes,3,rep,name=rows_deleted_by_table,json=rowsDeletedByTable,proto3" json:"rows_deleted_by_table,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DeleteDatasetResponse) Reset() {
@@ -662,20 +661,6 @@ func (*DeleteDatasetResponse) Descriptor() ([]byte, []int) {
 func (x *DeleteDatasetResponse) GetDeletedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.DeletedAt
-	}
-	return nil
-}
-
-func (x *DeleteDatasetResponse) GetTablesDropped() int64 {
-	if x != nil {
-		return x.TablesDropped
-	}
-	return 0
-}
-
-func (x *DeleteDatasetResponse) GetRowsDeletedByTable() map[string]int64 {
-	if x != nil {
-		return x.RowsDeletedByTable
 	}
 	return nil
 }
@@ -721,15 +706,10 @@ const file_jennah_datastore_v1_dataset_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"5\n" +
 	"\x14DeleteDatasetRequest\x12\x1d\n" +
 	"\n" +
-	"dataset_id\x18\x01 \x01(\tR\tdatasetId\"\xba\x02\n" +
+	"dataset_id\x18\x01 \x01(\tR\tdatasetId\"R\n" +
 	"\x15DeleteDatasetResponse\x129\n" +
 	"\n" +
-	"deleted_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12%\n" +
-	"\x0etables_dropped\x18\x02 \x01(\x03R\rtablesDropped\x12x\n" +
-	"\x15rows_deleted_by_table\x18\x03 \x03(\v2E.jennahapi.datastore.v1.DeleteDatasetResponse.RowsDeletedByTableEntryR\x12rowsDeletedByTable\x1aE\n" +
-	"\x17RowsDeletedByTableEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x03R\x05value:\x028\x01*\xa3\x01\n" +
+	"deleted_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt*\xa3\x01\n" +
 	"\rDatasetStatus\x12\x1e\n" +
 	"\x1aDATASET_STATUS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15DATASET_STATUS_ACTIVE\x10\x01\x12\x1f\n" +
@@ -756,7 +736,7 @@ func file_jennah_datastore_v1_dataset_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_datastore_v1_dataset_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_jennah_datastore_v1_dataset_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_jennah_datastore_v1_dataset_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_jennah_datastore_v1_dataset_proto_goTypes = []any{
 	(DatasetStatus)(0),            // 0: jennahapi.datastore.v1.DatasetStatus
 	(*Dataset)(nil),               // 1: jennahapi.datastore.v1.Dataset
@@ -768,30 +748,28 @@ var file_jennah_datastore_v1_dataset_proto_goTypes = []any{
 	(*ListDatasetsResponse)(nil),  // 7: jennahapi.datastore.v1.ListDatasetsResponse
 	(*DeleteDatasetRequest)(nil),  // 8: jennahapi.datastore.v1.DeleteDatasetRequest
 	(*DeleteDatasetResponse)(nil), // 9: jennahapi.datastore.v1.DeleteDatasetResponse
-	nil,                           // 10: jennahapi.datastore.v1.DeleteDatasetResponse.RowsDeletedByTableEntry
-	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
 }
 var file_jennah_datastore_v1_dataset_proto_depIdxs = []int32{
 	0,  // 0: jennahapi.datastore.v1.Dataset.status:type_name -> jennahapi.datastore.v1.DatasetStatus
-	11, // 1: jennahapi.datastore.v1.Dataset.created_at:type_name -> google.protobuf.Timestamp
+	10, // 1: jennahapi.datastore.v1.Dataset.created_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: jennahapi.datastore.v1.CreateDatasetResponse.dataset:type_name -> jennahapi.datastore.v1.Dataset
 	1,  // 3: jennahapi.datastore.v1.GetDatasetResponse.dataset:type_name -> jennahapi.datastore.v1.Dataset
 	1,  // 4: jennahapi.datastore.v1.ListDatasetsResponse.datasets:type_name -> jennahapi.datastore.v1.Dataset
-	11, // 5: jennahapi.datastore.v1.DeleteDatasetResponse.deleted_at:type_name -> google.protobuf.Timestamp
-	10, // 6: jennahapi.datastore.v1.DeleteDatasetResponse.rows_deleted_by_table:type_name -> jennahapi.datastore.v1.DeleteDatasetResponse.RowsDeletedByTableEntry
-	2,  // 7: jennahapi.datastore.v1.DatasetService.CreateDataset:input_type -> jennahapi.datastore.v1.CreateDatasetRequest
-	4,  // 8: jennahapi.datastore.v1.DatasetService.GetDataset:input_type -> jennahapi.datastore.v1.GetDatasetRequest
-	6,  // 9: jennahapi.datastore.v1.DatasetService.ListDatasets:input_type -> jennahapi.datastore.v1.ListDatasetsRequest
-	8,  // 10: jennahapi.datastore.v1.DatasetService.DeleteDataset:input_type -> jennahapi.datastore.v1.DeleteDatasetRequest
-	3,  // 11: jennahapi.datastore.v1.DatasetService.CreateDataset:output_type -> jennahapi.datastore.v1.CreateDatasetResponse
-	5,  // 12: jennahapi.datastore.v1.DatasetService.GetDataset:output_type -> jennahapi.datastore.v1.GetDatasetResponse
-	7,  // 13: jennahapi.datastore.v1.DatasetService.ListDatasets:output_type -> jennahapi.datastore.v1.ListDatasetsResponse
-	9,  // 14: jennahapi.datastore.v1.DatasetService.DeleteDataset:output_type -> jennahapi.datastore.v1.DeleteDatasetResponse
-	11, // [11:15] is the sub-list for method output_type
-	7,  // [7:11] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	10, // 5: jennahapi.datastore.v1.DeleteDatasetResponse.deleted_at:type_name -> google.protobuf.Timestamp
+	2,  // 6: jennahapi.datastore.v1.DatasetService.CreateDataset:input_type -> jennahapi.datastore.v1.CreateDatasetRequest
+	4,  // 7: jennahapi.datastore.v1.DatasetService.GetDataset:input_type -> jennahapi.datastore.v1.GetDatasetRequest
+	6,  // 8: jennahapi.datastore.v1.DatasetService.ListDatasets:input_type -> jennahapi.datastore.v1.ListDatasetsRequest
+	8,  // 9: jennahapi.datastore.v1.DatasetService.DeleteDataset:input_type -> jennahapi.datastore.v1.DeleteDatasetRequest
+	3,  // 10: jennahapi.datastore.v1.DatasetService.CreateDataset:output_type -> jennahapi.datastore.v1.CreateDatasetResponse
+	5,  // 11: jennahapi.datastore.v1.DatasetService.GetDataset:output_type -> jennahapi.datastore.v1.GetDatasetResponse
+	7,  // 12: jennahapi.datastore.v1.DatasetService.ListDatasets:output_type -> jennahapi.datastore.v1.ListDatasetsResponse
+	9,  // 13: jennahapi.datastore.v1.DatasetService.DeleteDataset:output_type -> jennahapi.datastore.v1.DeleteDatasetResponse
+	10, // [10:14] is the sub-list for method output_type
+	6,  // [6:10] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_jennah_datastore_v1_dataset_proto_init() }
@@ -805,7 +783,7 @@ func file_jennah_datastore_v1_dataset_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_datastore_v1_dataset_proto_rawDesc), len(file_jennah_datastore_v1_dataset_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
