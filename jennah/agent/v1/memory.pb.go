@@ -401,7 +401,24 @@ type VectorChunk struct {
 	//
 	// Keys must match `[A-Za-z0-9_.-]{1,128}`; a key outside that set is rejected
 	// with INVALID_ARGUMENT. At most 32 keys per chunk.
-	Metadata      map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Bi-temporal valid-time window (add-temporal-vectors), both optional on write
+	// and carrying exactly the meaning GraphEdge.valid_at/invalid_at carry, so one
+	// temporal model covers passages and relationships alike. valid_at is when the
+	// passage's content held in the world; when unset the chunk is an always-current
+	// passage. invalid_at is when it ceased to hold; unset means it still holds.
+	// Transaction-time (asserted/expired) is server-assigned and not expressible
+	// here.
+	//
+	// Setting these on a plain commit is NOT supersession. A re-upsert of an existing
+	// chunk_id replaces that row's content and is how a caller CORRECTS a chunk;
+	// replacing a fact while preserving history is MemoryService.SupersedeChunk. The
+	// platform never infers one from the other.
+	//
+	// Read back via InspectMemory, which reports a chunk's whole validity on
+	// VectorChunkInfo including the server-assigned transaction-time pair.
+	ValidAt       *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=valid_at,json=validAt,proto3" json:"valid_at,omitempty"`
+	InvalidAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=invalid_at,json=invalidAt,proto3" json:"invalid_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -460,6 +477,20 @@ func (x *VectorChunk) GetEmbedding() []float32 {
 func (x *VectorChunk) GetMetadata() map[string]string {
 	if x != nil {
 		return x.Metadata
+	}
+	return nil
+}
+
+func (x *VectorChunk) GetValidAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ValidAt
+	}
+	return nil
+}
+
+func (x *VectorChunk) GetInvalidAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.InvalidAt
 	}
 	return nil
 }
@@ -945,7 +976,33 @@ type SemanticQuery struct {
 	// chunks match. That is the caller's own narrowing and is reproducible from the
 	// filters; it is NOT the silent truncation the tenant/agent clamp guarantees
 	// against.
-	Filters       []*MetadataFilter `protobuf:"bytes,4,rep,name=filters,proto3" json:"filters,omitempty"`
+	Filters []*MetadataFilter `protobuf:"bytes,4,rep,name=filters,proto3" json:"filters,omitempty"`
+	// Bi-temporal time-travel over chunk validity (add-temporal-vectors), named and
+	// behaving IDENTICALLY to GraphQuery.as_of_valid/as_of_tx so one temporal model
+	// serves the whole memory surface. Absent as_of_valid means the default filter:
+	// only currently-held chunks. A set as_of_valid switches to valid-time interval
+	// containment (chunks whose valid-time window contains that instant), so the
+	// search reconstructs the passages believed current at that point in time,
+	// including ones since superseded. A set as_of_tx additionally constrains
+	// transaction-time ("as known at as_of_tx"), and is only meaningful together with
+	// as_of_valid.
+	//
+	// A chunk written before this capability existed has no valid-time and is treated
+	// as valid for all time, so it is returned by any as_of_valid instant rather than
+	// vanishing from history it predates.
+	//
+	// Supplying the same as_of_valid to this section and to the graph section
+	// reconstructs a CROSS-MODAL past belief: the passages and the relationships the
+	// agent held at that instant, consistent with one another.
+	//
+	// This is NOT QueryMemoryRequest.as_of. That field moves the physical read
+	// snapshot and is bounded by the backend's version-retention window (about an
+	// hour); valid-time is a bound predicate over stored columns evaluated at the
+	// current snapshot, so it reaches arbitrarily far back. Both bounds bind as query
+	// parameters and are injected alongside the tenant/agent clamp, which cannot be
+	// omitted or widened.
+	AsOfValid     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=as_of_valid,json=asOfValid,proto3" json:"as_of_valid,omitempty"`
+	AsOfTx        *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=as_of_tx,json=asOfTx,proto3" json:"as_of_tx,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1004,6 +1061,20 @@ func (x *SemanticQuery) GetLimit() int32 {
 func (x *SemanticQuery) GetFilters() []*MetadataFilter {
 	if x != nil {
 		return x.Filters
+	}
+	return nil
+}
+
+func (x *SemanticQuery) GetAsOfValid() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOfValid
+	}
+	return nil
+}
+
+func (x *SemanticQuery) GetAsOfTx() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AsOfTx
 	}
 	return nil
 }
@@ -2208,7 +2279,33 @@ type VectorChunkInfo struct {
 	Truncated  *bool  `protobuf:"varint,4,opt,name=truncated,proto3,oneof" json:"truncated,omitempty"`
 	TokenCount *int64 `protobuf:"varint,5,opt,name=token_count,json=tokenCount,proto3,oneof" json:"token_count,omitempty"`
 	// The chunk's stored metadata. Empty when the chunk has none.
-	Metadata      map[string]string `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Metadata map[string]string `protobuf:"bytes,6,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Output-only bi-temporal validity (add-temporal-vectors). Inspect lists what a
+	// workspace HOLDS, and a superseded passage is still held, so the listing keeps
+	// returning it and reports its validity here instead. Semantic search is the
+	// surface that shows what is CURRENT; the two answer different questions on
+	// purpose, and a caller that wants only live passages should search rather than
+	// filter this listing.
+	//
+	// valid_at / invalid_at are the valid-time window: when the passage's content
+	// held in the world. asserted_at / expired_at are the transaction-time window:
+	// when the platform asserted it. A chunk with both ENDS absent (invalid_at and
+	// expired_at) is currently held.
+	//
+	// ABSENCE IS MEANINGFUL and differs per field. An absent invalid_at or expired_at
+	// means the window is still open. An absent valid_at means the passage is valid
+	// for all time, which is what every chunk written before this capability existed
+	// is, so a reader MUST NOT treat it as a missing value to be defaulted. An absent
+	// asserted_at means the same thing one level over: the chunk predates the
+	// assertion-start column and the platform cannot say when it was first asserted.
+	//
+	// asserted_at is ASSIGN-ONCE, and it is the field that answers "when was this
+	// first written". `updated_at` above cannot: chunks are upserted, so it moves
+	// every time a caller corrects one.
+	ValidAt       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=valid_at,json=validAt,proto3" json:"valid_at,omitempty"`
+	InvalidAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=invalid_at,json=invalidAt,proto3" json:"invalid_at,omitempty"`
+	AssertedAt    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=asserted_at,json=assertedAt,proto3" json:"asserted_at,omitempty"`
+	ExpiredAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=expired_at,json=expiredAt,proto3" json:"expired_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2281,6 +2378,34 @@ func (x *VectorChunkInfo) GetTokenCount() int64 {
 func (x *VectorChunkInfo) GetMetadata() map[string]string {
 	if x != nil {
 		return x.Metadata
+	}
+	return nil
+}
+
+func (x *VectorChunkInfo) GetValidAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ValidAt
+	}
+	return nil
+}
+
+func (x *VectorChunkInfo) GetInvalidAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.InvalidAt
+	}
+	return nil
+}
+
+func (x *VectorChunkInfo) GetAssertedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AssertedAt
+	}
+	return nil
+}
+
+func (x *VectorChunkInfo) GetExpiredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiredAt
 	}
 	return nil
 }
@@ -2455,6 +2580,136 @@ func (x *SupersedeEdgeResponse) GetCommitTimestamp() *timestamppb.Timestamp {
 	return nil
 }
 
+// Request for MemoryService.SupersedeChunk.
+type SupersedeChunkRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // route path parameter; never read from the body
+	// The currently-held chunk to close. Resolved within the caller's slice; an
+	// unknown id is NotFound (never a cross-slice touch). Its content is left
+	// intact: closing a window writes the validity end and nothing else, so the
+	// superseded passage stays readable as history.
+	PriorChunkId string `protobuf:"bytes,2,opt,name=prior_chunk_id,json=priorChunkId,proto3" json:"prior_chunk_id,omitempty"`
+	// The replacement passage, inserted in the same slice. new_chunk.valid_at is
+	// REQUIRED: it is the supersession boundary (the prior chunk's invalid_at and the
+	// new chunk's valid_at) and must be a concrete timestamp. new_chunk.chunk_id must
+	// be set and differ from prior_chunk_id (the replacement is inserted, not
+	// upserted, so a reused id is rejected). It carries the same content, embedding,
+	// and metadata fields a committed chunk does, including server-side embedding
+	// generation when `embedding` is empty.
+	NewChunk      *VectorChunk `protobuf:"bytes,3,opt,name=new_chunk,json=newChunk,proto3" json:"new_chunk,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupersedeChunkRequest) Reset() {
+	*x = SupersedeChunkRequest{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupersedeChunkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupersedeChunkRequest) ProtoMessage() {}
+
+func (x *SupersedeChunkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupersedeChunkRequest.ProtoReflect.Descriptor instead.
+func (*SupersedeChunkRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *SupersedeChunkRequest) GetAgentInstanceId() string {
+	if x != nil {
+		return x.AgentInstanceId
+	}
+	return ""
+}
+
+func (x *SupersedeChunkRequest) GetPriorChunkId() string {
+	if x != nil {
+		return x.PriorChunkId
+	}
+	return ""
+}
+
+func (x *SupersedeChunkRequest) GetNewChunk() *VectorChunk {
+	if x != nil {
+		return x.NewChunk
+	}
+	return nil
+}
+
+// The supersession receipt: the commit timestamp of the transaction that closed
+// the prior chunk and inserted the replacement.
+type SupersedeChunkResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	CommitTimestamp *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=commit_timestamp,json=commitTimestamp,proto3" json:"commit_timestamp,omitempty"`
+	// Set when the replacement's embedding was generated server-side and the model
+	// truncated it, mirroring CommitMemoryResponse.truncated_chunk_ids for the single
+	// chunk this operation writes. The supersession SUCCEEDED; the tail of the
+	// replacement's raw_content is not represented in its stored vector.
+	Truncated     bool `protobuf:"varint,2,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SupersedeChunkResponse) Reset() {
+	*x = SupersedeChunkResponse{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SupersedeChunkResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SupersedeChunkResponse) ProtoMessage() {}
+
+func (x *SupersedeChunkResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SupersedeChunkResponse.ProtoReflect.Descriptor instead.
+func (*SupersedeChunkResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *SupersedeChunkResponse) GetCommitTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CommitTimestamp
+	}
+	return nil
+}
+
+func (x *SupersedeChunkResponse) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
 var File_jennah_agent_v1_memory_proto protoreflect.FileDescriptor
 
 const file_jennah_agent_v1_memory_proto_rawDesc = "" +
@@ -2474,13 +2729,16 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"tool_input\x18\x04 \x01(\tR\ttoolInput\x12\x1f\n" +
 	"\vtool_output\x18\x05 \x01(\tR\n" +
 	"toolOutput\x128\n" +
-	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\xef\x01\n" +
+	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\xe1\x02\n" +
 	"\vVectorChunk\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
 	"rawContent\x12\x1c\n" +
 	"\tembedding\x18\x03 \x03(\x02R\tembedding\x12I\n" +
-	"\bmetadata\x18\x04 \x03(\v2-.jennahapi.agent.v1.VectorChunk.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\x04 \x03(\v2-.jennahapi.agent.v1.VectorChunk.MetadataEntryR\bmetadata\x125\n" +
+	"\bvalid_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\avalidAt\x129\n" +
+	"\n" +
+	"invalid_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"v\n" +
@@ -2524,13 +2782,15 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x03log\x18\x04 \x01(\v2\x1c.jennahapi.agent.v1.LogQueryR\x03log\x12\x12\n" +
 	"\x04link\x18\x05 \x01(\bR\x04link\x12N\n" +
 	"\x10fusion_direction\x18\x06 \x01(\x0e2#.jennahapi.agent.v1.FusionDirectionR\x0ffusionDirection\x12/\n" +
-	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"\xa0\x01\n" +
+	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"\x92\x02\n" +
 	"\rSemanticQuery\x12\x1c\n" +
 	"\tembedding\x18\x01 \x03(\x02R\tembedding\x12\x1d\n" +
 	"\n" +
 	"query_text\x18\x02 \x01(\tR\tqueryText\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12<\n" +
-	"\afilters\x18\x04 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\afilters\"\xb5\x02\n" +
+	"\afilters\x18\x04 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\afilters\x12:\n" +
+	"\vas_of_valid\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tasOfValid\x124\n" +
+	"\bas_of_tx\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x06asOfTx\"\xb5\x02\n" +
 	"\x0eMetadataFilter\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12G\n" +
@@ -2618,7 +2878,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x0fnext_edge_token\x18\a \x01(\tR\rnextEdgeToken\x12$\n" +
 	"\x0enext_log_token\x18\b \x01(\tR\fnextLogToken\"R\n" +
 	"\x13VectorInspectResult\x12;\n" +
-	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\xfb\x02\n" +
+	"\x06chunks\x18\x01 \x03(\v2#.jennahapi.agent.v1.VectorChunkInfoR\x06chunks\"\xe5\x04\n" +
 	"\x0fVectorChunkInfo\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
@@ -2628,7 +2888,15 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\ttruncated\x18\x04 \x01(\bH\x00R\ttruncated\x88\x01\x01\x12$\n" +
 	"\vtoken_count\x18\x05 \x01(\x03H\x01R\n" +
 	"tokenCount\x88\x01\x01\x12M\n" +
-	"\bmetadata\x18\x06 \x03(\v21.jennahapi.agent.v1.VectorChunkInfo.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\x06 \x03(\v21.jennahapi.agent.v1.VectorChunkInfo.MetadataEntryR\bmetadata\x125\n" +
+	"\bvalid_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\avalidAt\x129\n" +
+	"\n" +
+	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\x12;\n" +
+	"\vasserted_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"assertedAt\x129\n" +
+	"\n" +
+	"expired_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\texpiredAt\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\f\n" +
@@ -2643,7 +2911,14 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\rprior_edge_id\x18\x02 \x01(\tR\vpriorEdgeId\x128\n" +
 	"\bnew_edge\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\anewEdge\"^\n" +
 	"\x15SupersedeEdgeResponse\x12E\n" +
-	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp*x\n" +
+	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\"\xa7\x01\n" +
+	"\x15SupersedeChunkRequest\x12*\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12$\n" +
+	"\x0eprior_chunk_id\x18\x02 \x01(\tR\fpriorChunkId\x12<\n" +
+	"\tnew_chunk\x18\x03 \x01(\v2\x1f.jennahapi.agent.v1.VectorChunkR\bnewChunk\"}\n" +
+	"\x16SupersedeChunkResponse\x12E\n" +
+	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12\x1c\n" +
+	"\ttruncated\x18\x02 \x01(\bR\ttruncated*x\n" +
 	"\x0fFusionDirection\x12 \n" +
 	"\x1cFUSION_DIRECTION_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dFUSION_DIRECTION_VECTOR_FIRST\x10\x01\x12 \n" +
@@ -2652,12 +2927,13 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x1bGRAPH_DIRECTION_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18GRAPH_DIRECTION_OUTGOING\x10\x01\x12\x1c\n" +
 	"\x18GRAPH_DIRECTION_INCOMING\x10\x02\x12\x17\n" +
-	"\x13GRAPH_DIRECTION_ANY\x10\x032\x8e\x05\n" +
+	"\x13GRAPH_DIRECTION_ANY\x10\x032\xbc\x06\n" +
 	"\rMemoryService\x12\x9a\x01\n" +
 	"\fCommitMemory\x12'.jennahapi.agent.v1.CommitMemoryRequest\x1a(.jennahapi.agent.v1.CommitMemoryResponse\"7\x82\xd3\xe4\x93\x021:\x01*\",/v1/agents/{agent_instance_id}/memory:commit\x12\x96\x01\n" +
 	"\vQueryMemory\x12&.jennahapi.agent.v1.QueryMemoryRequest\x1a'.jennahapi.agent.v1.QueryMemoryResponse\"6\x82\xd3\xe4\x93\x020:\x01*\"+/v1/agents/{agent_instance_id}/memory:query\x12\x9e\x01\n" +
 	"\rInspectMemory\x12(.jennahapi.agent.v1.InspectMemoryRequest\x1a).jennahapi.agent.v1.InspectMemoryResponse\"8\x82\xd3\xe4\x93\x022:\x01*\"-/v1/agents/{agent_instance_id}/memory:inspect\x12\xa5\x01\n" +
-	"\rSupersedeEdge\x12(.jennahapi.agent.v1.SupersedeEdgeRequest\x1a).jennahapi.agent.v1.SupersedeEdgeResponse\"?\x82\xd3\xe4\x93\x029:\x01*\"4/v1/agents/{agent_instance_id}/graph/edges:supersedeB)Z'github.com/alphauslabs/jennah-api/agentb\x06proto3"
+	"\rSupersedeEdge\x12(.jennahapi.agent.v1.SupersedeEdgeRequest\x1a).jennahapi.agent.v1.SupersedeEdgeResponse\"?\x82\xd3\xe4\x93\x029:\x01*\"4/v1/agents/{agent_instance_id}/graph/edges:supersede\x12\xab\x01\n" +
+	"\x0eSupersedeChunk\x12).jennahapi.agent.v1.SupersedeChunkRequest\x1a*.jennahapi.agent.v1.SupersedeChunkResponse\"B\x82\xd3\xe4\x93\x02<:\x01*\"7/v1/agents/{agent_instance_id}/vectors/chunks:supersedeB)Z'github.com/alphauslabs/jennah-api/agentb\x06proto3"
 
 var (
 	file_jennah_agent_v1_memory_proto_rawDescOnce sync.Once
@@ -2672,119 +2948,133 @@ func file_jennah_agent_v1_memory_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_agent_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
 var file_jennah_agent_v1_memory_proto_goTypes = []any{
-	(FusionDirection)(0),          // 0: jennahapi.agent.v1.FusionDirection
-	(GraphDirection)(0),           // 1: jennahapi.agent.v1.GraphDirection
-	(MetadataFilter_Operator)(0),  // 2: jennahapi.agent.v1.MetadataFilter.Operator
-	(*CommitMemoryRequest)(nil),   // 3: jennahapi.agent.v1.CommitMemoryRequest
-	(*ExecutionLogStep)(nil),      // 4: jennahapi.agent.v1.ExecutionLogStep
-	(*VectorChunk)(nil),           // 5: jennahapi.agent.v1.VectorChunk
-	(*GraphWrite)(nil),            // 6: jennahapi.agent.v1.GraphWrite
-	(*GraphNode)(nil),             // 7: jennahapi.agent.v1.GraphNode
-	(*GraphEdge)(nil),             // 8: jennahapi.agent.v1.GraphEdge
-	(*CommitMemoryResponse)(nil),  // 9: jennahapi.agent.v1.CommitMemoryResponse
-	(*QueryMemoryRequest)(nil),    // 10: jennahapi.agent.v1.QueryMemoryRequest
-	(*SemanticQuery)(nil),         // 11: jennahapi.agent.v1.SemanticQuery
-	(*MetadataFilter)(nil),        // 12: jennahapi.agent.v1.MetadataFilter
-	(*GraphQuery)(nil),            // 13: jennahapi.agent.v1.GraphQuery
-	(*GraphNodeMatch)(nil),        // 14: jennahapi.agent.v1.GraphNodeMatch
-	(*GraphStep)(nil),             // 15: jennahapi.agent.v1.GraphStep
-	(*PropertyFilter)(nil),        // 16: jennahapi.agent.v1.PropertyFilter
-	(*LogQuery)(nil),              // 17: jennahapi.agent.v1.LogQuery
-	(*QueryMemoryResponse)(nil),   // 18: jennahapi.agent.v1.QueryMemoryResponse
-	(*SemanticResult)(nil),        // 19: jennahapi.agent.v1.SemanticResult
-	(*SemanticMatch)(nil),         // 20: jennahapi.agent.v1.SemanticMatch
-	(*GraphResult)(nil),           // 21: jennahapi.agent.v1.GraphResult
-	(*LogResult)(nil),             // 22: jennahapi.agent.v1.LogResult
-	(*FusedResult)(nil),           // 23: jennahapi.agent.v1.FusedResult
-	(*InspectMemoryRequest)(nil),  // 24: jennahapi.agent.v1.InspectMemoryRequest
-	(*InspectVectors)(nil),        // 25: jennahapi.agent.v1.InspectVectors
-	(*InspectGraph)(nil),          // 26: jennahapi.agent.v1.InspectGraph
-	(*InspectLog)(nil),            // 27: jennahapi.agent.v1.InspectLog
-	(*InspectMemoryResponse)(nil), // 28: jennahapi.agent.v1.InspectMemoryResponse
-	(*VectorInspectResult)(nil),   // 29: jennahapi.agent.v1.VectorInspectResult
-	(*VectorChunkInfo)(nil),       // 30: jennahapi.agent.v1.VectorChunkInfo
-	(*GraphInspectResult)(nil),    // 31: jennahapi.agent.v1.GraphInspectResult
-	(*SupersedeEdgeRequest)(nil),  // 32: jennahapi.agent.v1.SupersedeEdgeRequest
-	(*SupersedeEdgeResponse)(nil), // 33: jennahapi.agent.v1.SupersedeEdgeResponse
-	nil,                           // 34: jennahapi.agent.v1.VectorChunk.MetadataEntry
-	nil,                           // 35: jennahapi.agent.v1.SemanticMatch.MetadataEntry
-	nil,                           // 36: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
-	(*timestamppb.Timestamp)(nil), // 37: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),       // 38: google.protobuf.Struct
-	(*structpb.Value)(nil),        // 39: google.protobuf.Value
+	(FusionDirection)(0),           // 0: jennahapi.agent.v1.FusionDirection
+	(GraphDirection)(0),            // 1: jennahapi.agent.v1.GraphDirection
+	(MetadataFilter_Operator)(0),   // 2: jennahapi.agent.v1.MetadataFilter.Operator
+	(*CommitMemoryRequest)(nil),    // 3: jennahapi.agent.v1.CommitMemoryRequest
+	(*ExecutionLogStep)(nil),       // 4: jennahapi.agent.v1.ExecutionLogStep
+	(*VectorChunk)(nil),            // 5: jennahapi.agent.v1.VectorChunk
+	(*GraphWrite)(nil),             // 6: jennahapi.agent.v1.GraphWrite
+	(*GraphNode)(nil),              // 7: jennahapi.agent.v1.GraphNode
+	(*GraphEdge)(nil),              // 8: jennahapi.agent.v1.GraphEdge
+	(*CommitMemoryResponse)(nil),   // 9: jennahapi.agent.v1.CommitMemoryResponse
+	(*QueryMemoryRequest)(nil),     // 10: jennahapi.agent.v1.QueryMemoryRequest
+	(*SemanticQuery)(nil),          // 11: jennahapi.agent.v1.SemanticQuery
+	(*MetadataFilter)(nil),         // 12: jennahapi.agent.v1.MetadataFilter
+	(*GraphQuery)(nil),             // 13: jennahapi.agent.v1.GraphQuery
+	(*GraphNodeMatch)(nil),         // 14: jennahapi.agent.v1.GraphNodeMatch
+	(*GraphStep)(nil),              // 15: jennahapi.agent.v1.GraphStep
+	(*PropertyFilter)(nil),         // 16: jennahapi.agent.v1.PropertyFilter
+	(*LogQuery)(nil),               // 17: jennahapi.agent.v1.LogQuery
+	(*QueryMemoryResponse)(nil),    // 18: jennahapi.agent.v1.QueryMemoryResponse
+	(*SemanticResult)(nil),         // 19: jennahapi.agent.v1.SemanticResult
+	(*SemanticMatch)(nil),          // 20: jennahapi.agent.v1.SemanticMatch
+	(*GraphResult)(nil),            // 21: jennahapi.agent.v1.GraphResult
+	(*LogResult)(nil),              // 22: jennahapi.agent.v1.LogResult
+	(*FusedResult)(nil),            // 23: jennahapi.agent.v1.FusedResult
+	(*InspectMemoryRequest)(nil),   // 24: jennahapi.agent.v1.InspectMemoryRequest
+	(*InspectVectors)(nil),         // 25: jennahapi.agent.v1.InspectVectors
+	(*InspectGraph)(nil),           // 26: jennahapi.agent.v1.InspectGraph
+	(*InspectLog)(nil),             // 27: jennahapi.agent.v1.InspectLog
+	(*InspectMemoryResponse)(nil),  // 28: jennahapi.agent.v1.InspectMemoryResponse
+	(*VectorInspectResult)(nil),    // 29: jennahapi.agent.v1.VectorInspectResult
+	(*VectorChunkInfo)(nil),        // 30: jennahapi.agent.v1.VectorChunkInfo
+	(*GraphInspectResult)(nil),     // 31: jennahapi.agent.v1.GraphInspectResult
+	(*SupersedeEdgeRequest)(nil),   // 32: jennahapi.agent.v1.SupersedeEdgeRequest
+	(*SupersedeEdgeResponse)(nil),  // 33: jennahapi.agent.v1.SupersedeEdgeResponse
+	(*SupersedeChunkRequest)(nil),  // 34: jennahapi.agent.v1.SupersedeChunkRequest
+	(*SupersedeChunkResponse)(nil), // 35: jennahapi.agent.v1.SupersedeChunkResponse
+	nil,                            // 36: jennahapi.agent.v1.VectorChunk.MetadataEntry
+	nil,                            // 37: jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	nil,                            // 38: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	(*timestamppb.Timestamp)(nil),  // 39: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),        // 40: google.protobuf.Struct
+	(*structpb.Value)(nil),         // 41: google.protobuf.Value
 }
 var file_jennah_agent_v1_memory_proto_depIdxs = []int32{
 	4,  // 0: jennahapi.agent.v1.CommitMemoryRequest.log:type_name -> jennahapi.agent.v1.ExecutionLogStep
 	5,  // 1: jennahapi.agent.v1.CommitMemoryRequest.vectors:type_name -> jennahapi.agent.v1.VectorChunk
 	6,  // 2: jennahapi.agent.v1.CommitMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphWrite
-	37, // 3: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
-	34, // 4: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
-	7,  // 5: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	8,  // 6: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	38, // 7: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
-	37, // 8: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
-	38, // 9: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
-	37, // 10: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
-	37, // 11: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
-	37, // 12: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
-	37, // 13: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	11, // 14: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
-	13, // 15: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
-	17, // 16: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
-	0,  // 17: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
-	37, // 18: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	12, // 19: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
-	2,  // 20: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
-	14, // 21: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	15, // 22: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
-	37, // 23: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
-	37, // 24: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
-	16, // 25: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
-	1,  // 26: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
-	14, // 27: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	39, // 28: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
-	37, // 29: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
-	19, // 30: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
-	21, // 31: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
-	22, // 32: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	23, // 33: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
-	37, // 34: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	20, // 35: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
-	35, // 36: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
-	38, // 37: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
-	4,  // 38: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	38, // 39: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
-	25, // 40: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
-	26, // 41: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
-	27, // 42: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
-	37, // 43: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	37, // 44: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
-	29, // 45: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
-	31, // 46: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
-	22, // 47: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	37, // 48: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	30, // 49: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
-	37, // 50: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
-	36, // 51: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
-	7,  // 52: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	8,  // 53: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	8,  // 54: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
-	37, // 55: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	3,  // 56: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
-	10, // 57: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
-	24, // 58: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
-	32, // 59: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
-	9,  // 60: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
-	18, // 61: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
-	28, // 62: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
-	33, // 63: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
-	60, // [60:64] is the sub-list for method output_type
-	56, // [56:60] is the sub-list for method input_type
-	56, // [56:56] is the sub-list for extension type_name
-	56, // [56:56] is the sub-list for extension extendee
-	0,  // [0:56] is the sub-list for field type_name
+	39, // 3: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
+	36, // 4: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
+	39, // 5: jennahapi.agent.v1.VectorChunk.valid_at:type_name -> google.protobuf.Timestamp
+	39, // 6: jennahapi.agent.v1.VectorChunk.invalid_at:type_name -> google.protobuf.Timestamp
+	7,  // 7: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	8,  // 8: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	40, // 9: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
+	39, // 10: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
+	40, // 11: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
+	39, // 12: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
+	39, // 13: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
+	39, // 14: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
+	39, // 15: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	11, // 16: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
+	13, // 17: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
+	17, // 18: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
+	0,  // 19: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
+	39, // 20: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	12, // 21: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
+	39, // 22: jennahapi.agent.v1.SemanticQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	39, // 23: jennahapi.agent.v1.SemanticQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	2,  // 24: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
+	14, // 25: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	15, // 26: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
+	39, // 27: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	39, // 28: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	16, // 29: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
+	1,  // 30: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
+	14, // 31: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	41, // 32: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
+	39, // 33: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
+	19, // 34: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
+	21, // 35: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
+	22, // 36: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	23, // 37: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
+	39, // 38: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	20, // 39: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
+	37, // 40: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	40, // 41: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
+	4,  // 42: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	40, // 43: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
+	25, // 44: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
+	26, // 45: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
+	27, // 46: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
+	39, // 47: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	39, // 48: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
+	29, // 49: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
+	31, // 50: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
+	22, // 51: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	39, // 52: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	30, // 53: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
+	39, // 54: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
+	38, // 55: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	39, // 56: jennahapi.agent.v1.VectorChunkInfo.valid_at:type_name -> google.protobuf.Timestamp
+	39, // 57: jennahapi.agent.v1.VectorChunkInfo.invalid_at:type_name -> google.protobuf.Timestamp
+	39, // 58: jennahapi.agent.v1.VectorChunkInfo.asserted_at:type_name -> google.protobuf.Timestamp
+	39, // 59: jennahapi.agent.v1.VectorChunkInfo.expired_at:type_name -> google.protobuf.Timestamp
+	7,  // 60: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	8,  // 61: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	8,  // 62: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
+	39, // 63: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	5,  // 64: jennahapi.agent.v1.SupersedeChunkRequest.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
+	39, // 65: jennahapi.agent.v1.SupersedeChunkResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	3,  // 66: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
+	10, // 67: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
+	24, // 68: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
+	32, // 69: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
+	34, // 70: jennahapi.agent.v1.MemoryService.SupersedeChunk:input_type -> jennahapi.agent.v1.SupersedeChunkRequest
+	9,  // 71: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
+	18, // 72: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
+	28, // 73: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
+	33, // 74: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
+	35, // 75: jennahapi.agent.v1.MemoryService.SupersedeChunk:output_type -> jennahapi.agent.v1.SupersedeChunkResponse
+	71, // [71:76] is the sub-list for method output_type
+	66, // [66:71] is the sub-list for method input_type
+	66, // [66:66] is the sub-list for extension type_name
+	66, // [66:66] is the sub-list for extension extendee
+	0,  // [0:66] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_memory_proto_init() }
@@ -2799,7 +3089,7 @@ func file_jennah_agent_v1_memory_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_agent_v1_memory_proto_rawDesc), len(file_jennah_agent_v1_memory_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   34,
+			NumMessages:   36,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MemoryService_CommitMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/CommitMemory"
-	MemoryService_QueryMemory_FullMethodName   = "/jennahapi.agent.v1.MemoryService/QueryMemory"
-	MemoryService_InspectMemory_FullMethodName = "/jennahapi.agent.v1.MemoryService/InspectMemory"
-	MemoryService_SupersedeEdge_FullMethodName = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
+	MemoryService_CommitMemory_FullMethodName   = "/jennahapi.agent.v1.MemoryService/CommitMemory"
+	MemoryService_QueryMemory_FullMethodName    = "/jennahapi.agent.v1.MemoryService/QueryMemory"
+	MemoryService_InspectMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/InspectMemory"
+	MemoryService_SupersedeEdge_FullMethodName  = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
+	MemoryService_SupersedeChunk_FullMethodName = "/jennahapi.agent.v1.MemoryService/SupersedeChunk"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -69,6 +70,23 @@ type MemoryServiceClient interface {
 	// prior_edge_id; an unknown prior edge is NotFound and a reused new edge_id is
 	// AlreadyExists. This is the graph.supersede surface in the SDK.
 	SupersedeEdge(ctx context.Context, in *SupersedeEdgeRequest, opts ...grpc.CallOption) (*SupersedeEdgeResponse, error)
+	// Replaces a currently-held semantic passage WITHOUT destroying it
+	// (add-temporal-vectors). The vector counterpart of SupersedeEdge, with the same
+	// semantics on the same terms: in one read-write transaction it closes the prior
+	// chunk's valid-time window (its invalid_at becomes the new chunk's valid_at, its
+	// transaction-time start preserved) and inserts the replacement chunk in the same
+	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and an
+	// open window. The prior chunk keeps its content and stays readable as history via
+	// an as_of_valid semantic query. Supersession is caller-driven: the platform never
+	// infers which passages conflict, and performs no model-driven detection of it.
+	// new_chunk.valid_at (the supersession boundary) is REQUIRED and new_chunk.chunk_id
+	// must differ from prior_chunk_id; an unknown prior chunk is NotFound and a reused
+	// new chunk_id is AlreadyExists.
+	//
+	// The superseded chunk stops being returned by ordinary semantic search from this
+	// point on, which is the operation's purpose: a retired passage that stayed
+	// rankable would go on occupying the limited slots a caller injects into a prompt.
+	SupersedeChunk(ctx context.Context, in *SupersedeChunkRequest, opts ...grpc.CallOption) (*SupersedeChunkResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -119,6 +137,16 @@ func (c *memoryServiceClient) SupersedeEdge(ctx context.Context, in *SupersedeEd
 	return out, nil
 }
 
+func (c *memoryServiceClient) SupersedeChunk(ctx context.Context, in *SupersedeChunkRequest, opts ...grpc.CallOption) (*SupersedeChunkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SupersedeChunkResponse)
+	err := c.cc.Invoke(ctx, MemoryService_SupersedeChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MemoryServiceServer is the server API for MemoryService service.
 // All implementations must embed UnimplementedMemoryServiceServer
 // for forward compatibility.
@@ -163,6 +191,23 @@ type MemoryServiceServer interface {
 	// prior_edge_id; an unknown prior edge is NotFound and a reused new edge_id is
 	// AlreadyExists. This is the graph.supersede surface in the SDK.
 	SupersedeEdge(context.Context, *SupersedeEdgeRequest) (*SupersedeEdgeResponse, error)
+	// Replaces a currently-held semantic passage WITHOUT destroying it
+	// (add-temporal-vectors). The vector counterpart of SupersedeEdge, with the same
+	// semantics on the same terms: in one read-write transaction it closes the prior
+	// chunk's valid-time window (its invalid_at becomes the new chunk's valid_at, its
+	// transaction-time start preserved) and inserts the replacement chunk in the same
+	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and an
+	// open window. The prior chunk keeps its content and stays readable as history via
+	// an as_of_valid semantic query. Supersession is caller-driven: the platform never
+	// infers which passages conflict, and performs no model-driven detection of it.
+	// new_chunk.valid_at (the supersession boundary) is REQUIRED and new_chunk.chunk_id
+	// must differ from prior_chunk_id; an unknown prior chunk is NotFound and a reused
+	// new chunk_id is AlreadyExists.
+	//
+	// The superseded chunk stops being returned by ordinary semantic search from this
+	// point on, which is the operation's purpose: a retired passage that stayed
+	// rankable would go on occupying the limited slots a caller injects into a prompt.
+	SupersedeChunk(context.Context, *SupersedeChunkRequest) (*SupersedeChunkResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -184,6 +229,9 @@ func (UnimplementedMemoryServiceServer) InspectMemory(context.Context, *InspectM
 }
 func (UnimplementedMemoryServiceServer) SupersedeEdge(context.Context, *SupersedeEdgeRequest) (*SupersedeEdgeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SupersedeEdge not implemented")
+}
+func (UnimplementedMemoryServiceServer) SupersedeChunk(context.Context, *SupersedeChunkRequest) (*SupersedeChunkResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SupersedeChunk not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -278,6 +326,24 @@ func _MemoryService_SupersedeEdge_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_SupersedeChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SupersedeChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).SupersedeChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_SupersedeChunk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).SupersedeChunk(ctx, req.(*SupersedeChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -300,6 +366,10 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SupersedeEdge",
 			Handler:    _MemoryService_SupersedeEdge_Handler,
+		},
+		{
+			MethodName: "SupersedeChunk",
+			Handler:    _MemoryService_SupersedeChunk_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
