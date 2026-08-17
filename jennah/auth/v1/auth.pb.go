@@ -3949,13 +3949,41 @@ func (x *GetRoleResponse) GetRole() *CustomRole {
 	return nil
 }
 
-// Request message for the AuthService.UpdateRole rpc. Replaces the role's name
-// and permission set (full replacement, not a merge).
+// Request message for the AuthService.UpdateRole rpc.
+//
+// EVERY FIELD IS OPTIONAL, AND AN OMITTED ONE LEAVES THAT PART OF THE ROLE ALONE.
+// Two idioms express that, because a repeated field and a wrapper message do not
+// signal absence the same way:
+//
+//	name, permissions   empty means unchanged
+//	*_selectors         absent means unchanged, present replaces, present+empty clears
+//
+// Emptying is therefore explicit on both halves: `clear_permissions` for the
+// grants, a present-and-empty list for either selector namespace. A blank name is
+// not storable at all, which is why `name` needs no such flag.
+//
+// This was not always so. `name` and `permissions` were once written
+// unconditionally, so a request carrying only a new name emptied the permission
+// set of a role its holders were relying on, and answered OK.
 type UpdateRoleRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	RoleId      string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"` // path parameter; must belong to the caller's active enterprise
-	Name        string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                   // unique within the enterprise; must not shadow a built-in role
-	Permissions []string               `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`     // explicit "group.resource:action" grants (no wildcards)
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	RoleId string                 `protobuf:"bytes,1,opt,name=role_id,json=roleId,proto3" json:"role_id,omitempty"` // path parameter; must belong to the caller's active enterprise
+	// Optional new name; unique within the enterprise, and must not shadow a
+	// built-in role. EMPTY MEANS UNCHANGED.
+	//
+	// No presence marker is needed here, unlike `permissions` below, because a
+	// blank name is not a value this rpc will store: empty or whitespace-only is
+	// InvalidArgument on this rpc and on CreateRole. With "set it to empty" ruled
+	// out, an empty string has exactly one possible meaning left.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Optional replacement for the role's permission set: explicit
+	// "group.resource:action" grants, no wildcards.
+	//
+	// EMPTY MEANS UNCHANGED, not "revoke everything". A repeated field carries no
+	// presence, so an empty list is indistinguishable from an absent one, and the
+	// safe reading is the one that cannot silently strip a live grant. To empty the
+	// set, send `clear_permissions`.
+	Permissions []string `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"` // explicit "group.resource:action" grants (no wildcards)
 	// Optional replacement for the role's agent selectors. UNSET leaves the stored
 	// selectors untouched (so a client that only renames a role, or one unaware of
 	// selectors, never clears them); SET replaces them wholesale, and an empty
@@ -3969,6 +3997,14 @@ type UpdateRoleRequest struct {
 	// and vice versa. Changing the stored set requires datastore.access:manage in
 	// addition to iam.roles:manage.
 	DatasetSelectors *DatasetSelectorList `protobuf:"bytes,5,opt,name=dataset_selectors,json=datasetSelectors,proto3" json:"dataset_selectors,omitempty"`
+	// Empties the role's permission set. This is the only way to do it: an empty
+	// `permissions` list means unchanged, so revoking every grant a role confers is
+	// something a caller has to say rather than something they can do by omission.
+	//
+	// Sending this together with a non-empty `permissions` is InvalidArgument. The
+	// two disagree, and whichever one were given precedence, half the callers who
+	// wrote that request meant the other.
+	ClearPermissions bool `protobuf:"varint,6,opt,name=clear_permissions,json=clearPermissions,proto3" json:"clear_permissions,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -4036,6 +4072,13 @@ func (x *UpdateRoleRequest) GetDatasetSelectors() *DatasetSelectorList {
 		return x.DatasetSelectors
 	}
 	return nil
+}
+
+func (x *UpdateRoleRequest) GetClearPermissions() bool {
+	if x != nil {
+		return x.ClearPermissions
+	}
+	return false
 }
 
 // Response message for the AuthService.UpdateRole rpc.
@@ -4424,13 +4467,14 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x0eGetRoleRequest\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\tR\x06roleId\"D\n" +
 	"\x0fGetRoleResponse\x121\n" +
-	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\"\x86\x02\n" +
+	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\"\xb3\x02\n" +
 	"\x11UpdateRoleRequest\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\tR\x06roleId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vpermissions\x18\x03 \x03(\tR\vpermissions\x12M\n" +
 	"\x0fagent_selectors\x18\x04 \x01(\v2$.jennahapi.auth.v1.AgentSelectorListR\x0eagentSelectors\x12S\n" +
-	"\x11dataset_selectors\x18\x05 \x01(\v2&.jennahapi.auth.v1.DatasetSelectorListR\x10datasetSelectors\"G\n" +
+	"\x11dataset_selectors\x18\x05 \x01(\v2&.jennahapi.auth.v1.DatasetSelectorListR\x10datasetSelectors\x12+\n" +
+	"\x11clear_permissions\x18\x06 \x01(\bR\x10clearPermissions\"G\n" +
 	"\x12UpdateRoleResponse\x121\n" +
 	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\",\n" +
 	"\x11DeleteRoleRequest\x12\x17\n" +
