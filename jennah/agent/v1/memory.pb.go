@@ -205,8 +205,16 @@ func (MetadataFilter_Operator) EnumDescriptor() ([]byte, []int) {
 // Any subset of the three section fields may be present; at least one SHOULD
 // be. All present sections are written in the same transaction.
 type CommitMemoryRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // route path parameter; never read from the body
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DEPRECATED, superseded by `scope_id`, which names the same value for a
+	// scope of either kind. Read only when `scope_id` is empty, so existing gRPC
+	// callers keep working unchanged; both HTTP routes bind `scope_id`, so a REST
+	// caller never populates this one. Setting both to DIFFERENT values is
+	// INVALID_ARGUMENT rather than resolved by precedence, because a request that
+	// names two scopes has not said which one it means.
+	//
+	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
+	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
 	// Execution-log section: a single step the agent recorded. Absent to commit
 	// no log step.
 	Log *ExecutionLogStep `protobuf:"bytes,2,opt,name=log,proto3" json:"log,omitempty"`
@@ -219,8 +227,25 @@ type CommitMemoryRequest struct {
 	// merely reported: if the model truncates any chunk whose vector the server
 	// generated, the commit is rejected and no section's rows are written.
 	RejectOnTruncation bool `protobuf:"varint,5,opt,name=reject_on_truncation,json=rejectOnTruncation,proto3" json:"reject_on_truncation,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// Optional target memory scope, defaulting to the scope named by the route.
+	// Every section of the commit is applied to this ONE scope in one transaction.
+	//
+	// A commit never writes more than one scope, and that holds even when two
+	// scopes happen to share a data-plane database. A commit spanning scopes is
+	// impossible across regions, so permitting it for co-resident scopes alone
+	// would make the atomicity a caller can rely on depend on deployment topology
+	// rather than on the contract. Naming a second scope is INVALID_ARGUMENT.
+	TargetScope string `protobuf:"bytes,6,opt,name=target_scope,json=targetScope,proto3" json:"target_scope,omitempty"`
+	// Route path parameter, never read from the body: the memory scope this commit
+	// addresses, of EITHER kind. Bound by both `/v1/agents/{scope_id}/...` and
+	// `/v1/scopes/{scope_id}/...`, which are one operation reached two ways: the
+	// agent form is the agent-kind view and the scope form is the general one.
+	//
+	// It replaces `agent_instance_id`, which named the same value back when a
+	// workspace was the only kind of scope there was.
+	ScopeId       string `protobuf:"bytes,7,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CommitMemoryRequest) Reset() {
@@ -253,6 +278,7 @@ func (*CommitMemoryRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{0}
 }
 
+// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 func (x *CommitMemoryRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
@@ -288,6 +314,20 @@ func (x *CommitMemoryRequest) GetRejectOnTruncation() bool {
 	return false
 }
 
+func (x *CommitMemoryRequest) GetTargetScope() string {
+	if x != nil {
+		return x.TargetScope
+	}
+	return ""
+}
+
+func (x *CommitMemoryRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
 // A single execution-memory step. On CommitMemory only the payload fields are
 // read; `timestamp` is OUTPUT-ONLY (server-assigned) and populated when the
 // step is read back via QueryMemory's log section.
@@ -299,8 +339,12 @@ type ExecutionLogStep struct {
 	ToolInput      string                 `protobuf:"bytes,4,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
 	ToolOutput     string                 `protobuf:"bytes,5,opt,name=tool_output,json=toolOutput,proto3" json:"tool_output,omitempty"`
 	Timestamp      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // output-only; server commit timestamp
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// OUTPUT-ONLY, like `timestamp`: the memory scope this step was read from.
+	// Ignored on CommitMemory, where the scope written is CommitMemoryRequest's
+	// target_scope or the route's scope, never a per-section field.
+	ScopeId       string `protobuf:"bytes,7,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ExecutionLogStep) Reset() {
@@ -373,6 +417,13 @@ func (x *ExecutionLogStep) GetTimestamp() *timestamppb.Timestamp {
 		return x.Timestamp
 	}
 	return nil
+}
+
+func (x *ExecutionLogStep) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
 }
 
 // A semantic-memory chunk to upsert.
@@ -758,8 +809,13 @@ type CommitMemoryResponse struct {
 	// that content, so it has nothing to report about it. A precomputed vector's
 	// fidelity is the caller's own concern.
 	TruncatedChunkIds []string `protobuf:"bytes,6,rep,name=truncated_chunk_ids,json=truncatedChunkIds,proto3" json:"truncated_chunk_ids,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The scope this commit was written to: the request's target_scope when it
+	// named one, otherwise the scope named by the route. Reported so a caller that
+	// relies on the default can confirm which scope received the write rather than
+	// inferring it.
+	ScopeId       string `protobuf:"bytes,7,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CommitMemoryResponse) Reset() {
@@ -834,13 +890,28 @@ func (x *CommitMemoryResponse) GetTruncatedChunkIds() []string {
 	return nil
 }
 
+func (x *CommitMemoryResponse) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
 // Request for MemoryService.QueryMemory.
 //
 // Any subset of the three section fields may be present. All present sections
 // are evaluated at one read timestamp.
 type QueryMemoryRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // route path parameter; never read from the body
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DEPRECATED, superseded by `scope_id`, which names the same value for a
+	// scope of either kind. Read only when `scope_id` is empty, so existing gRPC
+	// callers keep working unchanged; both HTTP routes bind `scope_id`, so a REST
+	// caller never populates this one. Setting both to DIFFERENT values is
+	// INVALID_ARGUMENT rather than resolved by precedence, because a request that
+	// names two scopes has not said which one it means.
+	//
+	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
+	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
 	// Semantic (vector/ANN) section. Absent to skip semantic retrieval.
 	Semantic *SemanticQuery `protobuf:"bytes,2,opt,name=semantic,proto3" json:"semantic,omitempty"`
 	// Graph (structured traversal) section. Absent to skip graph retrieval.
@@ -854,7 +925,52 @@ type QueryMemoryRequest struct {
 	FusionDirection FusionDirection `protobuf:"varint,6,opt,name=fusion_direction,json=fusionDirection,proto3,enum=jennahapi.agent.v1.FusionDirection" json:"fusion_direction,omitempty"`
 	// Optional as-of read timestamp, applied UNIFORMLY to every section so all
 	// sections observe the same historical instant. Empty reads the latest data.
-	AsOf          *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	AsOf *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	// Optional additional memory scopes to evaluate ALONGSIDE the scope named by
+	// the route, typically a subject scope read together with an agent's own
+	// workspace. Empty means the single-scope behavior that predates this field,
+	// identically: same request, same evaluation, same response.
+	//
+	// Every section of the query is evaluated against all requested scopes in ONE
+	// read snapshot, so the cross-type consistency guarantee becomes a cross-scope
+	// one: no scope's result reflects a write another scope's result cannot see.
+	// Semantic results are ranked TOGETHER over the union of the requested scopes,
+	// so the returned set is the globally nearest rather than a per-scope top-k
+	// concatenated, and every returned item names the scope it came from.
+	//
+	// Three refusals, all deliberate and none of them silent:
+	//
+	//   - A scope the caller is not authorized to reach refuses the whole query
+	//     with PERMISSION_DENIED. It is never dropped from the set, because a
+	//     silently narrowed set returns a partial answer indistinguishable from a
+	//     complete one.
+	//   - Every named scope must resolve to the SAME data-plane database. One
+	//     naming a scope homed in another region is refused with an error
+	//     identifying the offending scope and the mismatch, never satisfied by
+	//     reading each database separately: two databases cannot share a read
+	//     snapshot, so combining their results would present two instants as one
+	//     consistent answer. A query naming exactly ONE scope is servable from
+	//     anywhere, because routing resolves that scope to its own region.
+	//   - The number of scopes in one query is bounded by a server maximum;
+	//     exceeding it is refused with an error naming the limit rather than
+	//     truncated to the first N. Semantic search is exact KNN, affordable
+	//     because each scope is a small contiguous key range, and a multi-scope
+	//     query scans one such range per scope.
+	//
+	// Graph traversal stays INSIDE a scope: an edge connects nodes within one
+	// scope, so a multi-scope graph section returns one subgraph per requested
+	// scope and never a path crossing from one into another. Where a query links
+	// its semantic and graph sections, traversal expands within the scope of the
+	// candidate it started from.
+	AdditionalScopes []string `protobuf:"bytes,8,rep,name=additional_scopes,json=additionalScopes,proto3" json:"additional_scopes,omitempty"`
+	// Route path parameter, never read from the body: the memory scope this query
+	// addresses, of EITHER kind. Bound by both `/v1/agents/{scope_id}/...` and
+	// `/v1/scopes/{scope_id}/...`, which are one operation reached two ways: the
+	// agent form is the agent-kind view and the scope form is the general one.
+	//
+	// It replaces `agent_instance_id`, which named the same value back when a
+	// workspace was the only kind of scope there was.
+	ScopeId       string `protobuf:"bytes,9,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -889,6 +1005,7 @@ func (*QueryMemoryRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{7}
 }
 
+// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 func (x *QueryMemoryRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
@@ -936,6 +1053,20 @@ func (x *QueryMemoryRequest) GetAsOf() *timestamppb.Timestamp {
 		return x.AsOf
 	}
 	return nil
+}
+
+func (x *QueryMemoryRequest) GetAdditionalScopes() []string {
+	if x != nil {
+		return x.AdditionalScopes
+	}
+	return nil
+}
+
+func (x *QueryMemoryRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
 }
 
 // Semantic-section query. Exactly one of `embedding` or `query_text` MUST be
@@ -1593,7 +1724,12 @@ type SemanticMatch struct {
 	Distance   float64                `protobuf:"fixed64,3,opt,name=distance,proto3" json:"distance,omitempty"` // cosine distance; smaller is closer
 	// The chunk's stored metadata, read in the same snapshot as the hit, so a hit
 	// and its attribution can never disagree. Empty when the chunk has none.
-	Metadata      map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The memory scope this match came from. Always populated, including for a
+	// single-scope query, so attributing a recalled memory to its origin never
+	// depends on how the query was shaped. Chunk ids are unique within a scope,
+	// not across scopes, so this is what makes a fused ranking attributable.
+	ScopeId       string `protobuf:"bytes,5,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1656,10 +1792,25 @@ func (x *SemanticMatch) GetMetadata() map[string]string {
 	return nil
 }
 
+func (x *SemanticMatch) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
 // Graph traversal result rows. Each row carries the matched elements' key
 // fields (node ids and labels, and edge relationship types) keyed by gateway-
 // assigned binding names, so the shape is carried as a structured value rather
 // than a fixed schema.
+//
+// Scope provenance rides in the row itself, under the reserved key `_scope`,
+// rather than as a field beside it: the row has no fixed schema to add a field
+// to, and a parallel array would have to stay index-aligned with one. The key
+// cannot collide with a caller's binding, because binding names are assigned by
+// the gateway and never taken from the request. Every row carries it, including
+// for a single-scope query, and no returned path crosses scopes, so one row
+// names exactly one scope.
 type GraphResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Rows          []*structpb.Struct     `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
@@ -1751,6 +1902,11 @@ func (x *LogResult) GetSteps() []*ExecutionLogStep {
 // The linked semantic+graph view. Its exact shape depends on fusion direction
 // and is carried as structured values until the fused-result schema is pinned
 // down; see the unified-memory spec's fusion requirements.
+//
+// Each item names its scope under the reserved key `_scope`, on the same terms
+// as GraphResult. A fused item never joins a chunk in one scope to an entity in
+// another, because traversal expands within the scope of the candidate it
+// started from, so one item names exactly one scope.
 type FusedResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Items         []*structpb.Struct     `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
@@ -1803,8 +1959,16 @@ func (x *FusedResult) GetItems() []*structpb.Struct {
 // unlike QueryMemory this lists stored rows for debugging, so a section is
 // requested simply by being present, bounded by its limit.
 type InspectMemoryRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // route path parameter; never read from the body
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DEPRECATED, superseded by `scope_id`, which names the same value for a
+	// scope of either kind. Read only when `scope_id` is empty, so existing gRPC
+	// callers keep working unchanged; both HTTP routes bind `scope_id`, so a REST
+	// caller never populates this one. Setting both to DIFFERENT values is
+	// INVALID_ARGUMENT rather than resolved by precedence, because a request that
+	// names two scopes has not said which one it means.
+	//
+	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
+	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
 	// Vector section: list stored chunks (content only). Absent to skip vectors.
 	Vectors *InspectVectors `protobuf:"bytes,2,opt,name=vectors,proto3" json:"vectors,omitempty"`
 	// Graph section: list stored nodes and edges. Absent to skip the graph.
@@ -1813,7 +1977,16 @@ type InspectMemoryRequest struct {
 	Log *InspectLog `protobuf:"bytes,4,opt,name=log,proto3" json:"log,omitempty"`
 	// Optional as-of read timestamp, applied UNIFORMLY to every section so all
 	// sections observe the same historical instant. Empty reads the latest data.
-	AsOf          *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	AsOf *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=as_of,json=asOf,proto3" json:"as_of,omitempty"`
+	// Route path parameter, never read from the body: the memory scope this
+	// inspection
+	// addresses, of EITHER kind. Bound by both `/v1/agents/{scope_id}/...` and
+	// `/v1/scopes/{scope_id}/...`, which are one operation reached two ways: the
+	// agent form is the agent-kind view and the scope form is the general one.
+	//
+	// It replaces `agent_instance_id`, which named the same value back when a
+	// workspace was the only kind of scope there was.
+	ScopeId       string `protobuf:"bytes,6,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1848,6 +2021,7 @@ func (*InspectMemoryRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{21}
 }
 
+// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 func (x *InspectMemoryRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
@@ -1881,6 +2055,13 @@ func (x *InspectMemoryRequest) GetAsOf() *timestamppb.Timestamp {
 		return x.AsOf
 	}
 	return nil
+}
+
+func (x *InspectMemoryRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
 }
 
 // Vector-section listing request. Enumerates stored chunks; the embedding vector
@@ -2466,8 +2647,16 @@ func (x *GraphInspectResult) GetEdges() []*GraphEdge {
 
 // Request for MemoryService.SupersedeEdge.
 type SupersedeEdgeRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // route path parameter; never read from the body
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DEPRECATED, superseded by `scope_id`, which names the same value for a
+	// scope of either kind. Read only when `scope_id` is empty, so existing gRPC
+	// callers keep working unchanged; both HTTP routes bind `scope_id`, so a REST
+	// caller never populates this one. Setting both to DIFFERENT values is
+	// INVALID_ARGUMENT rather than resolved by precedence, because a request that
+	// names two scopes has not said which one it means.
+	//
+	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
+	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
 	// The currently-held edge to close. Resolved within the caller's slice; an
 	// unknown id is NotFound (never a cross-slice touch).
 	PriorEdgeId string `protobuf:"bytes,2,opt,name=prior_edge_id,json=priorEdgeId,proto3" json:"prior_edge_id,omitempty"`
@@ -2478,7 +2667,16 @@ type SupersedeEdgeRequest struct {
 	// upserted, so a reused id is rejected). new_edge.invalid_at may be set to open
 	// the replacement already closed; its transaction-time is server-assigned. The
 	// updated_at field is ignored.
-	NewEdge       *GraphEdge `protobuf:"bytes,3,opt,name=new_edge,json=newEdge,proto3" json:"new_edge,omitempty"`
+	NewEdge *GraphEdge `protobuf:"bytes,3,opt,name=new_edge,json=newEdge,proto3" json:"new_edge,omitempty"`
+	// Route path parameter, never read from the body: the memory scope this
+	// supersession
+	// addresses, of EITHER kind. Bound by both `/v1/agents/{scope_id}/...` and
+	// `/v1/scopes/{scope_id}/...`, which are one operation reached two ways: the
+	// agent form is the agent-kind view and the scope form is the general one.
+	//
+	// It replaces `agent_instance_id`, which named the same value back when a
+	// workspace was the only kind of scope there was.
+	ScopeId       string `protobuf:"bytes,4,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2513,6 +2711,7 @@ func (*SupersedeEdgeRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{29}
 }
 
+// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 func (x *SupersedeEdgeRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
@@ -2532,6 +2731,13 @@ func (x *SupersedeEdgeRequest) GetNewEdge() *GraphEdge {
 		return x.NewEdge
 	}
 	return nil
+}
+
+func (x *SupersedeEdgeRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
 }
 
 // The supersession receipt: the commit timestamp of the transaction that closed
@@ -2582,8 +2788,16 @@ func (x *SupersedeEdgeResponse) GetCommitTimestamp() *timestamppb.Timestamp {
 
 // Request for MemoryService.SupersedeChunk.
 type SupersedeChunkRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	AgentInstanceId string                 `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"` // route path parameter; never read from the body
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// DEPRECATED, superseded by `scope_id`, which names the same value for a
+	// scope of either kind. Read only when `scope_id` is empty, so existing gRPC
+	// callers keep working unchanged; both HTTP routes bind `scope_id`, so a REST
+	// caller never populates this one. Setting both to DIFFERENT values is
+	// INVALID_ARGUMENT rather than resolved by precedence, because a request that
+	// names two scopes has not said which one it means.
+	//
+	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
+	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
 	// The currently-held chunk to close. Resolved within the caller's slice; an
 	// unknown id is NotFound (never a cross-slice touch). Its content is left
 	// intact: closing a window writes the validity end and nothing else, so the
@@ -2596,7 +2810,16 @@ type SupersedeChunkRequest struct {
 	// upserted, so a reused id is rejected). It carries the same content, embedding,
 	// and metadata fields a committed chunk does, including server-side embedding
 	// generation when `embedding` is empty.
-	NewChunk      *VectorChunk `protobuf:"bytes,3,opt,name=new_chunk,json=newChunk,proto3" json:"new_chunk,omitempty"`
+	NewChunk *VectorChunk `protobuf:"bytes,3,opt,name=new_chunk,json=newChunk,proto3" json:"new_chunk,omitempty"`
+	// Route path parameter, never read from the body: the memory scope this
+	// supersession
+	// addresses, of EITHER kind. Bound by both `/v1/agents/{scope_id}/...` and
+	// `/v1/scopes/{scope_id}/...`, which are one operation reached two ways: the
+	// agent form is the agent-kind view and the scope form is the general one.
+	//
+	// It replaces `agent_instance_id`, which named the same value back when a
+	// workspace was the only kind of scope there was.
+	ScopeId       string `protobuf:"bytes,4,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2631,6 +2854,7 @@ func (*SupersedeChunkRequest) Descriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{31}
 }
 
+// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 func (x *SupersedeChunkRequest) GetAgentInstanceId() string {
 	if x != nil {
 		return x.AgentInstanceId
@@ -2650,6 +2874,13 @@ func (x *SupersedeChunkRequest) GetNewChunk() *VectorChunk {
 		return x.NewChunk
 	}
 	return nil
+}
+
+func (x *SupersedeChunkRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
 }
 
 // The supersession receipt: the commit timestamp of the transaction that closed
@@ -2714,13 +2945,15 @@ var File_jennah_agent_v1_memory_proto protoreflect.FileDescriptor
 
 const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\n" +
-	"\x1cjennah/agent/v1/memory.proto\x12\x12jennahapi.agent.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x02\n" +
-	"\x13CommitMemoryRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x126\n" +
+	"\x1cjennah/agent/v1/memory.proto\x12\x12jennahapi.agent.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xde\x02\n" +
+	"\x13CommitMemoryRequest\x12.\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tB\x02\x18\x01R\x0fagentInstanceId\x126\n" +
 	"\x03log\x18\x02 \x01(\v2$.jennahapi.agent.v1.ExecutionLogStepR\x03log\x129\n" +
 	"\avectors\x18\x03 \x03(\v2\x1f.jennahapi.agent.v1.VectorChunkR\avectors\x124\n" +
 	"\x05graph\x18\x04 \x01(\v2\x1e.jennahapi.agent.v1.GraphWriteR\x05graph\x120\n" +
-	"\x14reject_on_truncation\x18\x05 \x01(\bR\x12rejectOnTruncation\"\xeb\x01\n" +
+	"\x14reject_on_truncation\x18\x05 \x01(\bR\x12rejectOnTruncation\x12!\n" +
+	"\ftarget_scope\x18\x06 \x01(\tR\vtargetScope\x12\x19\n" +
+	"\bscope_id\x18\a \x01(\tR\ascopeId\"\x86\x02\n" +
 	"\x10ExecutionLogStep\x12\x17\n" +
 	"\astep_id\x18\x01 \x01(\tR\x06stepId\x12'\n" +
 	"\x0fthought_process\x18\x02 \x01(\tR\x0ethoughtProcess\x12\x1b\n" +
@@ -2729,7 +2962,8 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"tool_input\x18\x04 \x01(\tR\ttoolInput\x12\x1f\n" +
 	"\vtool_output\x18\x05 \x01(\tR\n" +
 	"toolOutput\x128\n" +
-	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\"\xe1\x02\n" +
+	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x19\n" +
+	"\bscope_id\x18\a \x01(\tR\ascopeId\"\xe1\x02\n" +
 	"\vVectorChunk\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
@@ -2766,7 +3000,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x125\n" +
 	"\bvalid_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\avalidAt\x129\n" +
 	"\n" +
-	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\"\xac\x02\n" +
+	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\"\xc7\x02\n" +
 	"\x14CommitMemoryResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
@@ -2774,15 +3008,18 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"vectorRows\x12&\n" +
 	"\x0fgraph_node_rows\x18\x04 \x01(\x03R\rgraphNodeRows\x12&\n" +
 	"\x0fgraph_edge_rows\x18\x05 \x01(\x03R\rgraphEdgeRows\x12.\n" +
-	"\x13truncated_chunk_ids\x18\x06 \x03(\tR\x11truncatedChunkIds\"\xfa\x02\n" +
-	"\x12QueryMemoryRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12=\n" +
+	"\x13truncated_chunk_ids\x18\x06 \x03(\tR\x11truncatedChunkIds\x12\x19\n" +
+	"\bscope_id\x18\a \x01(\tR\ascopeId\"\xc6\x03\n" +
+	"\x12QueryMemoryRequest\x12.\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tB\x02\x18\x01R\x0fagentInstanceId\x12=\n" +
 	"\bsemantic\x18\x02 \x01(\v2!.jennahapi.agent.v1.SemanticQueryR\bsemantic\x124\n" +
 	"\x05graph\x18\x03 \x01(\v2\x1e.jennahapi.agent.v1.GraphQueryR\x05graph\x12.\n" +
 	"\x03log\x18\x04 \x01(\v2\x1c.jennahapi.agent.v1.LogQueryR\x03log\x12\x12\n" +
 	"\x04link\x18\x05 \x01(\bR\x04link\x12N\n" +
 	"\x10fusion_direction\x18\x06 \x01(\x0e2#.jennahapi.agent.v1.FusionDirectionR\x0ffusionDirection\x12/\n" +
-	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"\x92\x02\n" +
+	"\x05as_of\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12+\n" +
+	"\x11additional_scopes\x18\b \x03(\tR\x10additionalScopes\x12\x19\n" +
+	"\bscope_id\x18\t \x01(\tR\ascopeId\"\x92\x02\n" +
 	"\rSemanticQuery\x12\x1c\n" +
 	"\tembedding\x18\x01 \x03(\x02R\tembedding\x12\x1d\n" +
 	"\n" +
@@ -2829,13 +3066,14 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x05fused\x18\x04 \x01(\v2\x1f.jennahapi.agent.v1.FusedResultR\x05fused\x12A\n" +
 	"\x0eread_timestamp\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"M\n" +
 	"\x0eSemanticResult\x12;\n" +
-	"\amatches\x18\x01 \x03(\v2!.jennahapi.agent.v1.SemanticMatchR\amatches\"\xf1\x01\n" +
+	"\amatches\x18\x01 \x03(\v2!.jennahapi.agent.v1.SemanticMatchR\amatches\"\x8c\x02\n" +
 	"\rSemanticMatch\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
 	"rawContent\x12\x1a\n" +
 	"\bdistance\x18\x03 \x01(\x01R\bdistance\x12K\n" +
-	"\bmetadata\x18\x04 \x03(\v2/.jennahapi.agent.v1.SemanticMatch.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\x04 \x03(\v2/.jennahapi.agent.v1.SemanticMatch.MetadataEntryR\bmetadata\x12\x19\n" +
+	"\bscope_id\x18\x05 \x01(\tR\ascopeId\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\":\n" +
@@ -2844,13 +3082,14 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\tLogResult\x12:\n" +
 	"\x05steps\x18\x01 \x03(\v2$.jennahapi.agent.v1.ExecutionLogStepR\x05steps\"<\n" +
 	"\vFusedResult\x12-\n" +
-	"\x05items\x18\x01 \x03(\v2\x17.google.protobuf.StructR\x05items\"\x9b\x02\n" +
-	"\x14InspectMemoryRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12<\n" +
+	"\x05items\x18\x01 \x03(\v2\x17.google.protobuf.StructR\x05items\"\xba\x02\n" +
+	"\x14InspectMemoryRequest\x12.\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tB\x02\x18\x01R\x0fagentInstanceId\x12<\n" +
 	"\avectors\x18\x02 \x01(\v2\".jennahapi.agent.v1.InspectVectorsR\avectors\x126\n" +
 	"\x05graph\x18\x03 \x01(\v2 .jennahapi.agent.v1.InspectGraphR\x05graph\x120\n" +
 	"\x03log\x18\x04 \x01(\v2\x1e.jennahapi.agent.v1.InspectLogR\x03log\x12/\n" +
-	"\x05as_of\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\"E\n" +
+	"\x05as_of\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x04asOf\x12\x19\n" +
+	"\bscope_id\x18\x06 \x01(\tR\ascopeId\"E\n" +
 	"\x0eInspectVectors\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x1d\n" +
 	"\n" +
@@ -2905,17 +3144,19 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\f_token_count\"~\n" +
 	"\x12GraphInspectResult\x123\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x1d.jennahapi.agent.v1.GraphNodeR\x05nodes\x123\n" +
-	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"\xa0\x01\n" +
-	"\x14SupersedeEdgeRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12\"\n" +
+	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"\xbf\x01\n" +
+	"\x14SupersedeEdgeRequest\x12.\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tB\x02\x18\x01R\x0fagentInstanceId\x12\"\n" +
 	"\rprior_edge_id\x18\x02 \x01(\tR\vpriorEdgeId\x128\n" +
-	"\bnew_edge\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\anewEdge\"^\n" +
+	"\bnew_edge\x18\x03 \x01(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\anewEdge\x12\x19\n" +
+	"\bscope_id\x18\x04 \x01(\tR\ascopeId\"^\n" +
 	"\x15SupersedeEdgeResponse\x12E\n" +
-	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\"\xa7\x01\n" +
-	"\x15SupersedeChunkRequest\x12*\n" +
-	"\x11agent_instance_id\x18\x01 \x01(\tR\x0fagentInstanceId\x12$\n" +
+	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\"\xc6\x01\n" +
+	"\x15SupersedeChunkRequest\x12.\n" +
+	"\x11agent_instance_id\x18\x01 \x01(\tB\x02\x18\x01R\x0fagentInstanceId\x12$\n" +
 	"\x0eprior_chunk_id\x18\x02 \x01(\tR\fpriorChunkId\x12<\n" +
-	"\tnew_chunk\x18\x03 \x01(\v2\x1f.jennahapi.agent.v1.VectorChunkR\bnewChunk\"}\n" +
+	"\tnew_chunk\x18\x03 \x01(\v2\x1f.jennahapi.agent.v1.VectorChunkR\bnewChunk\x12\x19\n" +
+	"\bscope_id\x18\x04 \x01(\tR\ascopeId\"}\n" +
 	"\x16SupersedeChunkResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12\x1c\n" +
 	"\ttruncated\x18\x02 \x01(\bR\ttruncated*x\n" +
@@ -2927,13 +3168,13 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x1bGRAPH_DIRECTION_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18GRAPH_DIRECTION_OUTGOING\x10\x01\x12\x1c\n" +
 	"\x18GRAPH_DIRECTION_INCOMING\x10\x02\x12\x17\n" +
-	"\x13GRAPH_DIRECTION_ANY\x10\x032\xbc\x06\n" +
-	"\rMemoryService\x12\x9a\x01\n" +
-	"\fCommitMemory\x12'.jennahapi.agent.v1.CommitMemoryRequest\x1a(.jennahapi.agent.v1.CommitMemoryResponse\"7\x82\xd3\xe4\x93\x021:\x01*\",/v1/agents/{agent_instance_id}/memory:commit\x12\x96\x01\n" +
-	"\vQueryMemory\x12&.jennahapi.agent.v1.QueryMemoryRequest\x1a'.jennahapi.agent.v1.QueryMemoryResponse\"6\x82\xd3\xe4\x93\x020:\x01*\"+/v1/agents/{agent_instance_id}/memory:query\x12\x9e\x01\n" +
-	"\rInspectMemory\x12(.jennahapi.agent.v1.InspectMemoryRequest\x1a).jennahapi.agent.v1.InspectMemoryResponse\"8\x82\xd3\xe4\x93\x022:\x01*\"-/v1/agents/{agent_instance_id}/memory:inspect\x12\xa5\x01\n" +
-	"\rSupersedeEdge\x12(.jennahapi.agent.v1.SupersedeEdgeRequest\x1a).jennahapi.agent.v1.SupersedeEdgeResponse\"?\x82\xd3\xe4\x93\x029:\x01*\"4/v1/agents/{agent_instance_id}/graph/edges:supersede\x12\xab\x01\n" +
-	"\x0eSupersedeChunk\x12).jennahapi.agent.v1.SupersedeChunkRequest\x1a*.jennahapi.agent.v1.SupersedeChunkResponse\"B\x82\xd3\xe4\x93\x02<:\x01*\"7/v1/agents/{agent_instance_id}/vectors/chunks:supersedeB)Z'github.com/alphauslabs/jennah-api/agentb\x06proto3"
+	"\x13GRAPH_DIRECTION_ANY\x10\x032\xf4\a\n" +
+	"\rMemoryService\x12\xbb\x01\n" +
+	"\fCommitMemory\x12'.jennahapi.agent.v1.CommitMemoryRequest\x1a(.jennahapi.agent.v1.CommitMemoryResponse\"X\x82\xd3\xe4\x93\x02R:\x01*Z(:\x01*\"#/v1/scopes/{scope_id}/memory:commit\"#/v1/agents/{scope_id}/memory:commit\x12\xb6\x01\n" +
+	"\vQueryMemory\x12&.jennahapi.agent.v1.QueryMemoryRequest\x1a'.jennahapi.agent.v1.QueryMemoryResponse\"V\x82\xd3\xe4\x93\x02P:\x01*Z':\x01*\"\"/v1/scopes/{scope_id}/memory:query\"\"/v1/agents/{scope_id}/memory:query\x12\xc0\x01\n" +
+	"\rInspectMemory\x12(.jennahapi.agent.v1.InspectMemoryRequest\x1a).jennahapi.agent.v1.InspectMemoryResponse\"Z\x82\xd3\xe4\x93\x02T:\x01*Z):\x01*\"$/v1/scopes/{scope_id}/memory:inspect\"$/v1/agents/{scope_id}/memory:inspect\x12\xce\x01\n" +
+	"\rSupersedeEdge\x12(.jennahapi.agent.v1.SupersedeEdgeRequest\x1a).jennahapi.agent.v1.SupersedeEdgeResponse\"h\x82\xd3\xe4\x93\x02b:\x01*Z0:\x01*\"+/v1/scopes/{scope_id}/graph/edges:supersede\"+/v1/agents/{scope_id}/graph/edges:supersede\x12\xd7\x01\n" +
+	"\x0eSupersedeChunk\x12).jennahapi.agent.v1.SupersedeChunkRequest\x1a*.jennahapi.agent.v1.SupersedeChunkResponse\"n\x82\xd3\xe4\x93\x02h:\x01*Z3:\x01*\"./v1/scopes/{scope_id}/vectors/chunks:supersede\"./v1/agents/{scope_id}/vectors/chunks:supersedeB)Z'github.com/alphauslabs/jennah-api/agentb\x06proto3"
 
 var (
 	file_jennah_agent_v1_memory_proto_rawDescOnce sync.Once
