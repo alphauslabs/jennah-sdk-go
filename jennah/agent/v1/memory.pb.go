@@ -131,10 +131,10 @@ func (GraphDirection) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{1}
 }
 
-// Operator selects how `value` is compared against the chunk's stored value
+// Operator selects how `value` is compared against the item's stored value
 // for `key`.
 //
-// A chunk that does not carry `key` at all matches NO operator, including
+// An item that does not carry `key` at all matches NO operator, including
 // EQUALS: there is no value to compare or order against, so absence excludes.
 // Filters combine conjunctively (all must match); there is no disjunction
 // between them.
@@ -143,10 +143,15 @@ type MetadataFilter_Operator int32
 const (
 	MetadataFilter_OPERATOR_UNSPECIFIED MetadataFilter_Operator = 0 // treated as EQUALS
 	MetadataFilter_OPERATOR_EQUALS      MetadataFilter_Operator = 1
-	// Ordered comparisons. Each reads "the chunk's stored value <op> `value`",
+	// Ordered comparisons. Each reads "the item's stored value <op> `value`",
 	// e.g. OPERATOR_GREATER_THAN_OR_EQUAL with value "2026-07-01" matches
-	// chunks whose stored value sorts at or after that string. A bounded range
+	// items whose stored value sorts at or after that string. A bounded range
 	// is two filters on the same key.
+	//
+	// Comparison is LEXICOGRAPHIC over the stored string. There is no type tag on
+	// a metadata value and the platform never infers one, so encode for the order
+	// you want: ISO-8601 dates and zero-padded numbers sort correctly, "9" and
+	// "10" do not.
 	MetadataFilter_OPERATOR_LESS_THAN             MetadataFilter_Operator = 2
 	MetadataFilter_OPERATOR_LESS_THAN_OR_EQUAL    MetadataFilter_Operator = 3
 	MetadataFilter_OPERATOR_GREATER_THAN          MetadataFilter_Operator = 4
@@ -342,7 +347,23 @@ type ExecutionLogStep struct {
 	// OUTPUT-ONLY, like `timestamp`: the memory scope this step was read from.
 	// Ignored on CommitMemory, where the scope written is CommitMemoryRequest's
 	// target_scope or the route's scope, never a per-section field.
-	ScopeId       string `protobuf:"bytes,7,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	ScopeId string `protobuf:"bytes,7,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	// Optional caller-supplied tags on this step, and the reason the log section
+	// finally has a predicate: until this field the log took `limit` and `since`
+	// and nothing else, which made it the memory type a session filter most
+	// naturally applies to and the one it could not be applied to.
+	//
+	// Same mechanism, same rules, as VectorChunk.metadata and the graph kinds: keys
+	// match `[A-Za-z0-9_.-]{1,128}`, at most 32 per step, values are opaque strings.
+	// Filter on them with LogQuery.metadata.
+	//
+	// A step is APPEND-ONLY — reusing a step_id is a conflict, not a replace — so
+	// unlike a chunk's or a node's, a step's metadata is written once and cannot be
+	// rewritten. That follows from the step's own write semantics, not from a
+	// different metadata rule.
+	//
+	// Returned with the step wherever the step is returned.
+	Metadata      map[string]string `protobuf:"bytes,8,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -426,6 +447,13 @@ func (x *ExecutionLogStep) GetScopeId() string {
 	return ""
 }
 
+func (x *ExecutionLogStep) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 // A semantic-memory chunk to upsert.
 type VectorChunk struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
@@ -445,13 +473,16 @@ type VectorChunk struct {
 	//
 	// Metadata is NOT embedded (only raw_content is), so putting provenance here
 	// instead of inside the text keeps it out of the vector, where it would
-	// otherwise dilute similarity and still not be filterable.
+	// otherwise dilute similarity and still not be filterable. That is the ONE rule
+	// specific to chunks; everything else below is the shared mechanism, and the
+	// same tags on a graph node, a graph edge, and a log step mean the same thing
+	// and filter the same way.
 	//
 	// An upsert REPLACES the chunk's whole metadata set rather than merging into it:
 	// a key absent from this map is removed.
 	//
 	// Keys must match `[A-Za-z0-9_.-]{1,128}`; a key outside that set is rejected
-	// with INVALID_ARGUMENT. At most 32 keys per chunk.
+	// with INVALID_ARGUMENT. At most 32 keys per item.
 	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Bi-temporal valid-time window (add-temporal-vectors), both optional on write
 	// and carrying exactly the meaning GraphEdge.valid_at/invalid_at carry, so one
@@ -612,7 +643,22 @@ type GraphNode struct {
 	// Output-only: the row's last-write commit timestamp, populated when the node
 	// is read back via InspectMemory. Nodes are written create-or-replace, so this
 	// is the last write, not first creation. Ignored on CommitMemory.
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Optional caller-supplied tags on this node, the same mechanism VectorChunk
+	// carries and with the same rules: keys match `[A-Za-z0-9_.-]{1,128}`, at most
+	// 32 per item, values are opaque strings, and a write REPLACES the node's whole
+	// set rather than merging into it.
+	//
+	// METADATA IS NOT `properties`, and the division matters. `properties` is the
+	// node's PAYLOAD: arbitrary nested JSON, stored and returned, never filterable.
+	// Metadata is its filterable INDEX: flat strings that a query can narrow on
+	// (GraphNodeMatch.metadata). The one-line rule is "if you want to filter on it,
+	// it is metadata; if it is data the node carries, it is properties" — and
+	// putting the same value in both is legitimate and expected, because a flat
+	// filterable copy of a nested payload field is exactly what an index is.
+	//
+	// Returned with the node wherever the node is returned.
+	Metadata      map[string]string `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -675,6 +721,13 @@ func (x *GraphNode) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GraphNode) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 type GraphEdge struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	EdgeId           string                 `protobuf:"bytes,1,opt,name=edge_id,json=edgeId,proto3" json:"edge_id,omitempty"`                     // caller-chosen; unique within the agent slice
@@ -694,8 +747,12 @@ type GraphEdge struct {
 	// future-dated. Transaction-time (created/expired) is server-assigned and not
 	// expressible here. These are write-time inputs; InspectMemory does not populate
 	// them on read-back in this change.
-	ValidAt       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=valid_at,json=validAt,proto3" json:"valid_at,omitempty"`
-	InvalidAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=invalid_at,json=invalidAt,proto3" json:"invalid_at,omitempty"`
+	ValidAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=valid_at,json=validAt,proto3" json:"valid_at,omitempty"`
+	InvalidAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=invalid_at,json=invalidAt,proto3" json:"invalid_at,omitempty"`
+	// Optional caller-supplied tags on this edge, on exactly the terms
+	// GraphNode.metadata describes — including the payload-versus-index division
+	// against `properties`. Filter on them with GraphStep.metadata.
+	Metadata      map[string]string `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -782,6 +839,13 @@ func (x *GraphEdge) GetValidAt() *timestamppb.Timestamp {
 func (x *GraphEdge) GetInvalidAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.InvalidAt
+	}
+	return nil
+}
+
+func (x *GraphEdge) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
@@ -1210,7 +1274,12 @@ func (x *SemanticQuery) GetAsOfTx() *timestamppb.Timestamp {
 	return nil
 }
 
-// One predicate over a chunk's metadata.
+// One predicate over an ITEM's metadata — a vector chunk, a graph node, a graph
+// edge, or an execution-log step. It is the same message in every section that
+// accepts a filter (SemanticQuery.filters, GraphNodeMatch.metadata,
+// GraphStep.metadata, LogQuery.metadata) with the same semantics, so a caller
+// learns one grammar and gets the same answer whichever memory type the question
+// is about.
 type MetadataFilter struct {
 	state         protoimpl.MessageState  `protogen:"open.v1"`
 	Key           string                  `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -1371,9 +1440,26 @@ func (x *GraphQuery) GetAsOfTx() *timestamppb.Timestamp {
 // The gateway always adds the (EnterpriseId, AgentInstanceId) clamp to the
 // generated element: it is NOT expressible here and cannot be overridden.
 type GraphNodeMatch struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Label         string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`     // optional equality filter on the node's `Label`
-	Filters       []*PropertyFilter      `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"` // optional property equality filters (values bound)
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Label   string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`     // optional equality filter on the node's `Label`
+	Filters []*PropertyFilter      `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"` // optional property equality filters (values bound)
+	// Optional metadata filters on this node, using the same MetadataFilter message
+	// and the same semantics the semantic and log sections use.
+	//
+	// THIS IS A SEPARATE LIST FROM `filters`, and it stays separate deliberately.
+	// `filters` names FIRST-CLASS COLUMNS and is allowlisted (`NodeId`, `Label`) so
+	// that a caller cannot filter on a clamp column. If the two lists merged,
+	// resolving a key would mean asking "is this the name of a column?", which would
+	// hand a caller-chosen string the power to pick which branch it takes and make a
+	// metadata key named `AgentInstanceId` a question rather than an answer. Two
+	// lists means a key's meaning is fixed by which list it is in.
+	//
+	// The rule for choosing: filtering a stored column (`NodeId`, `Label`) is
+	// `filters`; filtering a tag you wrote in GraphNode.metadata is `metadata`.
+	//
+	// Applied to the matched node BEFORE the traversal expands from it, so a
+	// non-matching anchor is never expanded rather than expanded and discarded.
+	Metadata      []*MetadataFilter `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1422,14 +1508,25 @@ func (x *GraphNodeMatch) GetFilters() []*PropertyFilter {
 	return nil
 }
 
+func (x *GraphNodeMatch) GetMetadata() []*MetadataFilter {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
 // One single-hop traversal to an adjacent node.
 type GraphStep struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	RelationshipType string                 `protobuf:"bytes,1,opt,name=relationship_type,json=relationshipType,proto3" json:"relationship_type,omitempty"`   // optional equality filter on the edge's `RelationshipType`
 	Direction        GraphDirection         `protobuf:"varint,2,opt,name=direction,proto3,enum=jennahapi.agent.v1.GraphDirection" json:"direction,omitempty"` // direction relative to the current node
 	Node             *GraphNodeMatch        `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`                                                   // constraints on the node reached by this hop
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Optional metadata filters on the EDGE this hop traverses (not on the node it
+	// reaches — that is `node.metadata`). Same message, same semantics, and applied
+	// to the edge element before the hop is taken.
+	Metadata      []*MetadataFilter `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GraphStep) Reset() {
@@ -1483,10 +1580,24 @@ func (x *GraphStep) GetNode() *GraphNodeMatch {
 	return nil
 }
 
-// A single property equality filter. `key` is a property name validated as a
-// safe identifier by the gateway (resolved to a first-class column when it is
-// one, e.g. `NodeId`, `Label`; otherwise a JSON `Properties` key); `value`
-// binds as a query parameter and is never interpolated into query text.
+func (x *GraphStep) GetMetadata() []*MetadataFilter {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// A single equality filter on a FIRST-CLASS COLUMN of the node. `key` is
+// ALLOWLISTED to `NodeId` and `Label`; any other key is rejected with
+// INVALID_ARGUMENT. `value` binds as a query parameter and is never interpolated
+// into query text.
+//
+// The allowlist is what keeps a caller off the clamp columns, so it is narrow on
+// purpose and does not fall back to anything. In particular it does NOT reach into
+// `properties`: that field is a payload and is not filterable at all, because
+// filtering a JSON column needs a caller-supplied key inside a JSON path and that
+// is an injection surface the platform does not open. To filter on something a
+// node carries, tag it in GraphNode.metadata and use GraphNodeMatch.metadata.
 type PropertyFilter struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -1542,9 +1653,22 @@ func (x *PropertyFilter) GetValue() *structpb.Value {
 // Execution-log-section query: the agent's most recent steps in commit-
 // timestamp order.
 type LogQuery struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // max steps to return
-	Since         *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`  // optional recency lower bound
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Limit int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"` // max steps to return
+	Since *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`  // optional recency lower bound
+	// Optional metadata filters on the steps, using the same MetadataFilter message
+	// and the same semantics as every other section.
+	//
+	// APPLIED BEFORE `limit` SELECTS, not after. Asking for the 20 most recent steps
+	// tagged `session=s-991` returns the 20 most recent steps THAT CARRY THAT TAG,
+	// not the 20 most recent steps of any kind filtered down to whichever happen to
+	// match. Those are very different answers when another session has been busier,
+	// and the second one silently returns nothing.
+	//
+	// A filtered section returning fewer steps than `limit` means fewer steps
+	// matched. That is the caller's own narrowing and is reproducible from the
+	// filter; it is not the truncation the tenant clamp forbids.
+	Metadata      []*MetadataFilter `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1589,6 +1713,13 @@ func (x *LogQuery) GetLimit() int32 {
 func (x *LogQuery) GetSince() *timestamppb.Timestamp {
 	if x != nil {
 		return x.Since
+	}
+	return nil
+}
+
+func (x *LogQuery) GetMetadata() []*MetadataFilter {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
@@ -2953,7 +3084,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x05graph\x18\x04 \x01(\v2\x1e.jennahapi.agent.v1.GraphWriteR\x05graph\x120\n" +
 	"\x14reject_on_truncation\x18\x05 \x01(\bR\x12rejectOnTruncation\x12!\n" +
 	"\ftarget_scope\x18\x06 \x01(\tR\vtargetScope\x12\x19\n" +
-	"\bscope_id\x18\a \x01(\tR\ascopeId\"\x86\x02\n" +
+	"\bscope_id\x18\a \x01(\tR\ascopeId\"\x93\x03\n" +
 	"\x10ExecutionLogStep\x12\x17\n" +
 	"\astep_id\x18\x01 \x01(\tR\x06stepId\x12'\n" +
 	"\x0fthought_process\x18\x02 \x01(\tR\x0ethoughtProcess\x12\x1b\n" +
@@ -2963,7 +3094,11 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\vtool_output\x18\x05 \x01(\tR\n" +
 	"toolOutput\x128\n" +
 	"\ttimestamp\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12\x19\n" +
-	"\bscope_id\x18\a \x01(\tR\ascopeId\"\xe1\x02\n" +
+	"\bscope_id\x18\a \x01(\tR\ascopeId\x12N\n" +
+	"\bmetadata\x18\b \x03(\v22.jennahapi.agent.v1.ExecutionLogStep.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe1\x02\n" +
 	"\vVectorChunk\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
@@ -2979,7 +3114,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\n" +
 	"GraphWrite\x123\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x1d.jennahapi.agent.v1.GraphNodeR\x05nodes\x123\n" +
-	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"\xae\x01\n" +
+	"\x05edges\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\x05edges\"\xb4\x02\n" +
 	"\tGraphNode\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x127\n" +
@@ -2987,7 +3122,11 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"properties\x18\x03 \x01(\v2\x17.google.protobuf.StructR\n" +
 	"properties\x129\n" +
 	"\n" +
-	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x83\x03\n" +
+	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12G\n" +
+	"\bmetadata\x18\x05 \x03(\v2+.jennahapi.agent.v1.GraphNode.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x89\x04\n" +
 	"\tGraphEdge\x12\x17\n" +
 	"\aedge_id\x18\x01 \x01(\tR\x06edgeId\x12$\n" +
 	"\x0esource_node_id\x18\x02 \x01(\tR\fsourceNodeId\x12$\n" +
@@ -3000,7 +3139,11 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x125\n" +
 	"\bvalid_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\avalidAt\x129\n" +
 	"\n" +
-	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\"\xc7\x02\n" +
+	"invalid_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tinvalidAt\x12G\n" +
+	"\bmetadata\x18\t \x03(\v2+.jennahapi.agent.v1.GraphEdge.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc7\x02\n" +
 	"\x14CommitMemoryResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
@@ -3045,20 +3188,23 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x05steps\x18\x02 \x03(\v2\x1d.jennahapi.agent.v1.GraphStepR\x05steps\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12:\n" +
 	"\vas_of_valid\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tasOfValid\x124\n" +
-	"\bas_of_tx\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x06asOfTx\"d\n" +
+	"\bas_of_tx\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\x06asOfTx\"\xa4\x01\n" +
 	"\x0eGraphNodeMatch\x12\x14\n" +
 	"\x05label\x18\x01 \x01(\tR\x05label\x12<\n" +
-	"\afilters\x18\x02 \x03(\v2\".jennahapi.agent.v1.PropertyFilterR\afilters\"\xb2\x01\n" +
+	"\afilters\x18\x02 \x03(\v2\".jennahapi.agent.v1.PropertyFilterR\afilters\x12>\n" +
+	"\bmetadata\x18\x03 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\bmetadata\"\xf2\x01\n" +
 	"\tGraphStep\x12+\n" +
 	"\x11relationship_type\x18\x01 \x01(\tR\x10relationshipType\x12@\n" +
 	"\tdirection\x18\x02 \x01(\x0e2\".jennahapi.agent.v1.GraphDirectionR\tdirection\x126\n" +
-	"\x04node\x18\x03 \x01(\v2\".jennahapi.agent.v1.GraphNodeMatchR\x04node\"P\n" +
+	"\x04node\x18\x03 \x01(\v2\".jennahapi.agent.v1.GraphNodeMatchR\x04node\x12>\n" +
+	"\bmetadata\x18\x04 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\bmetadata\"P\n" +
 	"\x0ePropertyFilter\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value\"R\n" +
+	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value\"\x92\x01\n" +
 	"\bLogQuery\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x120\n" +
-	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\"\xb7\x02\n" +
+	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12>\n" +
+	"\bmetadata\x18\x03 \x03(\v2\".jennahapi.agent.v1.MetadataFilterR\bmetadata\"\xb7\x02\n" +
 	"\x13QueryMemoryResponse\x12>\n" +
 	"\bsemantic\x18\x01 \x01(\v2\".jennahapi.agent.v1.SemanticResultR\bsemantic\x125\n" +
 	"\x05graph\x18\x02 \x01(\v2\x1f.jennahapi.agent.v1.GraphResultR\x05graph\x12/\n" +
@@ -3189,7 +3335,7 @@ func file_jennah_agent_v1_memory_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_agent_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 36)
+var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_jennah_agent_v1_memory_proto_goTypes = []any{
 	(FusionDirection)(0),           // 0: jennahapi.agent.v1.FusionDirection
 	(GraphDirection)(0),            // 1: jennahapi.agent.v1.GraphDirection
@@ -3227,95 +3373,104 @@ var file_jennah_agent_v1_memory_proto_goTypes = []any{
 	(*SupersedeEdgeResponse)(nil),  // 33: jennahapi.agent.v1.SupersedeEdgeResponse
 	(*SupersedeChunkRequest)(nil),  // 34: jennahapi.agent.v1.SupersedeChunkRequest
 	(*SupersedeChunkResponse)(nil), // 35: jennahapi.agent.v1.SupersedeChunkResponse
-	nil,                            // 36: jennahapi.agent.v1.VectorChunk.MetadataEntry
-	nil,                            // 37: jennahapi.agent.v1.SemanticMatch.MetadataEntry
-	nil,                            // 38: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
-	(*timestamppb.Timestamp)(nil),  // 39: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),        // 40: google.protobuf.Struct
-	(*structpb.Value)(nil),         // 41: google.protobuf.Value
+	nil,                            // 36: jennahapi.agent.v1.ExecutionLogStep.MetadataEntry
+	nil,                            // 37: jennahapi.agent.v1.VectorChunk.MetadataEntry
+	nil,                            // 38: jennahapi.agent.v1.GraphNode.MetadataEntry
+	nil,                            // 39: jennahapi.agent.v1.GraphEdge.MetadataEntry
+	nil,                            // 40: jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	nil,                            // 41: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	(*timestamppb.Timestamp)(nil),  // 42: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),        // 43: google.protobuf.Struct
+	(*structpb.Value)(nil),         // 44: google.protobuf.Value
 }
 var file_jennah_agent_v1_memory_proto_depIdxs = []int32{
 	4,  // 0: jennahapi.agent.v1.CommitMemoryRequest.log:type_name -> jennahapi.agent.v1.ExecutionLogStep
 	5,  // 1: jennahapi.agent.v1.CommitMemoryRequest.vectors:type_name -> jennahapi.agent.v1.VectorChunk
 	6,  // 2: jennahapi.agent.v1.CommitMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphWrite
-	39, // 3: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
-	36, // 4: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
-	39, // 5: jennahapi.agent.v1.VectorChunk.valid_at:type_name -> google.protobuf.Timestamp
-	39, // 6: jennahapi.agent.v1.VectorChunk.invalid_at:type_name -> google.protobuf.Timestamp
-	7,  // 7: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	8,  // 8: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	40, // 9: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
-	39, // 10: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
-	40, // 11: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
-	39, // 12: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
-	39, // 13: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
-	39, // 14: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
-	39, // 15: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	11, // 16: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
-	13, // 17: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
-	17, // 18: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
-	0,  // 19: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
-	39, // 20: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	12, // 21: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
-	39, // 22: jennahapi.agent.v1.SemanticQuery.as_of_valid:type_name -> google.protobuf.Timestamp
-	39, // 23: jennahapi.agent.v1.SemanticQuery.as_of_tx:type_name -> google.protobuf.Timestamp
-	2,  // 24: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
-	14, // 25: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	15, // 26: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
-	39, // 27: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
-	39, // 28: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
-	16, // 29: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
-	1,  // 30: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
-	14, // 31: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	41, // 32: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
-	39, // 33: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
-	19, // 34: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
-	21, // 35: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
-	22, // 36: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	23, // 37: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
-	39, // 38: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	20, // 39: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
-	37, // 40: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
-	40, // 41: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
-	4,  // 42: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	40, // 43: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
-	25, // 44: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
-	26, // 45: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
-	27, // 46: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
-	39, // 47: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	39, // 48: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
-	29, // 49: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
-	31, // 50: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
-	22, // 51: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	39, // 52: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	30, // 53: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
-	39, // 54: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
-	38, // 55: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
-	39, // 56: jennahapi.agent.v1.VectorChunkInfo.valid_at:type_name -> google.protobuf.Timestamp
-	39, // 57: jennahapi.agent.v1.VectorChunkInfo.invalid_at:type_name -> google.protobuf.Timestamp
-	39, // 58: jennahapi.agent.v1.VectorChunkInfo.asserted_at:type_name -> google.protobuf.Timestamp
-	39, // 59: jennahapi.agent.v1.VectorChunkInfo.expired_at:type_name -> google.protobuf.Timestamp
-	7,  // 60: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	8,  // 61: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	8,  // 62: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
-	39, // 63: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	5,  // 64: jennahapi.agent.v1.SupersedeChunkRequest.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
-	39, // 65: jennahapi.agent.v1.SupersedeChunkResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	3,  // 66: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
-	10, // 67: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
-	24, // 68: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
-	32, // 69: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
-	34, // 70: jennahapi.agent.v1.MemoryService.SupersedeChunk:input_type -> jennahapi.agent.v1.SupersedeChunkRequest
-	9,  // 71: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
-	18, // 72: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
-	28, // 73: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
-	33, // 74: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
-	35, // 75: jennahapi.agent.v1.MemoryService.SupersedeChunk:output_type -> jennahapi.agent.v1.SupersedeChunkResponse
-	71, // [71:76] is the sub-list for method output_type
-	66, // [66:71] is the sub-list for method input_type
-	66, // [66:66] is the sub-list for extension type_name
-	66, // [66:66] is the sub-list for extension extendee
-	0,  // [0:66] is the sub-list for field type_name
+	42, // 3: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
+	36, // 4: jennahapi.agent.v1.ExecutionLogStep.metadata:type_name -> jennahapi.agent.v1.ExecutionLogStep.MetadataEntry
+	37, // 5: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
+	42, // 6: jennahapi.agent.v1.VectorChunk.valid_at:type_name -> google.protobuf.Timestamp
+	42, // 7: jennahapi.agent.v1.VectorChunk.invalid_at:type_name -> google.protobuf.Timestamp
+	7,  // 8: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	8,  // 9: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	43, // 10: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
+	42, // 11: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
+	38, // 12: jennahapi.agent.v1.GraphNode.metadata:type_name -> jennahapi.agent.v1.GraphNode.MetadataEntry
+	43, // 13: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
+	42, // 14: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
+	42, // 15: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
+	42, // 16: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
+	39, // 17: jennahapi.agent.v1.GraphEdge.metadata:type_name -> jennahapi.agent.v1.GraphEdge.MetadataEntry
+	42, // 18: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	11, // 19: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
+	13, // 20: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
+	17, // 21: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
+	0,  // 22: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
+	42, // 23: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	12, // 24: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
+	42, // 25: jennahapi.agent.v1.SemanticQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	42, // 26: jennahapi.agent.v1.SemanticQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	2,  // 27: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
+	14, // 28: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	15, // 29: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
+	42, // 30: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	42, // 31: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	16, // 32: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
+	12, // 33: jennahapi.agent.v1.GraphNodeMatch.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
+	1,  // 34: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
+	14, // 35: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	12, // 36: jennahapi.agent.v1.GraphStep.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
+	44, // 37: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
+	42, // 38: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
+	12, // 39: jennahapi.agent.v1.LogQuery.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
+	19, // 40: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
+	21, // 41: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
+	22, // 42: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	23, // 43: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
+	42, // 44: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	20, // 45: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
+	40, // 46: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	43, // 47: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
+	4,  // 48: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	43, // 49: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
+	25, // 50: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
+	26, // 51: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
+	27, // 52: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
+	42, // 53: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	42, // 54: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
+	29, // 55: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
+	31, // 56: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
+	22, // 57: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	42, // 58: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	30, // 59: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
+	42, // 60: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
+	41, // 61: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	42, // 62: jennahapi.agent.v1.VectorChunkInfo.valid_at:type_name -> google.protobuf.Timestamp
+	42, // 63: jennahapi.agent.v1.VectorChunkInfo.invalid_at:type_name -> google.protobuf.Timestamp
+	42, // 64: jennahapi.agent.v1.VectorChunkInfo.asserted_at:type_name -> google.protobuf.Timestamp
+	42, // 65: jennahapi.agent.v1.VectorChunkInfo.expired_at:type_name -> google.protobuf.Timestamp
+	7,  // 66: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	8,  // 67: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	8,  // 68: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
+	42, // 69: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	5,  // 70: jennahapi.agent.v1.SupersedeChunkRequest.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
+	42, // 71: jennahapi.agent.v1.SupersedeChunkResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	3,  // 72: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
+	10, // 73: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
+	24, // 74: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
+	32, // 75: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
+	34, // 76: jennahapi.agent.v1.MemoryService.SupersedeChunk:input_type -> jennahapi.agent.v1.SupersedeChunkRequest
+	9,  // 77: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
+	18, // 78: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
+	28, // 79: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
+	33, // 80: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
+	35, // 81: jennahapi.agent.v1.MemoryService.SupersedeChunk:output_type -> jennahapi.agent.v1.SupersedeChunkResponse
+	77, // [77:82] is the sub-list for method output_type
+	72, // [72:77] is the sub-list for method input_type
+	72, // [72:72] is the sub-list for extension type_name
+	72, // [72:72] is the sub-list for extension extendee
+	0,  // [0:72] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_memory_proto_init() }
@@ -3330,7 +3485,7 @@ func file_jennah_agent_v1_memory_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_agent_v1_memory_proto_rawDesc), len(file_jennah_agent_v1_memory_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   36,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
