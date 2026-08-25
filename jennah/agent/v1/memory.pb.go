@@ -3704,6 +3704,13 @@ type FormMemoryRequest struct {
 	//
 	// Scoped to the workspace. Unset means no protection: the platform cannot tell
 	// a resend from a second conversation that happened to be identical.
+	//
+	// A RESEND IS NOT MARKED AS ONE, on the same terms DataService.CommitData does
+	// not mark one: a resend asks "was my intent carried out", the answer is yes,
+	// and the receipt is the evidence. Whether a given response was produced by
+	// doing the work or by reading the record is a fact about the platform's
+	// plumbing, not about the caller's memory, and the memory a replayed receipt
+	// describes is exactly as durable and exactly as explained either way.
 	FormationKey  string `protobuf:"bytes,3,opt,name=formation_key,json=formationKey,proto3" json:"formation_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3994,14 +4001,7 @@ type FormMemoryResponse struct {
 	CandidatesDropped int32 `protobuf:"varint,11,opt,name=candidates_dropped,json=candidatesDropped,proto3" json:"candidates_dropped,omitempty"`
 	// The scope this formation wrote to, echoed for the same reason CommitMemory
 	// echoes it.
-	ScopeId string `protobuf:"bytes,12,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
-	// True when this receipt is a REPLAY: the request carried a formation_key that
-	// had already been used, so this is the earlier call's stored receipt and no
-	// extraction ran. It is the one field that differs from what the first call
-	// returned, and it exists because the rest of the receipt cannot say it. A
-	// caller comparing two responses would otherwise have to wonder whether the
-	// model happened to decide identically twice.
-	Replayed      bool `protobuf:"varint,13,opt,name=replayed,proto3" json:"replayed,omitempty"`
+	ScopeId       string `protobuf:"bytes,12,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4118,13 +4118,6 @@ func (x *FormMemoryResponse) GetScopeId() string {
 		return x.ScopeId
 	}
 	return ""
-}
-
-func (x *FormMemoryResponse) GetReplayed() bool {
-	if x != nil {
-		return x.Replayed
-	}
-	return false
 }
 
 var File_jennah_agent_v1_memory_proto protoreflect.FileDescriptor
@@ -4401,7 +4394,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x0fRedactionRecord\x12\x1d\n" +
 	"\n" +
 	"turn_index\x18\x01 \x01(\x05R\tturnIndex\x12!\n" +
-	"\fmasked_count\x18\x02 \x01(\x05R\vmaskedCount\"\xef\x04\n" +
+	"\fmasked_count\x18\x02 \x01(\x05R\vmaskedCount\"\xd3\x04\n" +
 	"\x12FormMemoryResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
@@ -4420,8 +4413,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\rcandidate_cap\x18\n" +
 	" \x01(\x05R\fcandidateCap\x12-\n" +
 	"\x12candidates_dropped\x18\v \x01(\x05R\x11candidatesDropped\x12\x19\n" +
-	"\bscope_id\x18\f \x01(\tR\ascopeId\x12\x1a\n" +
-	"\breplayed\x18\r \x01(\bR\breplayed*x\n" +
+	"\bscope_id\x18\f \x01(\tR\ascopeId*x\n" +
 	"\x0fFusionDirection\x12 \n" +
 	"\x1cFUSION_DIRECTION_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dFUSION_DIRECTION_VECTOR_FIRST\x10\x01\x12 \n" +
