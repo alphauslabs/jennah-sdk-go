@@ -33,12 +33,13 @@ const (
 // MemoryService is the unified memory-data plane for an agent workspace.
 type MemoryServiceClient interface {
 	// Applies a multi-section memory step in a SINGLE read-write transaction: an
-	// optional execution-log step, an optional set of vector chunks, and an
-	// optional set of graph writes. The commit is all-or-nothing:
-	// if any section fails (e.g. a vector whose width does not match the
-	// database), no section's rows are written. The commit is rejected, writing
-	// nothing, if the target workspace does not exist under the caller's tenant.
-	// Returns a receipt: the commit timestamp and per-memory-type row counts.
+	// optional execution-log step, an optional set of vector chunks, an optional
+	// set of graph writes, and an optional set of supersessions. The commit is
+	// all-or-nothing: if any section fails (e.g. a vector whose width does not
+	// match the database, or a supersession naming a prior id that is not there),
+	// no section's rows are written. The commit is rejected, writing nothing, if
+	// the target workspace does not exist under the caller's tenant. Returns a
+	// receipt: the commit timestamp and per-memory-type row counts.
 	CommitMemory(ctx context.Context, in *CommitMemoryRequest, opts ...grpc.CallOption) (*CommitMemoryResponse, error)
 	// Evaluates a multi-section read against ONE read snapshot so results are
 	// internally consistent across memory types: an optional semantic (vector)
@@ -69,6 +70,12 @@ type MemoryServiceClient interface {
 	// supersession boundary) is REQUIRED and new_edge.edge_id must differ from
 	// prior_edge_id; an unknown prior edge is NotFound and a reused new edge_id is
 	// AlreadyExists. This is the graph.supersede surface in the SDK.
+	//
+	// This is the SINGLE-ITEM FORM of CommitMemoryRequest's `supersessions` section,
+	// not a separate mechanism: it constructs that commit and reaches the store the
+	// same way, so the two are observably identical apart from the URL. Use the
+	// section when a supersession must land in the same transaction as other writes;
+	// use this when retiring one fact is the whole operation. Neither is deprecated.
 	SupersedeEdge(ctx context.Context, in *SupersedeEdgeRequest, opts ...grpc.CallOption) (*SupersedeEdgeResponse, error)
 	// Replaces a currently-held semantic passage WITHOUT destroying it
 	// (add-temporal-vectors). The vector counterpart of SupersedeEdge, with the same
@@ -86,6 +93,15 @@ type MemoryServiceClient interface {
 	// The superseded chunk stops being returned by ordinary semantic search from this
 	// point on, which is the operation's purpose: a retired passage that stayed
 	// rankable would go on occupying the limited slots a caller injects into a prompt.
+	//
+	// This is the SINGLE-ITEM FORM of CommitMemoryRequest's `supersessions` section,
+	// on the same terms as SupersedeEdge above. One difference is visible to callers
+	// and it is a difference of SHAPE, not of behavior: this request has no
+	// reject_on_truncation field, so a replacement whose generated embedding the
+	// model truncates is REPORTED here (in `truncated`) and never refused. That is
+	// this operation's long-standing contract (refusing would leave a caller with a
+	// fact they have decided is stale and no way to retire it), and it is preserved
+	// by constructing a commit with that flag unset.
 	SupersedeChunk(ctx context.Context, in *SupersedeChunkRequest, opts ...grpc.CallOption) (*SupersedeChunkResponse, error)
 }
 
@@ -154,12 +170,13 @@ func (c *memoryServiceClient) SupersedeChunk(ctx context.Context, in *SupersedeC
 // MemoryService is the unified memory-data plane for an agent workspace.
 type MemoryServiceServer interface {
 	// Applies a multi-section memory step in a SINGLE read-write transaction: an
-	// optional execution-log step, an optional set of vector chunks, and an
-	// optional set of graph writes. The commit is all-or-nothing:
-	// if any section fails (e.g. a vector whose width does not match the
-	// database), no section's rows are written. The commit is rejected, writing
-	// nothing, if the target workspace does not exist under the caller's tenant.
-	// Returns a receipt: the commit timestamp and per-memory-type row counts.
+	// optional execution-log step, an optional set of vector chunks, an optional
+	// set of graph writes, and an optional set of supersessions. The commit is
+	// all-or-nothing: if any section fails (e.g. a vector whose width does not
+	// match the database, or a supersession naming a prior id that is not there),
+	// no section's rows are written. The commit is rejected, writing nothing, if
+	// the target workspace does not exist under the caller's tenant. Returns a
+	// receipt: the commit timestamp and per-memory-type row counts.
 	CommitMemory(context.Context, *CommitMemoryRequest) (*CommitMemoryResponse, error)
 	// Evaluates a multi-section read against ONE read snapshot so results are
 	// internally consistent across memory types: an optional semantic (vector)
@@ -190,6 +207,12 @@ type MemoryServiceServer interface {
 	// supersession boundary) is REQUIRED and new_edge.edge_id must differ from
 	// prior_edge_id; an unknown prior edge is NotFound and a reused new edge_id is
 	// AlreadyExists. This is the graph.supersede surface in the SDK.
+	//
+	// This is the SINGLE-ITEM FORM of CommitMemoryRequest's `supersessions` section,
+	// not a separate mechanism: it constructs that commit and reaches the store the
+	// same way, so the two are observably identical apart from the URL. Use the
+	// section when a supersession must land in the same transaction as other writes;
+	// use this when retiring one fact is the whole operation. Neither is deprecated.
 	SupersedeEdge(context.Context, *SupersedeEdgeRequest) (*SupersedeEdgeResponse, error)
 	// Replaces a currently-held semantic passage WITHOUT destroying it
 	// (add-temporal-vectors). The vector counterpart of SupersedeEdge, with the same
@@ -207,6 +230,15 @@ type MemoryServiceServer interface {
 	// The superseded chunk stops being returned by ordinary semantic search from this
 	// point on, which is the operation's purpose: a retired passage that stayed
 	// rankable would go on occupying the limited slots a caller injects into a prompt.
+	//
+	// This is the SINGLE-ITEM FORM of CommitMemoryRequest's `supersessions` section,
+	// on the same terms as SupersedeEdge above. One difference is visible to callers
+	// and it is a difference of SHAPE, not of behavior: this request has no
+	// reject_on_truncation field, so a replacement whose generated embedding the
+	// model truncates is REPORTED here (in `truncated`) and never refused. That is
+	// this operation's long-standing contract (refusing would leave a caller with a
+	// fact they have decided is stale and no way to retire it), and it is preserved
+	// by constructing a commit with that flag unset.
 	SupersedeChunk(context.Context, *SupersedeChunkRequest) (*SupersedeChunkResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
