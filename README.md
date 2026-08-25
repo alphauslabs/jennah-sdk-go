@@ -1,114 +1,108 @@
 # jennah-sdk-go
 
-The reference Go client for the Jennah agent memory & context platform.
+Go client library for the Jennah agent memory and context platform.
 
-The `jennah/` tree is generated from [jennah-api](https://github.com/alphauslabs/jennah-api/).
-The main branch can be broken. Make sure to use tagged releases.
+The `jennah/` package tree is generated from [jennah-api](https://github.com/alphauslabs/jennah-api/). For production use, pin to tagged releases.
 
-## Connect
+## Installation
 
-The SDK speaks gRPC to the platform's public gRPC endpoint,
-`jennah-grpc.alphaus.cloud:443` (`jennah.DefaultEndpoint`). That is **not** the
-HTTP gateway on `jennah.alphaus.cloud`, which serves HTTP/JSON and cannot answer a
-gRPC call. Leave `Endpoint` empty to get the right one.
+```bash
+go get github.com/alphauslabs/jennah-sdk-go
+```
 
-TLS terminates at the load balancer on 443, so ordinary transport credentials are
-all that is needed; there is no custom CA and no plaintext port to reach for.
+## Quick Start
 
 ```go
-jc, err := jennah.NewClient(jennah.Config{}) // credential resolved; see below
+package main
+
+import (
+	"context"
+	"log"
+
+	"github.com/alphauslabs/jennah-sdk-go"
+)
+
+func main() {
+	ctx := context.Background()
+
+	jc, err := jennah.NewClient(jennah.Config{})
+	if err != nil {
+		log.Fatalf("failed to create client: %v", err)
+	}
+	defer jc.Close()
+
+	// Optional: verify endpoint connectivity
+	if err := jc.Ping(ctx); err != nil {
+		log.Fatalf("ping failed: %v", err)
+	}
+
+	a := jc.Agent("agent-abc")
+	_, err = a.Logs.Create(ctx, &jennah.ExecutionLogStep{
+		StepId:         "step-1",
+		ThoughtProcess: "deciding which tool to call",
+	})
+	if err != nil {
+		log.Fatalf("failed to create log step: %v", err)
+	}
+}
+```
+
+## Connection
+
+The SDK connects to the public gRPC endpoint `jennah-grpc.alphaus.cloud:443` (`jennah.DefaultEndpoint`). This is distinct from the HTTP gateway at `jennah.alphaus.cloud`. Leave `Config.Endpoint` empty to use the default gRPC endpoint.
+
+Standard TLS transport credentials are used on port 443.
+
+Credentials are sent in the `authorization: Bearer` metadata header on each RPC.
+
+## Authentication and Credentials
+
+`Config.APIKey` is optional. When omitted, the SDK resolves credentials in the following order:
+
+1. `Config.Credentials` (a custom source such as a secret manager)
+2. `Config.APIKey`
+3. `JENNAH_API_KEY` environment variable
+4. Stored CLI session from `jnh login` (`~/.config/jennah/credentials`)
+
+```go
+jc, err := jennah.NewClient(jennah.Config{})
 if err != nil {
-	return err
+	log.Fatal(err)
 }
-defer jc.Close()
-
-// Optional: force the lazy connection open and confirm the endpoint is serving.
-if err := jc.Ping(ctx); err != nil {
-	return err
-}
-
-a := jc.Agent("agent-abc")
-_, err = a.Logs.Create(ctx, &jennah.ExecutionLogStep{
-	StepId:         "step-1",
-	ThoughtProcess: "deciding which tool to call",
-})
+log.Printf("authenticated with: %s", jc.Credential()) // e.g. "session from stored session"
 ```
 
-The credential goes on the `authorization: Bearer` metadata header of every call.
-The SDK's interceptor attaches it per RPC, since dialing carries no metadata.
+`Client.Credential()` returns credential metadata and source without revealing secret values.
 
-## Credentials
+### Token Renewal
 
-`Config.APIKey` is optional. Left empty, the client resolves one itself, taking
-the first source that answers and consulting no further:
+When using a CLI session token, the SDK automatically refreshes expired access tokens and reissues failed requests once:
 
-| Order | Source |
+- **Automatic token rotation**: Refreshed tokens are written back to `~/.config/jennah/credentials` so concurrent local processes stay synchronized.
+- **API keys**: API keys do not renew. A rejected API key returns `credentials.ErrKeyRefused` (matched by `jennah.IsUnauthenticated`).
+
+## Client API Overview
+
+All platform services can be accessed from a single `Client` instance:
+
+| Entry Point | Description |
 |---|---|
-| 1 | `Config.Credentials`, a source you supply (a secret manager, a test double) |
-| 2 | `Config.APIKey` |
-| 3 | `$JENNAH_API_KEY` |
-| 4 | the session stored by `jnh login`, at `~/.config/jennah/credentials` |
+| `Client.Spawn`, `Client.List`, `Client.Agent(id)` | Agent workspace lifecycle and management |
+| `Agent.Memory` | Unified memory transport (`Commit`, `Query`, `Inspect`) |
+| `Agent.Logs`, `Agent.Vectors`, `Agent.Graph` | Memory section helpers and `Graph.Supersede` |
+| `Client.Datasets`, `Client.Dataset(id)` | Datasets with `Schema` and `Data` operations |
+| `Client.Auth` | Identity, API keys, members, invitations, roles, and enterprise administration |
+| `Client.Approvals` | Human approvals and approver allowlists |
+| `Client.Billing` | Subscriptions, entitlements, and marketplace bindings |
+| `Client.Platform` | Tenant resource locations |
 
-A developer who has logged in with the CLI can therefore write
-`jennah.NewClient(jennah.Config{})` and be authenticated as themselves. A
-deployed service that sets a key is unaffected: because a later source is never
-read, a machine with no session file cannot fail a caller who supplied one.
+Generated protobuf types and enums are aliased in the root package (`types.go`) for direct access without deep imports.
 
-```go
-jc, _ := jennah.NewClient(jennah.Config{})
-log.Printf("authenticated with %s", jc.Credential()) // "session from stored session"
-```
+## Features
 
-`Client.Credential` reports what the credential is and where it came from, never
-its value, so it is safe to log.
+### Pagination
 
-It ignores endpoints recorded in stored sessions, which point to HTTP gateways unsuited for gRPC calls. Expired sessions without refresh tokens fail construction immediately, whereas renewable sessions are checked upon call execution.
-
-### Renewal
-
-A resolved session renews itself. When the platform rejects the access token, the
-client refreshes it and reissues the call exactly once; a second rejection is
-returned. So a long-running program keeps working across an expiry without
-handling one, and there is nothing to schedule or refresh ahead of time.
-
-- **Reissues require no idempotency key.** An `UNAUTHENTICATED` rejection occurs prior to operation execution.
-- **Renewals update `~/.config/jennah/credentials`.** Token rotation updates local credentials so concurrent processes share valid sessions.
-- **API keys do not renew.** Rejections return `credentials.ErrKeyRefused`, which matches `jennah.IsUnauthenticated`.
-
-## Surface
-
-Every service the endpoint publishes is reachable from one `Client`:
-
-| Entry point | Covers |
-|---|---|
-| `Client.Spawn`, `Client.List`, `Client.Agent(id)` | agent workspaces |
-| `Agent.Memory` | `Commit`, `Query`, `Inspect` (the unified memory transport) |
-| `Agent.Logs`, `Agent.Vectors`, `Agent.Graph` | single-section wrappers over the above, plus `Graph.Supersede` |
-| `Client.Datasets`, `Client.Dataset(id)` | application datasets; the handle carries `Schema` and `Data` |
-| `Client.Auth` | `WhoAmI`, plus `Session`, `Keys`, `Members`, `Invitations`, `Roles`, `Enterprise` |
-| `Client.Approvals` | human approvals, plus the `Approvers` allowlist |
-| `Client.Billing` | subscription and entitlement state, marketplace binding |
-| `Client.Platform` | where tenant resources can live |
-
-Agents own the bare top-level verbs because they are the platform's primary object
-and had them first. Everything else is namespaced, since one `Client.List` cannot
-mean agents, datasets, approvals, and keys at once.
-
-Every generated message and enum is aliased into the root package (`types.go`), so
-building a request needs no deep import.
-
-## Behavior the wrappers add
-
-These are the parts worth having a client library for. Each one encodes a server
-contract a caller would otherwise have to discover the hard way.
-
-**Waiting for a human.** `Approvals.WaitUntilDecided` blocks until the approval is
-terminal. The server caps one `WaitApproval` at 30 seconds and reports a reached
-ceiling as a *success* carrying the still-pending approval with `TimedOut` set, so
-code that treats a returned approval as a decision acts on a pending one. Bound it
-with the context; with no deadline it waits as long as the human takes.
-
-**Paging.** `All` iterators walk every page, so cursors stay out of your code:
+Iterators using Go range-over-func (`All`) automatically handle pagination across pages:
 
 ```go
 for ds, err := range jc.Datasets.All(ctx, nil) {
@@ -119,58 +113,59 @@ for ds, err := range jc.Datasets.All(ctx, nil) {
 }
 ```
 
-The same for `Client.All` (agents), `Approvals.All`, `Auth.Keys.All`,
-`Auth.Members.All`, `Auth.Invitations.All`, `Auth.Roles.All`,
-`Approvals.Approvers.All`, and one per inspect section: `Vectors.AllChunks`,
-`Graph.AllNodes`, `Graph.AllEdges`, `Logs.AllSteps`. Breaking out stops fetching,
-and your request is never mutated.
+Paging iterators are available across resources:
+- `Client.All` (agents)
+- `Approvals.All`, `Approvals.Approvers.All`
+- `Auth.Keys.All`, `Auth.Members.All`, `Auth.Invitations.All`, `Auth.Roles.All`
+- Inspect sections: `Vectors.AllChunks`, `Graph.AllNodes`, `Graph.AllEdges`, `Logs.AllSteps`
 
-**Retries, decided per request rather than per method.** The loop is
-[gax](https://github.com/googleapis/gax-go)'s `Invoke`, the same one Google's
-generated clients use, so the backoff is the AIP-4221 shape: jittered, growing by
-two, capped. `UNAVAILABLE` is retried three times by default.
+### Long-polling Approvals
 
-gax deliberately has no attempt cap, on the reasoning that a deadline bounds a loop
-better than a count. This SDK adds one anyway, because an agent commonly runs with
-no deadline at all and an uncapped loop against an unreachable endpoint would never
-return. A deadline reached during a backoff ends the call with the context's error,
-not the last transport failure, which is why `Code` maps context errors instead of
-calling them `Unknown`.
-
-Reads always qualify for replay. Writes qualify only when a replay cannot produce a
-second effect:
-
-| Call | Replayed when |
-|---|---|
-| `Memory.Commit` | there is no log section (vector and graph writes are idempotent upserts; log steps are append-only) |
-| `Data.Commit` | `IdempotencyKey` is set |
-| `Approvals.Create` | `RequestKey` is set |
-| everything else that writes | never |
-
-That distinction is why this lives in the SDK: a gRPC service-config policy sees
-the method but never the request. Turn it off with `Config.Retry.Disabled`, and see
-`TestEveryMethodIsClassified`, which fails if a new RPC is left unclassified.
-
-**Error classification.** `IsAlreadyCommitted`, `IsLimitExceeded`, `IsUnsupported`,
-`IsDenied`, `IsUnauthenticated`, `IsNotFound`, `IsTransient`, and `Code` for the
-rest. A re-committed log step returns `AlreadyExists`, which an agent retrying after
-an ambiguous failure usually wants to read as success.
-
-## Escape hatch
-
-For anything the wrappers do not cover, `Client.Conn()` returns the live
-connection. Stubs built on it are already credentialed, because the bearer is
-attached by a dial-time interceptor rather than by the wrappers:
+`Approvals.WaitUntilDecided` blocks until an approval reaches a terminal state. It automatically handles intermediate 30-second server polling intervals:
 
 ```go
+decision, err := jc.Approvals.WaitUntilDecided(ctx, approvalID)
+```
+
+Pass a context with a timeout or deadline to bound the wait duration.
+
+### Retries
+
+Retries use [gax-go](https://github.com/googleapis/gax-go) exponential backoff (AIP-4221 with jitter). `UNAVAILABLE` status codes are retried up to 3 times by default.
+
+Retries are evaluated per request based on idempotency:
+
+| Call | Retried When |
+|---|---|
+| `Memory.Commit` | No log section is present (vector and graph writes are idempotent; log steps are append-only) |
+| `Data.Commit` | `IdempotencyKey` is set |
+| `Approvals.Create` | `RequestKey` is set |
+| Read operations | Always |
+| Other write operations | Never |
+
+Retries can be configured or disabled via `Config.Retry`.
+
+### Error Classification
+
+Helper functions classify gRPC errors returned by the platform:
+
+- `jennah.IsAlreadyCommitted(err)`
+- `jennah.IsLimitExceeded(err)`
+- `jennah.IsUnsupported(err)`
+- `jennah.IsDenied(err)`
+- `jennah.IsUnauthenticated(err)`
+- `jennah.IsNotFound(err)`
+- `jennah.IsTransient(err)`
+- `jennah.Code(err)` (maps gRPC status codes and context errors)
+
+## Direct gRPC Connection
+
+To access underlying gRPC service stubs directly, use `Client.Conn()`:
+
+```go
+import authv1 "github.com/alphauslabs/jennah-sdk-go/jennah/auth/v1"
+
 stub := authv1.NewAuthServiceClient(jc.Conn())
 ```
 
-## Authority
-
-Both front doors terminate on the same server behind the same authentication and
-authorization chain. A credential gets the same decision on the same operation
-whichever one it arrives at. In particular, the enterprise-administration calls
-under `Client.Auth` refuse an API key over gRPC exactly as they do over HTTP,
-because a key can never hold a management-class scope. Transport selects which
-credential you may present, never what it may do.
+Stubs created with `Client.Conn()` automatically inherit the client's authentication interceptor and credentials.
