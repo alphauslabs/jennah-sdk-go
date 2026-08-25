@@ -3676,8 +3676,8 @@ type FormMemoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Route path parameter, never read from the body: the agent workspace this
 	// formation reads and writes. Every stage is clamped to the caller's
-	// (EnterpriseId, this scope) slice — extraction has no field that could widen
-	// it and recall and commit take the same clamped paths CommitMemory and
+	// (EnterpriseId, this scope) slice: extraction has no field that could widen
+	// it, and recall and commit take the same clamped paths CommitMemory and
 	// QueryMemory take.
 	ScopeId string `protobuf:"bytes,1,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	// The conversation to form memory from, in order. Order is meaningful:
@@ -3698,9 +3698,9 @@ type FormMemoryRequest struct {
 	// is set, a resend returns the FIRST call's receipt and re-extracts nothing.
 	//
 	// It is also what makes a lost race recoverable. Two concurrent formations
-	// that decide to supersede the same assertion cannot both win — the loser's
-	// replacement is rejected and its whole formation aborts — and the safe
-	// response to that is to resend, which needs this key to be safe.
+	// that decide to supersede the same assertion cannot both win: the loser's
+	// replacement is rejected and its whole formation aborts. The safe response to
+	// that is to resend, which needs this key to be safe.
 	//
 	// Scoped to the workspace. Unset means no protection: the platform cannot tell
 	// a resend from a second conversation that happened to be identical.
@@ -3774,8 +3774,8 @@ type FormedCandidate struct {
 	// later land on the same row instead of accumulating a near-duplicate.
 	//
 	// It IDENTIFIES the row; it is not a way to fetch it. No memory type has a
-	// by-id read — retrieval is semantic search, graph traversal, and the
-	// InspectMemory listings — so this id is for correlating a receipt with rows
+	// by-id read (retrieval is semantic search, graph traversal, and the
+	// InspectMemory listings), so this id is for correlating a receipt with rows
 	// you have in hand, not for looking one up.
 	CandidateId string        `protobuf:"bytes,1,opt,name=candidate_id,json=candidateId,proto3" json:"candidate_id,omitempty"`
 	Kind        CandidateKind `protobuf:"varint,2,opt,name=kind,proto3,enum=jennahapi.agent.v1.CandidateKind" json:"kind,omitempty"`
@@ -3998,7 +3998,7 @@ type FormMemoryResponse struct {
 	// True when this receipt is a REPLAY: the request carried a formation_key that
 	// had already been used, so this is the earlier call's stored receipt and no
 	// extraction ran. It is the one field that differs from what the first call
-	// returned, and it exists because the rest of the receipt cannot say it — a
+	// returned, and it exists because the rest of the receipt cannot say it. A
 	// caller comparing two responses would otherwise have to wonder whether the
 	// model happened to decide identically twice.
 	Replayed      bool `protobuf:"varint,13,opt,name=replayed,proto3" json:"replayed,omitempty"`
