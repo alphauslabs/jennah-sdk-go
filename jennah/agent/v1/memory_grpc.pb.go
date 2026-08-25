@@ -24,6 +24,7 @@ const (
 	MemoryService_InspectMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/InspectMemory"
 	MemoryService_SupersedeEdge_FullMethodName  = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
 	MemoryService_SupersedeChunk_FullMethodName = "/jennahapi.agent.v1.MemoryService/SupersedeChunk"
+	MemoryService_FormMemory_FullMethodName     = "/jennahapi.agent.v1.MemoryService/FormMemory"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -103,6 +104,47 @@ type MemoryServiceClient interface {
 	// fact they have decided is stale and no way to retire it), and it is preserved
 	// by constructing a commit with that flag unset.
 	SupersedeChunk(ctx context.Context, in *SupersedeChunkRequest, opts ...grpc.CallOption) (*SupersedeChunkResponse, error)
+	// Forms memory FROM RAW CONVERSATION, deciding what is worth remembering
+	// instead of being told (add-memory-cognition). It takes the turns an agent
+	// exchanged, extracts candidate facts and relationships from them with a
+	// language model, retrieves what the scope already holds near each candidate,
+	// decides per candidate whether it is new, a revision of something held, or
+	// already known, and applies the result as ONE CommitMemory in one
+	// transaction. It returns a receipt naming every candidate and its decision.
+	//
+	// This is the "work out what to store" surface; CommitMemory is the "store
+	// this" one. It is ADDITIVE: a caller that authors its own writes keeps using
+	// CommitMemory unchanged and pays none of this operation's cost.
+	//
+	// THREE THINGS A CALLER MUST KNOW BEFORE USING IT.
+	//
+	// It is a DIFFERENT LATENCY CLASS. Two model round-trips plus a retrieval plus
+	// a commit means seconds, not the milliseconds CommitMemory takes. Do not put
+	// it on a request path that expects a commit's latency.
+	//
+	// It will frequently STORE NOTHING, and that is success. A conversation
+	// holding nothing worth remembering forms no memory and returns a receipt with
+	// zero candidates; a conversation restating what the scope already holds forms
+	// no memory and returns a receipt of `known` decisions. Neither is an error,
+	// and the receipt is what distinguishes them from each other and from a
+	// refusal.
+	//
+	// Submitted turns are SENT TO AN EXTERNAL INFERENCE SERVICE (Vertex AI) in the
+	// scope's own region, exactly as the caller wrote them. The platform does not
+	// scan, filter, or redact formation input. A region with no generative model
+	// configured REFUSES formation with FAILED_PRECONDITION rather than inferring
+	// in another region, because a region-pinned scope whose content is inferred
+	// elsewhere breaks a residency commitment invisibly.
+	//
+	// Formation NEVER DELETES and never overwrites: a revision closes the prior
+	// assertion's valid-time window and inserts a replacement, exactly as
+	// SupersedeEdge and SupersedeChunk do, so what the agent believed before the
+	// formation stays readable by an as-of query.
+	//
+	// Retry it with `formation_key`. Extraction is nondeterministic, so a blind
+	// resend would form a SECOND, DIFFERENT set of memory; a resend under the same
+	// key returns the first call's receipt without re-extracting.
+	FormMemory(ctx context.Context, in *FormMemoryRequest, opts ...grpc.CallOption) (*FormMemoryResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -157,6 +199,16 @@ func (c *memoryServiceClient) SupersedeChunk(ctx context.Context, in *SupersedeC
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SupersedeChunkResponse)
 	err := c.cc.Invoke(ctx, MemoryService_SupersedeChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) FormMemory(ctx context.Context, in *FormMemoryRequest, opts ...grpc.CallOption) (*FormMemoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FormMemoryResponse)
+	err := c.cc.Invoke(ctx, MemoryService_FormMemory_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +292,47 @@ type MemoryServiceServer interface {
 	// fact they have decided is stale and no way to retire it), and it is preserved
 	// by constructing a commit with that flag unset.
 	SupersedeChunk(context.Context, *SupersedeChunkRequest) (*SupersedeChunkResponse, error)
+	// Forms memory FROM RAW CONVERSATION, deciding what is worth remembering
+	// instead of being told (add-memory-cognition). It takes the turns an agent
+	// exchanged, extracts candidate facts and relationships from them with a
+	// language model, retrieves what the scope already holds near each candidate,
+	// decides per candidate whether it is new, a revision of something held, or
+	// already known, and applies the result as ONE CommitMemory in one
+	// transaction. It returns a receipt naming every candidate and its decision.
+	//
+	// This is the "work out what to store" surface; CommitMemory is the "store
+	// this" one. It is ADDITIVE: a caller that authors its own writes keeps using
+	// CommitMemory unchanged and pays none of this operation's cost.
+	//
+	// THREE THINGS A CALLER MUST KNOW BEFORE USING IT.
+	//
+	// It is a DIFFERENT LATENCY CLASS. Two model round-trips plus a retrieval plus
+	// a commit means seconds, not the milliseconds CommitMemory takes. Do not put
+	// it on a request path that expects a commit's latency.
+	//
+	// It will frequently STORE NOTHING, and that is success. A conversation
+	// holding nothing worth remembering forms no memory and returns a receipt with
+	// zero candidates; a conversation restating what the scope already holds forms
+	// no memory and returns a receipt of `known` decisions. Neither is an error,
+	// and the receipt is what distinguishes them from each other and from a
+	// refusal.
+	//
+	// Submitted turns are SENT TO AN EXTERNAL INFERENCE SERVICE (Vertex AI) in the
+	// scope's own region, exactly as the caller wrote them. The platform does not
+	// scan, filter, or redact formation input. A region with no generative model
+	// configured REFUSES formation with FAILED_PRECONDITION rather than inferring
+	// in another region, because a region-pinned scope whose content is inferred
+	// elsewhere breaks a residency commitment invisibly.
+	//
+	// Formation NEVER DELETES and never overwrites: a revision closes the prior
+	// assertion's valid-time window and inserts a replacement, exactly as
+	// SupersedeEdge and SupersedeChunk do, so what the agent believed before the
+	// formation stays readable by an as-of query.
+	//
+	// Retry it with `formation_key`. Extraction is nondeterministic, so a blind
+	// resend would form a SECOND, DIFFERENT set of memory; a resend under the same
+	// key returns the first call's receipt without re-extracting.
+	FormMemory(context.Context, *FormMemoryRequest) (*FormMemoryResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -264,6 +357,9 @@ func (UnimplementedMemoryServiceServer) SupersedeEdge(context.Context, *Supersed
 }
 func (UnimplementedMemoryServiceServer) SupersedeChunk(context.Context, *SupersedeChunkRequest) (*SupersedeChunkResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SupersedeChunk not implemented")
+}
+func (UnimplementedMemoryServiceServer) FormMemory(context.Context, *FormMemoryRequest) (*FormMemoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FormMemory not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -376,6 +472,24 @@ func _MemoryService_SupersedeChunk_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_FormMemory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FormMemoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).FormMemory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_FormMemory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).FormMemory(ctx, req.(*FormMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -402,6 +516,10 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SupersedeChunk",
 			Handler:    _MemoryService_SupersedeChunk_Handler,
+		},
+		{
+			MethodName: "FormMemory",
+			Handler:    _MemoryService_FormMemory_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
