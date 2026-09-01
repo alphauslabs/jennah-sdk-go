@@ -3821,12 +3821,8 @@ type FormedCandidate struct {
 	// which is the intended state: preservation gives back the compression formation
 	// exists to provide, so it fires only where summarising would discard entries.
 	PreservesStructure bool `protobuf:"varint,10,opt,name=preserves_structure,json=preservesStructure,proto3" json:"preserves_structure,omitempty"`
-	// Index into FormMemoryRequest.turns of the turn the preserved structure came
-	// from. Meaningful only with `preserves_structure` true, and 0 otherwise, so read
-	// the boolean first.
-	SourceTurn    int32 `protobuf:"varint,11,opt,name=source_turn,json=sourceTurn,proto3" json:"source_turn,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *FormedCandidate) Reset() {
@@ -3927,13 +3923,6 @@ func (x *FormedCandidate) GetPreservesStructure() bool {
 		return x.PreservesStructure
 	}
 	return false
-}
-
-func (x *FormedCandidate) GetSourceTurn() int32 {
-	if x != nil {
-		return x.SourceTurn
-	}
-	return 0
 }
 
 // One masking the egress scrubber applied to a submitted turn before that turn
@@ -4531,7 +4520,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x11FormMemoryRequest\x12\x19\n" +
 	"\bscope_id\x18\x01 \x01(\tR\ascopeId\x12:\n" +
 	"\x05turns\x18\x02 \x03(\v2$.jennahapi.agent.v1.ConversationTurnR\x05turns\x12#\n" +
-	"\rformation_key\x18\x03 \x01(\tR\fformationKey\"\xd2\x03\n" +
+	"\rformation_key\x18\x03 \x01(\tR\fformationKey\"\xb1\x03\n" +
 	"\x0fFormedCandidate\x12!\n" +
 	"\fcandidate_id\x18\x01 \x01(\tR\vcandidateId\x125\n" +
 	"\x04kind\x18\x02 \x01(\x0e2!.jennahapi.agent.v1.CandidateKindR\x04kind\x12\x12\n" +
@@ -4544,9 +4533,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"matched_id\x18\b \x01(\tR\tmatchedId\x12)\n" +
 	"\x10rejection_reason\x18\t \x01(\tR\x0frejectionReason\x12/\n" +
 	"\x13preserves_structure\x18\n" +
-	" \x01(\bR\x12preservesStructure\x12\x1f\n" +
-	"\vsource_turn\x18\v \x01(\x05R\n" +
-	"sourceTurn\"S\n" +
+	" \x01(\bR\x12preservesStructure\"S\n" +
 	"\x0fRedactionRecord\x12\x1d\n" +
 	"\n" +
 	"turn_index\x18\x01 \x01(\x05R\tturnIndex\x12!\n" +
