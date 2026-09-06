@@ -1797,17 +1797,29 @@ type SemanticQuery struct {
 	// channel ranking over part of a slice returns fewer results than the slice holds
 	// without saying so.
 	RetrievalMode RetrievalMode `protobuf:"varint,7,opt,name=retrieval_mode,json=retrievalMode,proto3,enum=jennahapi.agent.v1.RetrievalMode" json:"retrieval_mode,omitempty"`
-	// Reorder the fused candidate set with an external reranking model
-	// (add-hybrid-retrieval). Absent means off, and off is the default because
+	// Reorder this section's candidate set with an external reranking model
+	// (add-retrieval-reranking). Absent means off, and off is the default because
 	// reranking adds a model round-trip and therefore moves this section into a
 	// different LATENCY CLASS, not because the result is worse without it.
+	//
+	// It applies to WHATEVER candidate set the section produced, from the vector
+	// channel alone or from both channels fused. Reranking is not conditional on
+	// hybrid mode: a caller running vector-only and asking for reranking is asking a
+	// coherent question and gets a coherent answer.
+	//
+	// The candidate set reranked is retrieved WIDER than `limit`, and the reranked
+	// top `limit` is what comes back. That is where the stage earns anything:
+	// reordering only the results the caller would already have received cannot
+	// change which chunks they see, just the order. How much wider is the platform's
+	// constant, not a caller knob, because its right value is a property of the
+	// retrieval path rather than of any one request.
 	//
 	// Reranking resolves within the workspace's own data-plane region, on the same
 	// rule every other external inference follows. A region with no configured
 	// reranking endpoint refuses the request rather than sending the workspace's
 	// content elsewhere, and a request that opts in where reranking cannot be
 	// performed is refused rather than served unreranked: a caller who asked for a
-	// quality guarantee and received a plain fused result has no way to know.
+	// quality guarantee and received an ordinary ranking has no way to know.
 	Rerank        bool `protobuf:"varint,8,opt,name=rerank,proto3" json:"rerank,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2520,9 +2532,38 @@ type SemanticMatch struct {
 	// chunk found by both channels accumulates two terms. Ranks, not scores, are
 	// combined: that needs no normalization and no per-corpus weight, and it is
 	// deterministic: identical inputs produce an identical ordering.
-	RrfScore      float64 `protobuf:"fixed64,8,opt,name=rrf_score,json=rrfScore,proto3" json:"rrf_score,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	RrfScore float64 `protobuf:"fixed64,8,opt,name=rrf_score,json=rrfScore,proto3" json:"rrf_score,omitempty"`
+	// The reranking model's relevance score for this chunk against the query, set
+	// only when the request asked for reranking and 0 otherwise. Higher is more
+	// relevant, OPPOSITE to `distance`.
+	//
+	// Reported for interpretability on the same terms as `lexical_score`: it is what
+	// ORDERED this result, but its absolute value is on the reranker's own scale and
+	// is comparable neither to `distance` nor to `rrf_score`. The model behind it is
+	// versioned and improved over time, so a client should not persist it or compare
+	// it across requests.
+	//
+	// Reranking reorders a candidate set retrieved WIDER than the caller's limit, so
+	// a chunk carrying a score here may be one the unreranked ranking would not have
+	// returned at all. That is the stage's entire purpose rather than a side effect.
+	RerankScore float64 `protobuf:"fixed64,9,opt,name=rerank_score,json=rerankScore,proto3" json:"rerank_score,omitempty"`
+	// Whether this chunk's content was truncated to fit the reranking model's
+	// per-record token limit, meaning the score above was computed on a PREFIX of the
+	// `raw_content` returned beside it.
+	//
+	// Reported rather than left silent, and that is the same rule this section
+	// already applies to reranking as a whole. A request that cannot be reranked is
+	// refused rather than served unreranked, because an unreranked result is
+	// indistinguishable from a reranked one and the caller would be told something
+	// untrue with no way to discover it. A result ranked on its first N tokens is that
+	// defect in miniature, and this field is what makes it distinguishable instead.
+	//
+	// Truncation here says nothing about what is STORED or what is returned: the whole
+	// chunk was indexed, and the whole chunk is in `raw_content`. It bounds only how
+	// much of it the reranker saw. False whenever reranking did not run.
+	RerankTruncated bool `protobuf:"varint,10,opt,name=rerank_truncated,json=rerankTruncated,proto3" json:"rerank_truncated,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SemanticMatch) Reset() {
@@ -2609,6 +2650,20 @@ func (x *SemanticMatch) GetRrfScore() float64 {
 		return x.RrfScore
 	}
 	return 0
+}
+
+func (x *SemanticMatch) GetRerankScore() float64 {
+	if x != nil {
+		return x.RerankScore
+	}
+	return 0
+}
+
+func (x *SemanticMatch) GetRerankTruncated() bool {
+	if x != nil {
+		return x.RerankTruncated
+	}
+	return false
 }
 
 // Graph traversal result rows. Each row carries the matched elements' key
@@ -4638,7 +4693,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x05fused\x18\x04 \x01(\v2\x1f.jennahapi.agent.v1.FusedResultR\x05fused\x12A\n" +
 	"\x0eread_timestamp\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\rreadTimestamp\"M\n" +
 	"\x0eSemanticResult\x12;\n" +
-	"\amatches\x18\x01 \x03(\v2!.jennahapi.agent.v1.SemanticMatchR\amatches\"\x90\x03\n" +
+	"\amatches\x18\x01 \x03(\v2!.jennahapi.agent.v1.SemanticMatchR\amatches\"\xde\x03\n" +
 	"\rSemanticMatch\x12\x19\n" +
 	"\bchunk_id\x18\x01 \x01(\tR\achunkId\x12\x1f\n" +
 	"\vraw_content\x18\x02 \x01(\tR\n" +
@@ -4648,7 +4703,10 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\bscope_id\x18\x05 \x01(\tR\ascopeId\x12@\n" +
 	"\bchannels\x18\x06 \x03(\x0e2$.jennahapi.agent.v1.RetrievalChannelR\bchannels\x12#\n" +
 	"\rlexical_score\x18\a \x01(\x01R\flexicalScore\x12\x1b\n" +
-	"\trrf_score\x18\b \x01(\x01R\brrfScore\x1a;\n" +
+	"\trrf_score\x18\b \x01(\x01R\brrfScore\x12!\n" +
+	"\frerank_score\x18\t \x01(\x01R\vrerankScore\x12)\n" +
+	"\x10rerank_truncated\x18\n" +
+	" \x01(\bR\x0frerankTruncated\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\":\n" +
