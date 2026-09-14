@@ -1353,9 +1353,19 @@ func (x *OrderBy) GetDescending() bool {
 type RelationalQuery struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Table string                 `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"` // logical root table name
-	// Logical columns to return. Empty projects every column of every joined
-	// table. A column named in more than one joined table must be disambiguated
-	// as "table.column".
+	// Logical columns to return, each written as "column" for the root table or
+	// "table.column" for any table joined below.
+	//
+	// Empty projects every column of the ROOT table except its vector columns,
+	// which are large and are almost never wanted in a result. A joined table
+	// contributes NOTHING to an empty projection: name its columns here to read
+	// them.
+	//
+	// Two projected columns that would occupy the same name in the response, as
+	// "orders.total" and "line_items.total" would, are refused with
+	// INVALID_ARGUMENT naming the collision. A result row is keyed by column name,
+	// so only one of the two could survive and nothing in the response would say
+	// which one was kept.
 	Select []string `protobuf:"bytes,2,rep,name=select,proto3" json:"select,omitempty"`
 	// Conjunctive predicates, combined with the injected dataset clamp.
 	Where []*Predicate `protobuf:"bytes,3,rep,name=where,proto3" json:"where,omitempty"`
