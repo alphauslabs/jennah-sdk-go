@@ -1205,7 +1205,35 @@ type GraphNode struct {
 	// filterable copy of a nested payload field is exactly what an index is.
 	//
 	// Returned with the node wherever the node is returned.
-	Metadata      map[string]string `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Metadata map[string]string `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Optional entity CLASS: what this node is a KIND OF, as distinct from `label`,
+	// which is what it is CALLED. "Admon" is a label; "Person" is a class. Both are
+	// stored, both are returned, and neither is derived from the other.
+	//
+	// ASSIGN-ONCE, and this is the one exception to nodes being create-or-replace.
+	// The first accepted write that supplies a class fixes it; a later write
+	// supplying a DIFFERENT class succeeds, replaces the node's other mutable
+	// fields as usual, and leaves the stored class alone. It is not an error and
+	// reports nothing. A node holding no class is still classifiable, so supplying
+	// one to a node that carries none does store it. To change a stored class,
+	// write a different node.
+	//
+	// The reason is that two writes disagreeing about a class is model or caller
+	// disagreement rather than a change in the world: it carries no valid time, so
+	// it cannot be recorded as supersession the way an edge's meaning can, and
+	// GraphNodes holds no validity window in which the prior class would stay
+	// queryable. Last-write-wins would discard a classification with no history to
+	// recover it from.
+	//
+	// NOT validated against the scope's declared vocabulary (see `memory-ontology`).
+	// A vocabulary steers what memory FORMATION generates; a caller committing
+	// directly may use any class, and a class the current vocabulary no longer
+	// declares stays both stored and filterable.
+	//
+	// Unset means the node carries no class, which is what every node written
+	// before classes existed reads as. It is never populated with a placeholder or
+	// a base class name.
+	NodeType      string `protobuf:"bytes,6,opt,name=node_type,json=nodeType,proto3" json:"node_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1273,6 +1301,13 @@ func (x *GraphNode) GetMetadata() map[string]string {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *GraphNode) GetNodeType() string {
+	if x != nil {
+		return x.NodeType
+	}
+	return ""
 }
 
 type GraphEdge struct {
@@ -2084,15 +2119,17 @@ type GraphNodeMatch struct {
 	// and the same semantics the semantic and log sections use.
 	//
 	// THIS IS A SEPARATE LIST FROM `filters`, and it stays separate deliberately.
-	// `filters` names FIRST-CLASS COLUMNS and is allowlisted (`NodeId`, `Label`) so
-	// that a caller cannot filter on a clamp column. If the two lists merged,
-	// resolving a key would mean asking "is this the name of a column?", which would
-	// hand a caller-chosen string the power to pick which branch it takes and make a
-	// metadata key named `AgentInstanceId` a question rather than an answer. Two
-	// lists means a key's meaning is fixed by which list it is in.
+	// `filters` names FIRST-CLASS COLUMNS and is allowlisted (`NodeId`, `Label`,
+	// `NodeType`) so that a caller cannot filter on a clamp column. If the two lists
+	// merged, resolving a key would mean asking "is this the name of a column?",
+	// which would hand a caller-chosen string the power to pick which branch it
+	// takes and make a metadata key named `AgentInstanceId` a question rather than
+	// an answer. Two lists means a key's meaning is fixed by which list it is in.
 	//
-	// The rule for choosing: filtering a stored column (`NodeId`, `Label`) is
-	// `filters`; filtering a tag you wrote in GraphNode.metadata is `metadata`.
+	// The rule for choosing: filtering a stored column (`NodeId`, `Label`,
+	// `NodeType`) is `filters`; filtering a tag you wrote in GraphNode.metadata is
+	// `metadata`. A node's CLASS is a column and stays in `filters`, so filtering on
+	// a class costs what filtering on a column costs.
 	//
 	// Applied to the matched node BEFORE the traversal expands from it, so a
 	// non-matching anchor is never expanded rather than expanded and discarded.
@@ -2225,9 +2262,16 @@ func (x *GraphStep) GetMetadata() []*MetadataFilter {
 }
 
 // A single equality filter on a FIRST-CLASS COLUMN of the node. `key` is
-// ALLOWLISTED to `NodeId` and `Label`; any other key is rejected with
-// INVALID_ARGUMENT. `value` binds as a query parameter and is never interpolated
-// into query text.
+// ALLOWLISTED to `NodeId`, `Label`, and `NodeType`; any other key is rejected
+// with INVALID_ARGUMENT. `value` binds as a query parameter and is never
+// interpolated into query text.
+//
+// `NodeType` is the node's entity CLASS, which is what makes "every node of this
+// class" expressible without enumerating nodes by name or id. It is NOT validated
+// against the scope's declared vocabulary (see `memory-ontology`): a class is
+// assign-once and a vocabulary is replaceable, so a scope legitimately holds
+// classes its current vocabulary no longer declares, and those nodes stay
+// reachable.
 //
 // The allowlist is what keeps a caller off the clamp columns, so it is narrow on
 // purpose and does not fall back to anything. In particular it does NOT reach into
@@ -4648,7 +4692,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\bnew_edge\x18\x02 \x01(\v2\x1d.jennahapi.agent.v1.GraphEdgeR\anewEdge\"w\n" +
 	"\x11ChunkSupersession\x12$\n" +
 	"\x0eprior_chunk_id\x18\x01 \x01(\tR\fpriorChunkId\x12<\n" +
-	"\tnew_chunk\x18\x02 \x01(\v2\x1f.jennahapi.agent.v1.VectorChunkR\bnewChunk\"\xb4\x02\n" +
+	"\tnew_chunk\x18\x02 \x01(\v2\x1f.jennahapi.agent.v1.VectorChunkR\bnewChunk\"\xd1\x02\n" +
 	"\tGraphNode\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x127\n" +
@@ -4657,7 +4701,8 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"properties\x129\n" +
 	"\n" +
 	"updated_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12G\n" +
-	"\bmetadata\x18\x05 \x03(\v2+.jennahapi.agent.v1.GraphNode.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\x05 \x03(\v2+.jennahapi.agent.v1.GraphNode.MetadataEntryR\bmetadata\x12\x1b\n" +
+	"\tnode_type\x18\x06 \x01(\tR\bnodeType\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x89\x04\n" +

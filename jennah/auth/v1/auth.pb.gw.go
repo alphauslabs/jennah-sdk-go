@@ -458,6 +458,103 @@ func local_request_AuthService_UpdateEnterprise_0(ctx context.Context, marshaler
 	return msg, metadata, err
 }
 
+func request_AuthService_DeclareMemoryVocabulary_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq DeclareMemoryVocabularyRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.DeclareMemoryVocabulary(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_DeclareMemoryVocabulary_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq DeclareMemoryVocabularyRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.DeclareMemoryVocabulary(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_RemoveMemoryVocabulary_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+
+func request_AuthService_RemoveMemoryVocabulary_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq RemoveMemoryVocabularyRequest
+		metadata runtime.ServerMetadata
+	)
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_RemoveMemoryVocabulary_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := client.RemoveMemoryVocabulary(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_RemoveMemoryVocabulary_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq RemoveMemoryVocabularyRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_RemoveMemoryVocabulary_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.RemoveMemoryVocabulary(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_GetMemoryVocabulary_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+
+func request_AuthService_GetMemoryVocabulary_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq GetMemoryVocabularyRequest
+		metadata runtime.ServerMetadata
+	)
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_GetMemoryVocabulary_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := client.GetMemoryVocabulary(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_GetMemoryVocabulary_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq GetMemoryVocabularyRequest
+		metadata runtime.ServerMetadata
+	)
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_GetMemoryVocabulary_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.GetMemoryVocabulary(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 func request_AuthService_ListPermissions_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var (
 		protoReq ListPermissionsRequest
@@ -930,6 +1027,66 @@ func RegisterAuthServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		}
 		forward_AuthService_UpdateEnterprise_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPut, pattern_AuthService_DeclareMemoryVocabulary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/DeclareMemoryVocabulary", runtime.WithHTTPPathPattern("/v1/org/memory-vocabulary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_DeclareMemoryVocabulary_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_DeclareMemoryVocabulary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodDelete, pattern_AuthService_RemoveMemoryVocabulary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/RemoveMemoryVocabulary", runtime.WithHTTPPathPattern("/v1/org/memory-vocabulary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_RemoveMemoryVocabulary_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_RemoveMemoryVocabulary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_GetMemoryVocabulary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/GetMemoryVocabulary", runtime.WithHTTPPathPattern("/v1/org/memory-vocabulary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_GetMemoryVocabulary_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_GetMemoryVocabulary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodGet, pattern_AuthService_ListPermissions_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -1311,6 +1468,57 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		}
 		forward_AuthService_UpdateEnterprise_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodPut, pattern_AuthService_DeclareMemoryVocabulary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/DeclareMemoryVocabulary", runtime.WithHTTPPathPattern("/v1/org/memory-vocabulary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_DeclareMemoryVocabulary_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_DeclareMemoryVocabulary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodDelete, pattern_AuthService_RemoveMemoryVocabulary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/RemoveMemoryVocabulary", runtime.WithHTTPPathPattern("/v1/org/memory-vocabulary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_RemoveMemoryVocabulary_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_RemoveMemoryVocabulary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_GetMemoryVocabulary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/jennahapi.auth.v1.AuthService/GetMemoryVocabulary", runtime.WithHTTPPathPattern("/v1/org/memory-vocabulary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_GetMemoryVocabulary_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_GetMemoryVocabulary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	mux.Handle(http.MethodGet, pattern_AuthService_ListPermissions_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -1417,45 +1625,51 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 }
 
 var (
-	pattern_AuthService_WhoAmI_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "whoami"}, ""))
-	pattern_AuthService_CreateApiKey_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "apikeys"}, ""))
-	pattern_AuthService_ListApiKeys_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "apikeys"}, ""))
-	pattern_AuthService_RevokeApiKey_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "apikeys", "key_id"}, "revoke"))
-	pattern_AuthService_InviteMember_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "invitations"}, ""))
-	pattern_AuthService_ListInvitations_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "invitations"}, ""))
-	pattern_AuthService_RevokeInvitation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "invitations", "invitation_id"}, "revoke"))
-	pattern_AuthService_AcceptInvitation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "invitations"}, "accept"))
-	pattern_AuthService_ListMembers_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "members"}, ""))
-	pattern_AuthService_ChangeMemberRole_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "members", "user_id"}, "setRole"))
-	pattern_AuthService_RemoveMember_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "members", "user_id"}, ""))
-	pattern_AuthService_TransferRoot_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "org"}, "transferRoot"))
-	pattern_AuthService_UpdateEnterprise_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "org"}, ""))
-	pattern_AuthService_ListPermissions_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "permissions"}, ""))
-	pattern_AuthService_CreateRole_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "roles"}, ""))
-	pattern_AuthService_ListRoles_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "roles"}, ""))
-	pattern_AuthService_GetRole_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roles", "role_id"}, ""))
-	pattern_AuthService_UpdateRole_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roles", "role_id"}, ""))
-	pattern_AuthService_DeleteRole_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roles", "role_id"}, ""))
+	pattern_AuthService_WhoAmI_0                  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "whoami"}, ""))
+	pattern_AuthService_CreateApiKey_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "apikeys"}, ""))
+	pattern_AuthService_ListApiKeys_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "apikeys"}, ""))
+	pattern_AuthService_RevokeApiKey_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "apikeys", "key_id"}, "revoke"))
+	pattern_AuthService_InviteMember_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "invitations"}, ""))
+	pattern_AuthService_ListInvitations_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "invitations"}, ""))
+	pattern_AuthService_RevokeInvitation_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "invitations", "invitation_id"}, "revoke"))
+	pattern_AuthService_AcceptInvitation_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "invitations"}, "accept"))
+	pattern_AuthService_ListMembers_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "members"}, ""))
+	pattern_AuthService_ChangeMemberRole_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "members", "user_id"}, "setRole"))
+	pattern_AuthService_RemoveMember_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "members", "user_id"}, ""))
+	pattern_AuthService_TransferRoot_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "org"}, "transferRoot"))
+	pattern_AuthService_UpdateEnterprise_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "org"}, ""))
+	pattern_AuthService_DeclareMemoryVocabulary_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "org", "memory-vocabulary"}, ""))
+	pattern_AuthService_RemoveMemoryVocabulary_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "org", "memory-vocabulary"}, ""))
+	pattern_AuthService_GetMemoryVocabulary_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "org", "memory-vocabulary"}, ""))
+	pattern_AuthService_ListPermissions_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "permissions"}, ""))
+	pattern_AuthService_CreateRole_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "roles"}, ""))
+	pattern_AuthService_ListRoles_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "roles"}, ""))
+	pattern_AuthService_GetRole_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roles", "role_id"}, ""))
+	pattern_AuthService_UpdateRole_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roles", "role_id"}, ""))
+	pattern_AuthService_DeleteRole_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roles", "role_id"}, ""))
 )
 
 var (
-	forward_AuthService_WhoAmI_0           = runtime.ForwardResponseMessage
-	forward_AuthService_CreateApiKey_0     = runtime.ForwardResponseMessage
-	forward_AuthService_ListApiKeys_0      = runtime.ForwardResponseMessage
-	forward_AuthService_RevokeApiKey_0     = runtime.ForwardResponseMessage
-	forward_AuthService_InviteMember_0     = runtime.ForwardResponseMessage
-	forward_AuthService_ListInvitations_0  = runtime.ForwardResponseMessage
-	forward_AuthService_RevokeInvitation_0 = runtime.ForwardResponseMessage
-	forward_AuthService_AcceptInvitation_0 = runtime.ForwardResponseMessage
-	forward_AuthService_ListMembers_0      = runtime.ForwardResponseMessage
-	forward_AuthService_ChangeMemberRole_0 = runtime.ForwardResponseMessage
-	forward_AuthService_RemoveMember_0     = runtime.ForwardResponseMessage
-	forward_AuthService_TransferRoot_0     = runtime.ForwardResponseMessage
-	forward_AuthService_UpdateEnterprise_0 = runtime.ForwardResponseMessage
-	forward_AuthService_ListPermissions_0  = runtime.ForwardResponseMessage
-	forward_AuthService_CreateRole_0       = runtime.ForwardResponseMessage
-	forward_AuthService_ListRoles_0        = runtime.ForwardResponseMessage
-	forward_AuthService_GetRole_0          = runtime.ForwardResponseMessage
-	forward_AuthService_UpdateRole_0       = runtime.ForwardResponseMessage
-	forward_AuthService_DeleteRole_0       = runtime.ForwardResponseMessage
+	forward_AuthService_WhoAmI_0                  = runtime.ForwardResponseMessage
+	forward_AuthService_CreateApiKey_0            = runtime.ForwardResponseMessage
+	forward_AuthService_ListApiKeys_0             = runtime.ForwardResponseMessage
+	forward_AuthService_RevokeApiKey_0            = runtime.ForwardResponseMessage
+	forward_AuthService_InviteMember_0            = runtime.ForwardResponseMessage
+	forward_AuthService_ListInvitations_0         = runtime.ForwardResponseMessage
+	forward_AuthService_RevokeInvitation_0        = runtime.ForwardResponseMessage
+	forward_AuthService_AcceptInvitation_0        = runtime.ForwardResponseMessage
+	forward_AuthService_ListMembers_0             = runtime.ForwardResponseMessage
+	forward_AuthService_ChangeMemberRole_0        = runtime.ForwardResponseMessage
+	forward_AuthService_RemoveMember_0            = runtime.ForwardResponseMessage
+	forward_AuthService_TransferRoot_0            = runtime.ForwardResponseMessage
+	forward_AuthService_UpdateEnterprise_0        = runtime.ForwardResponseMessage
+	forward_AuthService_DeclareMemoryVocabulary_0 = runtime.ForwardResponseMessage
+	forward_AuthService_RemoveMemoryVocabulary_0  = runtime.ForwardResponseMessage
+	forward_AuthService_GetMemoryVocabulary_0     = runtime.ForwardResponseMessage
+	forward_AuthService_ListPermissions_0         = runtime.ForwardResponseMessage
+	forward_AuthService_CreateRole_0              = runtime.ForwardResponseMessage
+	forward_AuthService_ListRoles_0               = runtime.ForwardResponseMessage
+	forward_AuthService_GetRole_0                 = runtime.ForwardResponseMessage
+	forward_AuthService_UpdateRole_0              = runtime.ForwardResponseMessage
+	forward_AuthService_DeleteRole_0              = runtime.ForwardResponseMessage
 )
