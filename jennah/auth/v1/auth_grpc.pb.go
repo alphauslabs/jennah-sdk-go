@@ -19,35 +19,32 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_WhoAmI_FullMethodName                  = "/jennahapi.auth.v1.AuthService/WhoAmI"
-	AuthService_StartLogin_FullMethodName              = "/jennahapi.auth.v1.AuthService/StartLogin"
-	AuthService_CompleteLogin_FullMethodName           = "/jennahapi.auth.v1.AuthService/CompleteLogin"
-	AuthService_ExchangeCode_FullMethodName            = "/jennahapi.auth.v1.AuthService/ExchangeCode"
-	AuthService_StartDeviceLogin_FullMethodName        = "/jennahapi.auth.v1.AuthService/StartDeviceLogin"
-	AuthService_PollDeviceLogin_FullMethodName         = "/jennahapi.auth.v1.AuthService/PollDeviceLogin"
-	AuthService_RefreshToken_FullMethodName            = "/jennahapi.auth.v1.AuthService/RefreshToken"
-	AuthService_Logout_FullMethodName                  = "/jennahapi.auth.v1.AuthService/Logout"
-	AuthService_CreateApiKey_FullMethodName            = "/jennahapi.auth.v1.AuthService/CreateApiKey"
-	AuthService_ListApiKeys_FullMethodName             = "/jennahapi.auth.v1.AuthService/ListApiKeys"
-	AuthService_RevokeApiKey_FullMethodName            = "/jennahapi.auth.v1.AuthService/RevokeApiKey"
-	AuthService_InviteMember_FullMethodName            = "/jennahapi.auth.v1.AuthService/InviteMember"
-	AuthService_ListInvitations_FullMethodName         = "/jennahapi.auth.v1.AuthService/ListInvitations"
-	AuthService_RevokeInvitation_FullMethodName        = "/jennahapi.auth.v1.AuthService/RevokeInvitation"
-	AuthService_AcceptInvitation_FullMethodName        = "/jennahapi.auth.v1.AuthService/AcceptInvitation"
-	AuthService_ListMembers_FullMethodName             = "/jennahapi.auth.v1.AuthService/ListMembers"
-	AuthService_ChangeMemberRole_FullMethodName        = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
-	AuthService_RemoveMember_FullMethodName            = "/jennahapi.auth.v1.AuthService/RemoveMember"
-	AuthService_TransferRoot_FullMethodName            = "/jennahapi.auth.v1.AuthService/TransferRoot"
-	AuthService_UpdateEnterprise_FullMethodName        = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
-	AuthService_DeclareMemoryVocabulary_FullMethodName = "/jennahapi.auth.v1.AuthService/DeclareMemoryVocabulary"
-	AuthService_RemoveMemoryVocabulary_FullMethodName  = "/jennahapi.auth.v1.AuthService/RemoveMemoryVocabulary"
-	AuthService_GetMemoryVocabulary_FullMethodName     = "/jennahapi.auth.v1.AuthService/GetMemoryVocabulary"
-	AuthService_ListPermissions_FullMethodName         = "/jennahapi.auth.v1.AuthService/ListPermissions"
-	AuthService_CreateRole_FullMethodName              = "/jennahapi.auth.v1.AuthService/CreateRole"
-	AuthService_ListRoles_FullMethodName               = "/jennahapi.auth.v1.AuthService/ListRoles"
-	AuthService_GetRole_FullMethodName                 = "/jennahapi.auth.v1.AuthService/GetRole"
-	AuthService_UpdateRole_FullMethodName              = "/jennahapi.auth.v1.AuthService/UpdateRole"
-	AuthService_DeleteRole_FullMethodName              = "/jennahapi.auth.v1.AuthService/DeleteRole"
+	AuthService_WhoAmI_FullMethodName           = "/jennahapi.auth.v1.AuthService/WhoAmI"
+	AuthService_StartLogin_FullMethodName       = "/jennahapi.auth.v1.AuthService/StartLogin"
+	AuthService_CompleteLogin_FullMethodName    = "/jennahapi.auth.v1.AuthService/CompleteLogin"
+	AuthService_ExchangeCode_FullMethodName     = "/jennahapi.auth.v1.AuthService/ExchangeCode"
+	AuthService_StartDeviceLogin_FullMethodName = "/jennahapi.auth.v1.AuthService/StartDeviceLogin"
+	AuthService_PollDeviceLogin_FullMethodName  = "/jennahapi.auth.v1.AuthService/PollDeviceLogin"
+	AuthService_RefreshToken_FullMethodName     = "/jennahapi.auth.v1.AuthService/RefreshToken"
+	AuthService_Logout_FullMethodName           = "/jennahapi.auth.v1.AuthService/Logout"
+	AuthService_CreateApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/CreateApiKey"
+	AuthService_ListApiKeys_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListApiKeys"
+	AuthService_RevokeApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/RevokeApiKey"
+	AuthService_InviteMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/InviteMember"
+	AuthService_ListInvitations_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListInvitations"
+	AuthService_RevokeInvitation_FullMethodName = "/jennahapi.auth.v1.AuthService/RevokeInvitation"
+	AuthService_AcceptInvitation_FullMethodName = "/jennahapi.auth.v1.AuthService/AcceptInvitation"
+	AuthService_ListMembers_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListMembers"
+	AuthService_ChangeMemberRole_FullMethodName = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
+	AuthService_RemoveMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/RemoveMember"
+	AuthService_TransferRoot_FullMethodName     = "/jennahapi.auth.v1.AuthService/TransferRoot"
+	AuthService_UpdateEnterprise_FullMethodName = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
+	AuthService_ListPermissions_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListPermissions"
+	AuthService_CreateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/CreateRole"
+	AuthService_ListRoles_FullMethodName        = "/jennahapi.auth.v1.AuthService/ListRoles"
+	AuthService_GetRole_FullMethodName          = "/jennahapi.auth.v1.AuthService/GetRole"
+	AuthService_UpdateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/UpdateRole"
+	AuthService_DeleteRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/DeleteRole"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -162,45 +159,6 @@ type AuthServiceClient interface {
 	// is always the caller's active enterprise (from the token), never a path/body
 	// id, mirroring ListMembers/ChangeMemberRole.
 	UpdateEnterprise(ctx context.Context, in *UpdateEnterpriseRequest, opts ...grpc.CallOption) (*UpdateEnterpriseResponse, error)
-	// Declares the memory vocabulary for the caller's active enterprise, or for one
-	// scope in it. External (gateway) RPC. Authenticated AND requires the
-	// "settings.enterprise:update" permission, which is management-class: a
-	// key-authenticated caller acting as an agent CANNOT declare a vocabulary at
-	// either level, so an agent cannot alter the vocabulary governing its own
-	// memory.
-	//
-	// REPLACES the vocabulary previously declared at that level in its entirety. It
-	// does not merge, so a class or relation type is removed by omitting it and the
-	// effective declaration is always readable from one document.
-	//
-	// `vocabulary` is REQUIRED even when empty, and this is deliberate. A
-	// declaration carrying no classes is an EMPTY declaration that turns
-	// classification off at that level; it is NOT a removal, which is its own RPC.
-	// Leaving the field unset is rejected rather than treated as either one, because
-	// a client that builds its request incrementally and forgets to set it would
-	// otherwise silently destroy the vocabulary it meant to leave alone.
-	DeclareMemoryVocabulary(ctx context.Context, in *DeclareMemoryVocabularyRequest, opts ...grpc.CallOption) (*DeclareMemoryVocabularyResponse, error)
-	// Removes the memory vocabulary declared at one level. External (gateway) RPC.
-	// Authenticated AND requires the "settings.enterprise:update" permission
-	// (management-class, as DeclareMemoryVocabulary).
-	//
-	// Removing a SCOPE-level declaration restores inheritance: that scope resolves
-	// its enterprise's vocabulary again. This is a DIFFERENT outcome from declaring
-	// an empty vocabulary for it, which resolves nothing. Removing the
-	// ENTERPRISE-level declaration leaves no vocabulary at that level.
-	//
-	// Removes no memory. Every entity already written keeps the class it was given,
-	// and no stored row is changed.
-	RemoveMemoryVocabulary(ctx context.Context, in *RemoveMemoryVocabularyRequest, opts ...grpc.CallOption) (*RemoveMemoryVocabularyResponse, error)
-	// Reads the memory vocabulary for one level. External (gateway) RPC.
-	// Authenticated AND requires the "settings.enterprise:read" permission, which is
-	// NOT management-class: reading what classifies a scope's memory is not the same
-	// act as changing it.
-	//
-	// Returns TWO answers, because one cannot express the difference: the
-	// declaration AT the level asked about, and the vocabulary that RESOLVES for it.
-	// See GetMemoryVocabularyResponse.
-	GetMemoryVocabulary(ctx context.Context, in *GetMemoryVocabularyRequest, opts ...grpc.CallOption) (*GetMemoryVocabularyResponse, error)
 	// Lists the fixed permission catalog: every grantable "group.resource:action"
 	// permission and whether it is management-class. External (gateway) RPC.
 	// Authenticated, but requires no specific permission: the catalog is
@@ -441,36 +399,6 @@ func (c *authServiceClient) UpdateEnterprise(ctx context.Context, in *UpdateEnte
 	return out, nil
 }
 
-func (c *authServiceClient) DeclareMemoryVocabulary(ctx context.Context, in *DeclareMemoryVocabularyRequest, opts ...grpc.CallOption) (*DeclareMemoryVocabularyResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DeclareMemoryVocabularyResponse)
-	err := c.cc.Invoke(ctx, AuthService_DeclareMemoryVocabulary_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) RemoveMemoryVocabulary(ctx context.Context, in *RemoveMemoryVocabularyRequest, opts ...grpc.CallOption) (*RemoveMemoryVocabularyResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RemoveMemoryVocabularyResponse)
-	err := c.cc.Invoke(ctx, AuthService_RemoveMemoryVocabulary_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) GetMemoryVocabulary(ctx context.Context, in *GetMemoryVocabularyRequest, opts ...grpc.CallOption) (*GetMemoryVocabularyResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetMemoryVocabularyResponse)
-	err := c.cc.Invoke(ctx, AuthService_GetMemoryVocabulary_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *authServiceClient) ListPermissions(ctx context.Context, in *ListPermissionsRequest, opts ...grpc.CallOption) (*ListPermissionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListPermissionsResponse)
@@ -643,45 +571,6 @@ type AuthServiceServer interface {
 	// is always the caller's active enterprise (from the token), never a path/body
 	// id, mirroring ListMembers/ChangeMemberRole.
 	UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error)
-	// Declares the memory vocabulary for the caller's active enterprise, or for one
-	// scope in it. External (gateway) RPC. Authenticated AND requires the
-	// "settings.enterprise:update" permission, which is management-class: a
-	// key-authenticated caller acting as an agent CANNOT declare a vocabulary at
-	// either level, so an agent cannot alter the vocabulary governing its own
-	// memory.
-	//
-	// REPLACES the vocabulary previously declared at that level in its entirety. It
-	// does not merge, so a class or relation type is removed by omitting it and the
-	// effective declaration is always readable from one document.
-	//
-	// `vocabulary` is REQUIRED even when empty, and this is deliberate. A
-	// declaration carrying no classes is an EMPTY declaration that turns
-	// classification off at that level; it is NOT a removal, which is its own RPC.
-	// Leaving the field unset is rejected rather than treated as either one, because
-	// a client that builds its request incrementally and forgets to set it would
-	// otherwise silently destroy the vocabulary it meant to leave alone.
-	DeclareMemoryVocabulary(context.Context, *DeclareMemoryVocabularyRequest) (*DeclareMemoryVocabularyResponse, error)
-	// Removes the memory vocabulary declared at one level. External (gateway) RPC.
-	// Authenticated AND requires the "settings.enterprise:update" permission
-	// (management-class, as DeclareMemoryVocabulary).
-	//
-	// Removing a SCOPE-level declaration restores inheritance: that scope resolves
-	// its enterprise's vocabulary again. This is a DIFFERENT outcome from declaring
-	// an empty vocabulary for it, which resolves nothing. Removing the
-	// ENTERPRISE-level declaration leaves no vocabulary at that level.
-	//
-	// Removes no memory. Every entity already written keeps the class it was given,
-	// and no stored row is changed.
-	RemoveMemoryVocabulary(context.Context, *RemoveMemoryVocabularyRequest) (*RemoveMemoryVocabularyResponse, error)
-	// Reads the memory vocabulary for one level. External (gateway) RPC.
-	// Authenticated AND requires the "settings.enterprise:read" permission, which is
-	// NOT management-class: reading what classifies a scope's memory is not the same
-	// act as changing it.
-	//
-	// Returns TWO answers, because one cannot express the difference: the
-	// declaration AT the level asked about, and the vocabulary that RESOLVES for it.
-	// See GetMemoryVocabularyResponse.
-	GetMemoryVocabulary(context.Context, *GetMemoryVocabularyRequest) (*GetMemoryVocabularyResponse, error)
 	// Lists the fixed permission catalog: every grantable "group.resource:action"
 	// permission and whether it is management-class. External (gateway) RPC.
 	// Authenticated, but requires no specific permission: the catalog is
@@ -781,15 +670,6 @@ func (UnimplementedAuthServiceServer) TransferRoot(context.Context, *TransferRoo
 }
 func (UnimplementedAuthServiceServer) UpdateEnterprise(context.Context, *UpdateEnterpriseRequest) (*UpdateEnterpriseResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateEnterprise not implemented")
-}
-func (UnimplementedAuthServiceServer) DeclareMemoryVocabulary(context.Context, *DeclareMemoryVocabularyRequest) (*DeclareMemoryVocabularyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method DeclareMemoryVocabulary not implemented")
-}
-func (UnimplementedAuthServiceServer) RemoveMemoryVocabulary(context.Context, *RemoveMemoryVocabularyRequest) (*RemoveMemoryVocabularyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RemoveMemoryVocabulary not implemented")
-}
-func (UnimplementedAuthServiceServer) GetMemoryVocabulary(context.Context, *GetMemoryVocabularyRequest) (*GetMemoryVocabularyResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetMemoryVocabulary not implemented")
 }
 func (UnimplementedAuthServiceServer) ListPermissions(context.Context, *ListPermissionsRequest) (*ListPermissionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListPermissions not implemented")
@@ -1190,60 +1070,6 @@ func _AuthService_UpdateEnterprise_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AuthService_DeclareMemoryVocabulary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeclareMemoryVocabularyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).DeclareMemoryVocabulary(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_DeclareMemoryVocabulary_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).DeclareMemoryVocabulary(ctx, req.(*DeclareMemoryVocabularyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_RemoveMemoryVocabulary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RemoveMemoryVocabularyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).RemoveMemoryVocabulary(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_RemoveMemoryVocabulary_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).RemoveMemoryVocabulary(ctx, req.(*RemoveMemoryVocabularyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_GetMemoryVocabulary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetMemoryVocabularyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).GetMemoryVocabulary(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_GetMemoryVocabulary_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).GetMemoryVocabulary(ctx, req.(*GetMemoryVocabularyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _AuthService_ListPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListPermissionsRequest)
 	if err := dec(in); err != nil {
@@ -1438,18 +1264,6 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateEnterprise",
 			Handler:    _AuthService_UpdateEnterprise_Handler,
-		},
-		{
-			MethodName: "DeclareMemoryVocabulary",
-			Handler:    _AuthService_DeclareMemoryVocabulary_Handler,
-		},
-		{
-			MethodName: "RemoveMemoryVocabulary",
-			Handler:    _AuthService_RemoveMemoryVocabulary_Handler,
-		},
-		{
-			MethodName: "GetMemoryVocabulary",
-			Handler:    _AuthService_GetMemoryVocabulary_Handler,
 		},
 		{
 			MethodName: "ListPermissions",

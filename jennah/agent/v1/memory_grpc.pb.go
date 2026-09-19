@@ -19,12 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MemoryService_CommitMemory_FullMethodName   = "/jennahapi.agent.v1.MemoryService/CommitMemory"
-	MemoryService_QueryMemory_FullMethodName    = "/jennahapi.agent.v1.MemoryService/QueryMemory"
-	MemoryService_InspectMemory_FullMethodName  = "/jennahapi.agent.v1.MemoryService/InspectMemory"
-	MemoryService_SupersedeEdge_FullMethodName  = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
-	MemoryService_SupersedeChunk_FullMethodName = "/jennahapi.agent.v1.MemoryService/SupersedeChunk"
-	MemoryService_FormMemory_FullMethodName     = "/jennahapi.agent.v1.MemoryService/FormMemory"
+	MemoryService_CommitMemory_FullMethodName            = "/jennahapi.agent.v1.MemoryService/CommitMemory"
+	MemoryService_QueryMemory_FullMethodName             = "/jennahapi.agent.v1.MemoryService/QueryMemory"
+	MemoryService_InspectMemory_FullMethodName           = "/jennahapi.agent.v1.MemoryService/InspectMemory"
+	MemoryService_SupersedeEdge_FullMethodName           = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
+	MemoryService_SupersedeChunk_FullMethodName          = "/jennahapi.agent.v1.MemoryService/SupersedeChunk"
+	MemoryService_FormMemory_FullMethodName              = "/jennahapi.agent.v1.MemoryService/FormMemory"
+	MemoryService_DeclareMemoryVocabulary_FullMethodName = "/jennahapi.agent.v1.MemoryService/DeclareMemoryVocabulary"
+	MemoryService_RemoveMemoryVocabulary_FullMethodName  = "/jennahapi.agent.v1.MemoryService/RemoveMemoryVocabulary"
+	MemoryService_GetMemoryVocabulary_FullMethodName     = "/jennahapi.agent.v1.MemoryService/GetMemoryVocabulary"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -145,6 +148,63 @@ type MemoryServiceClient interface {
 	// resend would form a SECOND, DIFFERENT set of memory; a resend under the same
 	// key returns the first call's receipt without re-extracting.
 	FormMemory(ctx context.Context, in *FormMemoryRequest, opts ...grpc.CallOption) (*FormMemoryResponse, error)
+	// Declares the memory vocabulary for the caller's active enterprise, or for one
+	// scope in it. External (gateway) RPC. Authenticated AND requires the
+	// "agent.vocabulary:manage" permission, which is management-class: a
+	// key-authenticated caller acting as an agent CANNOT declare a vocabulary at
+	// either level, so an agent cannot alter the vocabulary governing its own
+	// memory.
+	//
+	// REPLACES the vocabulary previously declared at that level in its entirety. It
+	// does not merge, so a class or relation type is removed by omitting it and the
+	// effective declaration is always readable from one document.
+	//
+	// `vocabulary` is REQUIRED even when empty, and this is deliberate. A
+	// declaration carrying no classes is an EMPTY declaration that turns
+	// classification off at that level; it is NOT a removal, which is its own RPC.
+	// Leaving the field unset is rejected rather than treated as either one, because
+	// a client that builds its request incrementally and forgets to set it would
+	// otherwise silently destroy the vocabulary it meant to leave alone.
+	//
+	// A call naming a SCOPE additionally requires that the caller's selectors reach
+	// that scope, in the namespace matching its kind. A caller who cannot reach it is
+	// answered exactly as it is answered for a scope that does not exist, so a refusal
+	// never confirms that the scope is there. A call naming no scope addresses the
+	// enterprise level, which names no scope and so requires no reach.
+	DeclareMemoryVocabulary(ctx context.Context, in *DeclareMemoryVocabularyRequest, opts ...grpc.CallOption) (*DeclareMemoryVocabularyResponse, error)
+	// Removes the memory vocabulary declared at one level. External (gateway) RPC.
+	// Authenticated AND requires the "agent.vocabulary:manage" permission
+	// (management-class, as DeclareMemoryVocabulary).
+	//
+	// Removing a SCOPE-level declaration restores inheritance: that scope resolves
+	// its enterprise's vocabulary again. This is a DIFFERENT outcome from declaring
+	// an empty vocabulary for it, which resolves nothing. Removing the
+	// ENTERPRISE-level declaration leaves no vocabulary at that level.
+	//
+	// Removes no memory. Every entity already written keeps the class it was given,
+	// and no stored row is changed.
+	//
+	// A call naming a SCOPE additionally requires that the caller's selectors reach
+	// that scope, in the namespace matching its kind. A caller who cannot reach it is
+	// answered exactly as it is answered for a scope that does not exist, so a refusal
+	// never confirms that the scope is there. A call naming no scope addresses the
+	// enterprise level, which names no scope and so requires no reach.
+	RemoveMemoryVocabulary(ctx context.Context, in *RemoveMemoryVocabularyRequest, opts ...grpc.CallOption) (*RemoveMemoryVocabularyResponse, error)
+	// Reads the memory vocabulary for one level. External (gateway) RPC.
+	// Authenticated AND requires the "agent.vocabulary:read" permission, which is
+	// NOT management-class: reading what classifies a scope's memory is not the same
+	// act as changing it.
+	//
+	// Returns TWO answers, because one cannot express the difference: the
+	// declaration AT the level asked about, and the vocabulary that RESOLVES for it.
+	// See GetMemoryVocabularyResponse.
+	//
+	// A call naming a SCOPE additionally requires that the caller's selectors reach
+	// that scope, in the namespace matching its kind. A caller who cannot reach it is
+	// answered exactly as it is answered for a scope that does not exist, so a refusal
+	// never confirms that the scope is there. A call naming no scope addresses the
+	// enterprise level, which names no scope and so requires no reach.
+	GetMemoryVocabulary(ctx context.Context, in *GetMemoryVocabularyRequest, opts ...grpc.CallOption) (*GetMemoryVocabularyResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -209,6 +269,36 @@ func (c *memoryServiceClient) FormMemory(ctx context.Context, in *FormMemoryRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FormMemoryResponse)
 	err := c.cc.Invoke(ctx, MemoryService_FormMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) DeclareMemoryVocabulary(ctx context.Context, in *DeclareMemoryVocabularyRequest, opts ...grpc.CallOption) (*DeclareMemoryVocabularyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeclareMemoryVocabularyResponse)
+	err := c.cc.Invoke(ctx, MemoryService_DeclareMemoryVocabulary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) RemoveMemoryVocabulary(ctx context.Context, in *RemoveMemoryVocabularyRequest, opts ...grpc.CallOption) (*RemoveMemoryVocabularyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveMemoryVocabularyResponse)
+	err := c.cc.Invoke(ctx, MemoryService_RemoveMemoryVocabulary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) GetMemoryVocabulary(ctx context.Context, in *GetMemoryVocabularyRequest, opts ...grpc.CallOption) (*GetMemoryVocabularyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMemoryVocabularyResponse)
+	err := c.cc.Invoke(ctx, MemoryService_GetMemoryVocabulary_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -333,6 +423,63 @@ type MemoryServiceServer interface {
 	// resend would form a SECOND, DIFFERENT set of memory; a resend under the same
 	// key returns the first call's receipt without re-extracting.
 	FormMemory(context.Context, *FormMemoryRequest) (*FormMemoryResponse, error)
+	// Declares the memory vocabulary for the caller's active enterprise, or for one
+	// scope in it. External (gateway) RPC. Authenticated AND requires the
+	// "agent.vocabulary:manage" permission, which is management-class: a
+	// key-authenticated caller acting as an agent CANNOT declare a vocabulary at
+	// either level, so an agent cannot alter the vocabulary governing its own
+	// memory.
+	//
+	// REPLACES the vocabulary previously declared at that level in its entirety. It
+	// does not merge, so a class or relation type is removed by omitting it and the
+	// effective declaration is always readable from one document.
+	//
+	// `vocabulary` is REQUIRED even when empty, and this is deliberate. A
+	// declaration carrying no classes is an EMPTY declaration that turns
+	// classification off at that level; it is NOT a removal, which is its own RPC.
+	// Leaving the field unset is rejected rather than treated as either one, because
+	// a client that builds its request incrementally and forgets to set it would
+	// otherwise silently destroy the vocabulary it meant to leave alone.
+	//
+	// A call naming a SCOPE additionally requires that the caller's selectors reach
+	// that scope, in the namespace matching its kind. A caller who cannot reach it is
+	// answered exactly as it is answered for a scope that does not exist, so a refusal
+	// never confirms that the scope is there. A call naming no scope addresses the
+	// enterprise level, which names no scope and so requires no reach.
+	DeclareMemoryVocabulary(context.Context, *DeclareMemoryVocabularyRequest) (*DeclareMemoryVocabularyResponse, error)
+	// Removes the memory vocabulary declared at one level. External (gateway) RPC.
+	// Authenticated AND requires the "agent.vocabulary:manage" permission
+	// (management-class, as DeclareMemoryVocabulary).
+	//
+	// Removing a SCOPE-level declaration restores inheritance: that scope resolves
+	// its enterprise's vocabulary again. This is a DIFFERENT outcome from declaring
+	// an empty vocabulary for it, which resolves nothing. Removing the
+	// ENTERPRISE-level declaration leaves no vocabulary at that level.
+	//
+	// Removes no memory. Every entity already written keeps the class it was given,
+	// and no stored row is changed.
+	//
+	// A call naming a SCOPE additionally requires that the caller's selectors reach
+	// that scope, in the namespace matching its kind. A caller who cannot reach it is
+	// answered exactly as it is answered for a scope that does not exist, so a refusal
+	// never confirms that the scope is there. A call naming no scope addresses the
+	// enterprise level, which names no scope and so requires no reach.
+	RemoveMemoryVocabulary(context.Context, *RemoveMemoryVocabularyRequest) (*RemoveMemoryVocabularyResponse, error)
+	// Reads the memory vocabulary for one level. External (gateway) RPC.
+	// Authenticated AND requires the "agent.vocabulary:read" permission, which is
+	// NOT management-class: reading what classifies a scope's memory is not the same
+	// act as changing it.
+	//
+	// Returns TWO answers, because one cannot express the difference: the
+	// declaration AT the level asked about, and the vocabulary that RESOLVES for it.
+	// See GetMemoryVocabularyResponse.
+	//
+	// A call naming a SCOPE additionally requires that the caller's selectors reach
+	// that scope, in the namespace matching its kind. A caller who cannot reach it is
+	// answered exactly as it is answered for a scope that does not exist, so a refusal
+	// never confirms that the scope is there. A call naming no scope addresses the
+	// enterprise level, which names no scope and so requires no reach.
+	GetMemoryVocabulary(context.Context, *GetMemoryVocabularyRequest) (*GetMemoryVocabularyResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -360,6 +507,15 @@ func (UnimplementedMemoryServiceServer) SupersedeChunk(context.Context, *Superse
 }
 func (UnimplementedMemoryServiceServer) FormMemory(context.Context, *FormMemoryRequest) (*FormMemoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FormMemory not implemented")
+}
+func (UnimplementedMemoryServiceServer) DeclareMemoryVocabulary(context.Context, *DeclareMemoryVocabularyRequest) (*DeclareMemoryVocabularyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeclareMemoryVocabulary not implemented")
+}
+func (UnimplementedMemoryServiceServer) RemoveMemoryVocabulary(context.Context, *RemoveMemoryVocabularyRequest) (*RemoveMemoryVocabularyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveMemoryVocabulary not implemented")
+}
+func (UnimplementedMemoryServiceServer) GetMemoryVocabulary(context.Context, *GetMemoryVocabularyRequest) (*GetMemoryVocabularyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMemoryVocabulary not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -490,6 +646,60 @@ func _MemoryService_FormMemory_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_DeclareMemoryVocabulary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeclareMemoryVocabularyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).DeclareMemoryVocabulary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_DeclareMemoryVocabulary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).DeclareMemoryVocabulary(ctx, req.(*DeclareMemoryVocabularyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_RemoveMemoryVocabulary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveMemoryVocabularyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).RemoveMemoryVocabulary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_RemoveMemoryVocabulary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).RemoveMemoryVocabulary(ctx, req.(*RemoveMemoryVocabularyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_GetMemoryVocabulary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMemoryVocabularyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).GetMemoryVocabulary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_GetMemoryVocabulary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).GetMemoryVocabulary(ctx, req.(*GetMemoryVocabularyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -520,6 +730,18 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FormMemory",
 			Handler:    _MemoryService_FormMemory_Handler,
+		},
+		{
+			MethodName: "DeclareMemoryVocabulary",
+			Handler:    _MemoryService_DeclareMemoryVocabulary_Handler,
+		},
+		{
+			MethodName: "RemoveMemoryVocabulary",
+			Handler:    _MemoryService_RemoveMemoryVocabulary_Handler,
+		},
+		{
+			MethodName: "GetMemoryVocabulary",
+			Handler:    _MemoryService_GetMemoryVocabulary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
