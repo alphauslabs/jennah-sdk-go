@@ -60,7 +60,7 @@ func (f *fakeServer) CreateAgent(ctx context.Context, in *agentv1.CreateAgentReq
 func (f *fakeServer) DeleteAgent(ctx context.Context, in *agentv1.DeleteAgentRequest) (*agentv1.DeleteAgentResponse, error) {
 	f.recordAuth(ctx)
 	f.lastDelete = in
-	return &agentv1.DeleteAgentResponse{ExecutionLogRows: 3}, nil
+	return &agentv1.DeleteAgentResponse{}, nil
 }
 
 func (f *fakeServer) CommitMemory(ctx context.Context, in *agentv1.CommitMemoryRequest) (*agentv1.CommitMemoryResponse, error) {

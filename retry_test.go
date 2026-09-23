@@ -96,6 +96,13 @@ func (f *flakyServer) CommitMemory(ctx context.Context, _ *agentv1.CommitMemoryR
 	return &agentv1.CommitMemoryResponse{}, nil
 }
 
+func (f *flakyServer) FormMemory(ctx context.Context, _ *agentv1.FormMemoryRequest) (*agentv1.FormMemoryResponse, error) {
+	if err := f.attempt(ctx, "FormMemory"); err != nil {
+		return nil, err
+	}
+	return &agentv1.FormMemoryResponse{}, nil
+}
+
 func (f *flakyServer) CommitData(ctx context.Context, _ *datastorev1.CommitDataRequest) (*datastorev1.CommitDataResponse, error) {
 	if err := f.attempt(ctx, "CommitData"); err != nil {
 		return nil, err
@@ -266,6 +273,26 @@ func TestRetryDependsOnTheRequestForConditionalWrites(t *testing.T) {
 			t.Fatalf("Create with key: %v", err)
 		}
 		if got := keyed.count("CreateApproval"); got != 2 {
+			t.Errorf("attempts with a key = %d, want 2", got)
+		}
+	})
+
+	t.Run("formation is replayed only with a formation key", func(t *testing.T) {
+		bare := flaky(1)
+		mem := agentv1.NewMemoryServiceClient(newFlakyClient(t, bare, fastRetry).Conn())
+		if _, err := mem.FormMemory(ctx, &agentv1.FormMemoryRequest{}); err == nil {
+			t.Fatal("formation unexpectedly succeeded")
+		}
+		if got := bare.count("FormMemory"); got != 1 {
+			t.Errorf("attempts without a key = %d, want 1: extraction is nondeterministic", got)
+		}
+
+		keyed := flaky(1)
+		mem = agentv1.NewMemoryServiceClient(newFlakyClient(t, keyed, fastRetry).Conn())
+		if _, err := mem.FormMemory(ctx, &agentv1.FormMemoryRequest{FormationKey: "fk1"}); err != nil {
+			t.Fatalf("FormMemory with key: %v", err)
+		}
+		if got := keyed.count("FormMemory"); got != 2 {
 			t.Errorf("attempts with a key = %d, want 2", got)
 		}
 	})

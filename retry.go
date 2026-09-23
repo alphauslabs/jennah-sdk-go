@@ -88,7 +88,7 @@ func retryableCode(err error) bool {
 // server's write semantics rather than about the network.
 //
 // Reads replay freely. Writes are eligible only when replaying one cannot produce
-// a second effect, and for three of them that depends on the request:
+// a second effect, and for four of them that depends on the request:
 //
 //   - CommitMemory: vector chunks and graph nodes and edges are idempotent
 //     upserts, so replaying them converges. An execution-log step is append-only,
@@ -100,6 +100,9 @@ func retryableCode(err error) bool {
 //   - CreateApproval: safe exactly when the caller set RequestKey. Without it a
 //     replay raises a second approval and mails a second set of approvers, and
 //     notifications cannot be recalled.
+//   - FormMemory: safe exactly when the caller set FormationKey. Extraction is
+//     nondeterministic, so a blind replay forms a second, different set of memory;
+//     a replay under the same key returns the first call's receipt.
 //
 // Everything else returns false. The default is no replay, so a method added to
 // the API is safe until someone classifies it, rather than silently replayed.
@@ -114,6 +117,8 @@ func safeToReplay(method string, req any) bool {
 		return r.GetIdempotencyKey() != ""
 	case *approvalv1.CreateApprovalRequest:
 		return r.GetRequestKey() != ""
+	case *agentv1.FormMemoryRequest:
+		return r.GetFormationKey() != ""
 	}
 	return false
 }
@@ -124,10 +129,13 @@ func safeToReplay(method string, req any) bool {
 // obliged to keep, and TestEveryMethodIsClassified fails if a new method lands in
 // method retry policy list.
 var replayableReads = map[string]bool{
-	agentv1.AgentService_GetAgent_FullMethodName:       true,
-	agentv1.AgentService_ListAgents_FullMethodName:     true,
-	agentv1.MemoryService_QueryMemory_FullMethodName:   true,
-	agentv1.MemoryService_InspectMemory_FullMethodName: true,
+	agentv1.AgentService_GetAgent_FullMethodName:             true,
+	agentv1.AgentService_ListAgents_FullMethodName:           true,
+	agentv1.MemoryService_QueryMemory_FullMethodName:         true,
+	agentv1.MemoryService_InspectMemory_FullMethodName:       true,
+	agentv1.MemoryService_GetMemoryVocabulary_FullMethodName: true,
+	agentv1.ScopeService_GetScope_FullMethodName:             true,
+	agentv1.ScopeService_ListScopes_FullMethodName:           true,
 
 	datastorev1.DatasetService_GetDataset_FullMethodName:   true,
 	datastorev1.DatasetService_ListDatasets_FullMethodName: true,
@@ -162,6 +170,7 @@ var conditionalReplay = map[string]bool{
 	agentv1.MemoryService_CommitMemory_FullMethodName:        true,
 	datastorev1.DataService_CommitData_FullMethodName:        true,
 	approvalv1.ApprovalService_CreateApproval_FullMethodName: true,
+	agentv1.MemoryService_FormMemory_FullMethodName:          true,
 }
 
 // neverReplay contains methods excluded from automatic retries.
@@ -172,6 +181,8 @@ var neverReplay = map[string]bool{
 	// Creating or destroying a resource twice is not the same as once.
 	agentv1.AgentService_CreateAgent_FullMethodName:         true,
 	agentv1.AgentService_DeleteAgent_FullMethodName:         true,
+	agentv1.ScopeService_CreateScope_FullMethodName:         true,
+	agentv1.ScopeService_DeleteScope_FullMethodName:         true,
 	datastorev1.DatasetService_CreateDataset_FullMethodName: true,
 	datastorev1.DatasetService_DeleteDataset_FullMethodName: true,
 
@@ -179,9 +190,17 @@ var neverReplay = map[string]bool{
 	// declaration already running.
 	datastorev1.SchemaService_DeclareTables_FullMethodName: true,
 
-	// Closes an edge's validity and inserts its replacement. A replay finds the
-	// prior edge already closed.
-	agentv1.MemoryService_SupersedeEdge_FullMethodName: true,
+	// Closes an edge's or chunk's validity and inserts its replacement. A replay
+	// finds the prior one already closed.
+	agentv1.MemoryService_SupersedeEdge_FullMethodName:  true,
+	agentv1.MemoryService_SupersedeChunk_FullMethodName: true,
+
+	// Declaring replaces a vocabulary wholesale and removing is idempotent, so
+	// either converges when repeated alone. An automatic replay across another
+	// caller's declaration would silently overwrite it, though, and these are rare
+	// administrative calls: the caller retries them, knowingly.
+	agentv1.MemoryService_DeclareMemoryVocabulary_FullMethodName: true,
+	agentv1.MemoryService_RemoveMemoryVocabulary_FullMethodName:  true,
 
 	// A long poll that reports a pending approval as success. Retrying inside the
 	// interceptor would stack another 30-second wait inside the caller's budget;

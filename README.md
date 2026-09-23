@@ -12,40 +12,69 @@ go get github.com/alphauslabs/jennah-sdk-go
 
 ## Quick Start
 
+Sign in once with `jnh login`, or set `JENNAH_API_KEY`. This stores a memory and
+recalls it by meaning:
+
 ```go
 package main
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"log"
+	"strings"
 
-	"github.com/alphauslabs/jennah-sdk-go"
+	jennah "github.com/alphauslabs/jennah-sdk-go"
 )
 
 func main() {
 	ctx := context.Background()
 
+	// Uses the session from `jnh login`, or $JENNAH_API_KEY.
 	jc, err := jennah.NewClient(jennah.Config{})
 	if err != nil {
-		log.Fatalf("failed to create client: %v", err)
+		log.Fatal(err)
 	}
 	defer jc.Close()
 
-	// Optional: verify endpoint connectivity
-	if err := jc.Ping(ctx); err != nil {
-		log.Fatalf("ping failed: %v", err)
+	id := "quickstart-" + strings.ToLower(rand.Text()[:8])
+	agent, err := jc.Spawn(ctx, jennah.SpawnInput{AgentInstanceID: id})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer agent.Destroy(ctx)
+
+	// Store a memory. The platform embeds RawContent for you.
+	if _, err := agent.Vectors.Upsert(ctx, &jennah.VectorChunk{
+		ChunkId: "pref-1",
+		RawContent: "The customer prefers invoices in Japanese yen, " +
+			"sent on the 5th.",
+	}); err != nil {
+		log.Fatal(err)
 	}
 
-	a := jc.Agent("agent-abc")
-	_, err = a.Logs.Create(ctx, &jennah.ExecutionLogStep{
-		StepId:         "step-1",
-		ThoughtProcess: "deciding which tool to call",
+	// Recall it by meaning, not by keyword.
+	res, err := agent.Vectors.Search(ctx, &jennah.SemanticQuery{
+		QueryText: "what currency does the customer want to be " +
+			"billed in?",
+		Limit: 3,
 	})
 	if err != nil {
-		log.Fatalf("failed to create log step: %v", err)
+		log.Fatal(err)
+	}
+	for _, m := range res.GetMatches() {
+		fmt.Printf("%.3f  %s\n", m.GetDistance(), m.GetRawContent())
 	}
 }
 ```
+
+```
+0.235  The customer prefers invoices in Japanese yen, sent on the 5th.
+```
+
+`jc.Ping(ctx)` confirms the endpoint is reachable. It uses the unauthenticated
+health service, so it says nothing about whether the credential is accepted.
 
 ## Connection
 
@@ -69,7 +98,8 @@ jc, err := jennah.NewClient(jennah.Config{})
 if err != nil {
 	log.Fatal(err)
 }
-log.Printf("authenticated with: %s", jc.Credential()) // e.g. "session from stored session"
+// Prints e.g. "session from stored session".
+log.Printf("authenticated with: %s", jc.Credential())
 ```
 
 `Client.Credential()` returns credential metadata and source without revealing secret values.
