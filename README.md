@@ -10,7 +10,7 @@ The `jennah/` package tree is generated from [jennah-api](https://github.com/alp
 go get github.com/alphauslabs/jennah-sdk-go
 ```
 
-## Quick Start
+## Quickstart
 
 Sign in once with `jnh login`, or set `JENNAH_API_KEY`. This stores a memory and
 recalls it by meaning:
@@ -84,7 +84,7 @@ Standard TLS transport credentials are used on port 443.
 
 Credentials are sent in the `authorization: Bearer` metadata header on each RPC.
 
-## Authentication and Credentials
+## Authentication and credentials
 
 `Config.APIKey` is optional. When omitted, the SDK resolves credentials in the following order:
 
@@ -104,14 +104,14 @@ log.Printf("authenticated with: %s", jc.Credential())
 
 `Client.Credential()` returns credential metadata and source without revealing secret values.
 
-### Token Renewal
+### Token renewal
 
 When using a CLI session token, the SDK automatically refreshes expired access tokens and reissues failed requests once:
 
 - **Automatic token rotation**: Refreshed tokens are written back to `~/.config/jennah/credentials` so concurrent local processes stay synchronized.
 - **API keys**: API keys do not renew. A rejected API key returns `credentials.ErrKeyRefused` (matched by `jennah.IsUnauthenticated`).
 
-## Client API Overview
+## Client API overview
 
 All platform services can be accessed from a single `Client` instance:
 
@@ -149,7 +149,7 @@ Paging iterators are available across resources:
 - `Auth.Keys.All`, `Auth.Members.All`, `Auth.Invitations.All`, `Auth.Roles.All`
 - Inspect sections: `Vectors.AllChunks`, `Graph.AllNodes`, `Graph.AllEdges`, `Logs.AllSteps`
 
-### Long-polling Approvals
+### Long-polling approvals
 
 `Approvals.WaitUntilDecided` blocks until an approval reaches a terminal state. It automatically handles intermediate 30-second server polling intervals:
 
@@ -175,7 +175,7 @@ Retries are evaluated per request based on idempotency:
 
 Retries can be configured or disabled via `Config.Retry`.
 
-### Error Classification
+### Error classification
 
 Helper functions classify gRPC errors returned by the platform:
 
@@ -188,7 +188,7 @@ Helper functions classify gRPC errors returned by the platform:
 - `jennah.IsTransient(err)`
 - `jennah.Code(err)` (maps gRPC status codes and context errors)
 
-## Direct gRPC Connection
+## Direct gRPC connection
 
 To access underlying gRPC service stubs directly, use `Client.Conn()`:
 
