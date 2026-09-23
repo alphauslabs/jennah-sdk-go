@@ -1,4 +1,4 @@
-# jennah-sdk-go
+## jennah-sdk-go
 
 Go client library for the Jennah agent memory and context platform.
 
