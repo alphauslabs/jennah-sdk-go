@@ -171,16 +171,16 @@ type VectorOptions struct {
 	//
 	// This is the whole of the opt-in, and the two paths differ sharply:
 	//
-	//   source_column SET    : a row committed without this vector has it
-	//                          generated from source_column in the same
-	//                          transaction as the row. A row that DOES supply a
-	//                          vector still stores exactly what was supplied; the
-	//                          model is not invoked.
-	//   source_column UNSET  : a row committed without this vector is a typed
-	//                          error. It is never silently generated, and never
-	//                          written as NULL: a column declared to hold an
-	//                          embedding that silently holds nothing is invisible
-	//                          to search for a reason the caller cannot see.
+	//	source_column SET    : a row committed without this vector has it
+	//	                       generated from source_column in the same
+	//	                       transaction as the row. A row that DOES supply a
+	//	                       vector still stores exactly what was supplied; the
+	//	                       model is not invoked.
+	//	source_column UNSET  : a row committed without this vector is a typed
+	//	                       error. It is never silently generated, and never
+	//	                       written as NULL: a column declared to hold an
+	//	                       embedding that silently holds nothing is invisible
+	//	                       to search for a reason the caller cannot see.
 	//
 	// Validated at declare time: the named column must exist on this table, must
 	// be COLUMN_TYPE_STRING, and must not be the vector column itself. A bad

@@ -5162,9 +5162,9 @@ type GetMemoryVocabularyResponse struct {
 	// absent-versus-empty distinction, which is why it is a message rather than a
 	// bare repeated field:
 	//
-	//   unset                  -> no declaration at this level
-	//   set, classes non-empty -> that declaration
-	//   set, classes empty     -> an EMPTY declaration (classification off here)
+	//	unset                  -> no declaration at this level
+	//	set, classes non-empty -> that declaration
+	//	set, classes empty     -> an EMPTY declaration (classification off here)
 	//
 	// A bare `repeated EntityClass` could not express the first two rows apart, and
 	// `optional` on a proto3 scalar is not an option this shape can reach for.

@@ -131,8 +131,10 @@ type ApprovalServiceClient interface {
 	// or being a listed approver) rather than something a role can grant.
 	//
 	// Exactly two origins are accepted:
-	//   (a) a valid unspent capability token, presented in the body; or
-	//   (b) an authenticated human who is a listed approver on that approval.
+	//
+	//	(a) a valid unspent capability token, presented in the body; or
+	//	(b) an authenticated human who is a listed approver on that approval.
+	//
 	// A KEY-authenticated caller is refused unconditionally, with or without a
 	// valid token: an agent may raise a request but may never satisfy its own, and
 	// a human decision may not be rendered by a service principal. An authenticated
@@ -382,8 +384,10 @@ type ApprovalServiceServer interface {
 	// or being a listed approver) rather than something a role can grant.
 	//
 	// Exactly two origins are accepted:
-	//   (a) a valid unspent capability token, presented in the body; or
-	//   (b) an authenticated human who is a listed approver on that approval.
+	//
+	//	(a) a valid unspent capability token, presented in the body; or
+	//	(b) an authenticated human who is a listed approver on that approval.
+	//
 	// A KEY-authenticated caller is refused unconditionally, with or without a
 	// valid token: an agent may raise a request but may never satisfy its own, and
 	// a human decision may not be rendered by a service principal. An authenticated

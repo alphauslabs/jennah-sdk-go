@@ -793,24 +793,23 @@ type RowOperation struct {
 	//
 	// Rules, each of which is a refusal and not a silent adjustment:
 	//
-	//   * UPDATE ONLY. An expression reads the row it writes, and INSERT/UPSERT
+	//   - UPDATE ONLY. An expression reads the row it writes, and INSERT/UPSERT
 	//     are addressed by key as mutations that carry no reference to a current
 	//     value. On INSERT, UPSERT, and DELETE an expression is an invalid
 	//     argument rather than ignored.
-	//   * INT64, NOT NULL columns only. Arithmetic over an absent value yields an
+	//   - INT64, NOT NULL columns only. Arithmetic over an absent value yields an
 	//     absent value, so an expression on a nullable column would silently
 	//     erase the counter; the platform will not substitute zero for absent
 	//     either, since that makes "absent" and "zero" indistinguishable.
 	//     FLOAT64 is excluded because its overflow is a silent +Inf and because
 	//     accumulated float addition is order-dependent, which would make a
 	//     rollup's value depend on interleaving.
-	//   * ONE ASSIGNMENT PER COLUMN. A column named in both `row` and
+	//   - ONE ASSIGNMENT PER COLUMN. A column named in both `row` and
 	//     `set_expressions` is refused rather than resolved by precedence.
-	//   * NO TENANCY OR PLATFORM-MANAGED COLUMN may be a target, enforced on this
+	//   - NO TENANCY OR PLATFORM-MANAGED COLUMN may be a target, enforced on this
 	//     path independently of the literal path.
-	//   * AN UNREPRESENTABLE RESULT ABORTS THE WHOLE COMMIT with OUT_OF_RANGE.
+	//   - AN UNREPRESENTABLE RESULT ABORTS THE WHOLE COMMIT with OUT_OF_RANGE.
 	//     Nothing wrapped or saturated is ever stored.
-	//
 	SetExpressions map[string]*ColumnExpression `protobuf:"bytes,6,rep,name=set_expressions,json=setExpressions,proto3" json:"set_expressions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
