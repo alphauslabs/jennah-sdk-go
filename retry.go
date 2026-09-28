@@ -156,7 +156,8 @@ var replayableReads = map[string]bool{
 	approvalv1.ApprovalService_ListApprovers_FullMethodName:           true,
 	approvalv1.ApprovalService_DescribeApprovalByToken_FullMethodName: true,
 
-	billingv1.BillingService_GetBillingState_FullMethodName: true,
+	billingv1.BillingService_GetBillingState_FullMethodName:        true,
+	billingv1.BillingService_GetFormationTokenUsage_FullMethodName: true,
 
 	platformv1.PlatformService_ListLocations_FullMethodName: true,
 

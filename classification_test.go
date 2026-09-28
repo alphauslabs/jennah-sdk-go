@@ -59,11 +59,11 @@ func TestEveryMethodIsClassified(t *testing.T) {
 		}
 	}
 
-	// The API publishes 66 methods across ten services; health adds its own. A
+	// The API publishes 67 methods across ten services; health adds its own. A
 	// floor rather than an exact count, so it catches a registry walk that found
 	// nothing without failing every time an RPC is added.
-	if total < 66 {
-		t.Errorf("walked %d methods, expected at least the 66 the API publishes", total)
+	if total < 67 {
+		t.Errorf("walked %d methods, expected at least the 67 the API publishes", total)
 	}
 
 	// The reverse direction: a classification entry naming a method that no longer

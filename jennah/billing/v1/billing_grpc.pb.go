@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	BillingService_GetBillingState_FullMethodName                = "/jennahapi.billing.v1.BillingService/GetBillingState"
+	BillingService_GetFormationTokenUsage_FullMethodName         = "/jennahapi.billing.v1.BillingService/GetFormationTokenUsage"
 	BillingService_BindMarketplaceRegistration_FullMethodName    = "/jennahapi.billing.v1.BillingService/BindMarketplaceRegistration"
 	BillingService_ResolveMarketplaceRegistration_FullMethodName = "/jennahapi.billing.v1.BillingService/ResolveMarketplaceRegistration"
 )
@@ -43,6 +44,26 @@ type BillingServiceClient interface {
 	// When `externally_managed` is true the client MUST NOT offer an in-app plan
 	// change. Send the user to `manage_url` instead.
 	GetBillingState(ctx context.Context, in *GetBillingStateRequest, opts ...grpc.CallOption) (*GetBillingStateResponse, error)
+	// Reads the active enterprise's recorded formation token usage as aggregated
+	// buckets, never as individual formation records. External (gateway) RPC.
+	// Authenticated, and gated on `billing.usage:read`, which the built-in member
+	// role does NOT carry. Tokens only: no price, cost or currency is returned.
+	//
+	// Grouping by scope, or filtering on a scope, additionally requires reach over
+	// every agent workspace AND every subject scope in the enterprise (blanket reach
+	// in both selector namespaces). Without it the request is refused with
+	// PERMISSION_DENIED; there is no partial, reach-filtered answer, so a per-scope
+	// breakdown always adds up to the enterprise's totals.
+	//
+	// Answered whether or not the deployment has a billing integration configured,
+	// unlike the other methods here: token usage is recorded without one.
+	//
+	// Rejections (INVALID_ARGUMENT): a missing start_time, an end_time not after
+	// start_time, a start_time earlier than the 400-day retention period, an unknown
+	// time_zone, a malformed caller filter, or a result larger than the published
+	// bucket maximum (narrow the range, coarsen the grain, or add a filter). None is
+	// answered with a trimmed result.
+	GetFormationTokenUsage(ctx context.Context, in *GetFormationTokenUsageRequest, opts ...grpc.CallOption) (*GetFormationTokenUsageResponse, error)
 	// Binds the subscription behind a single-use registration handle to the caller's
 	// active enterprise and applies its resolved tier. External (gateway) RPC.
 	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN on the active enterprise,
@@ -59,18 +80,17 @@ type BillingServiceClient interface {
 	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
 	// the reason, never on the human-readable message: each reason needs a
 	// different recovery path in the UI.
-	//
-	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
-	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
-	//	  caller cannot probe which handles exist.
-	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
-	//	  enterprise. The existing binding is NOT moved; recovery is an operator
-	//	  action with a recorded reason.
-	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
-	//	  without an administrator role on the active enterprise.
-	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
-	//	  already owned by a DIFFERENT billing source. (A second subscription from
-	//	  the SAME source is accepted, not refused.)
+	//   FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
+	//     consumed, or unknown. Not distinguished from one another on purpose, so a
+	//     caller cannot probe which handles exist.
+	//   ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
+	//     enterprise. The existing binding is NOT moved; recovery is an operator
+	//     action with a recorded reason.
+	//   PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
+	//     without an administrator role on the active enterprise.
+	//   FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
+	//     already owned by a DIFFERENT billing source. (A second subscription from
+	//     the SAME source is accepted, not refused.)
 	BindMarketplaceRegistration(ctx context.Context, in *BindMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*BindMarketplaceRegistrationResponse, error)
 	// Exchanges an AWS Marketplace registration token for the buyer's marketplace
 	// identity, persists the subscription in the unbound state, mints a single-use
@@ -93,17 +113,16 @@ type BillingServiceClient interface {
 	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
 	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
 	// carry NO ErrorInfo; for those the status code is the whole signal.
-	//
-	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
-	//	  or one AWS refuses. Permanent; do not retry.
-	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
-	//	  product code this deployment has no mapping for. Permanent, and no
-	//	  subscription record is written.
-	//	UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
-	//	  minted and no partial subscription is left behind. The purchase still
-	//	  reaches us independently as a marketplace notification, so no revenue is
-	//	  lost by a failed registration.
-	//	UNIMPLEMENTED: the deployment has no billing configuration at all.
+	//   INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
+	//     or one AWS refuses. Permanent; do not retry.
+	//   FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
+	//     product code this deployment has no mapping for. Permanent, and no
+	//     subscription record is written.
+	//   UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
+	//     minted and no partial subscription is left behind. The purchase still
+	//     reaches us independently as a marketplace notification, so no revenue is
+	//     lost by a failed registration.
+	//   UNIMPLEMENTED: the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(ctx context.Context, in *ResolveMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*ResolveMarketplaceRegistrationResponse, error)
 }
 
@@ -119,6 +138,16 @@ func (c *billingServiceClient) GetBillingState(ctx context.Context, in *GetBilli
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetBillingStateResponse)
 	err := c.cc.Invoke(ctx, BillingService_GetBillingState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) GetFormationTokenUsage(ctx context.Context, in *GetFormationTokenUsageRequest, opts ...grpc.CallOption) (*GetFormationTokenUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFormationTokenUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_GetFormationTokenUsage_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +193,26 @@ type BillingServiceServer interface {
 	// When `externally_managed` is true the client MUST NOT offer an in-app plan
 	// change. Send the user to `manage_url` instead.
 	GetBillingState(context.Context, *GetBillingStateRequest) (*GetBillingStateResponse, error)
+	// Reads the active enterprise's recorded formation token usage as aggregated
+	// buckets, never as individual formation records. External (gateway) RPC.
+	// Authenticated, and gated on `billing.usage:read`, which the built-in member
+	// role does NOT carry. Tokens only: no price, cost or currency is returned.
+	//
+	// Grouping by scope, or filtering on a scope, additionally requires reach over
+	// every agent workspace AND every subject scope in the enterprise (blanket reach
+	// in both selector namespaces). Without it the request is refused with
+	// PERMISSION_DENIED; there is no partial, reach-filtered answer, so a per-scope
+	// breakdown always adds up to the enterprise's totals.
+	//
+	// Answered whether or not the deployment has a billing integration configured,
+	// unlike the other methods here: token usage is recorded without one.
+	//
+	// Rejections (INVALID_ARGUMENT): a missing start_time, an end_time not after
+	// start_time, a start_time earlier than the 400-day retention period, an unknown
+	// time_zone, a malformed caller filter, or a result larger than the published
+	// bucket maximum (narrow the range, coarsen the grain, or add a filter). None is
+	// answered with a trimmed result.
+	GetFormationTokenUsage(context.Context, *GetFormationTokenUsageRequest) (*GetFormationTokenUsageResponse, error)
 	// Binds the subscription behind a single-use registration handle to the caller's
 	// active enterprise and applies its resolved tier. External (gateway) RPC.
 	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN on the active enterprise,
@@ -180,18 +229,17 @@ type BillingServiceServer interface {
 	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
 	// the reason, never on the human-readable message: each reason needs a
 	// different recovery path in the UI.
-	//
-	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
-	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
-	//	  caller cannot probe which handles exist.
-	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
-	//	  enterprise. The existing binding is NOT moved; recovery is an operator
-	//	  action with a recorded reason.
-	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
-	//	  without an administrator role on the active enterprise.
-	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
-	//	  already owned by a DIFFERENT billing source. (A second subscription from
-	//	  the SAME source is accepted, not refused.)
+	//   FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
+	//     consumed, or unknown. Not distinguished from one another on purpose, so a
+	//     caller cannot probe which handles exist.
+	//   ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
+	//     enterprise. The existing binding is NOT moved; recovery is an operator
+	//     action with a recorded reason.
+	//   PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
+	//     without an administrator role on the active enterprise.
+	//   FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
+	//     already owned by a DIFFERENT billing source. (A second subscription from
+	//     the SAME source is accepted, not refused.)
 	BindMarketplaceRegistration(context.Context, *BindMarketplaceRegistrationRequest) (*BindMarketplaceRegistrationResponse, error)
 	// Exchanges an AWS Marketplace registration token for the buyer's marketplace
 	// identity, persists the subscription in the unbound state, mints a single-use
@@ -214,17 +262,16 @@ type BillingServiceServer interface {
 	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
 	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
 	// carry NO ErrorInfo; for those the status code is the whole signal.
-	//
-	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
-	//	  or one AWS refuses. Permanent; do not retry.
-	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
-	//	  product code this deployment has no mapping for. Permanent, and no
-	//	  subscription record is written.
-	//	UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
-	//	  minted and no partial subscription is left behind. The purchase still
-	//	  reaches us independently as a marketplace notification, so no revenue is
-	//	  lost by a failed registration.
-	//	UNIMPLEMENTED: the deployment has no billing configuration at all.
+	//   INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
+	//     or one AWS refuses. Permanent; do not retry.
+	//   FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
+	//     product code this deployment has no mapping for. Permanent, and no
+	//     subscription record is written.
+	//   UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
+	//     minted and no partial subscription is left behind. The purchase still
+	//     reaches us independently as a marketplace notification, so no revenue is
+	//     lost by a failed registration.
+	//   UNIMPLEMENTED: the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(context.Context, *ResolveMarketplaceRegistrationRequest) (*ResolveMarketplaceRegistrationResponse, error)
 	mustEmbedUnimplementedBillingServiceServer()
 }
@@ -238,6 +285,9 @@ type UnimplementedBillingServiceServer struct{}
 
 func (UnimplementedBillingServiceServer) GetBillingState(context.Context, *GetBillingStateRequest) (*GetBillingStateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetBillingState not implemented")
+}
+func (UnimplementedBillingServiceServer) GetFormationTokenUsage(context.Context, *GetFormationTokenUsageRequest) (*GetFormationTokenUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFormationTokenUsage not implemented")
 }
 func (UnimplementedBillingServiceServer) BindMarketplaceRegistration(context.Context, *BindMarketplaceRegistrationRequest) (*BindMarketplaceRegistrationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method BindMarketplaceRegistration not implemented")
@@ -280,6 +330,24 @@ func _BillingService_GetBillingState_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BillingServiceServer).GetBillingState(ctx, req.(*GetBillingStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_GetFormationTokenUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFormationTokenUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).GetFormationTokenUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_GetFormationTokenUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).GetFormationTokenUsage(ctx, req.(*GetFormationTokenUsageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -330,6 +398,10 @@ var BillingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetBillingState",
 			Handler:    _BillingService_GetBillingState_Handler,
+		},
+		{
+			MethodName: "GetFormationTokenUsage",
+			Handler:    _BillingService_GetFormationTokenUsage_Handler,
 		},
 		{
 			MethodName: "BindMarketplaceRegistration",

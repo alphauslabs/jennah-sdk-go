@@ -29,6 +29,16 @@ func (b BillingAPI) State(ctx context.Context) (*billingv1.GetBillingStateRespon
 	return b.c.billing.GetBillingState(ctx, &billingv1.GetBillingStateRequest{})
 }
 
+// FormationTokenUsage reads the enterprise's recorded formation token usage as
+// aggregated buckets: by day, ISO week or month in a time zone, and grouped by at
+// most one of scope, caller, model or region, with input and output tokens kept
+// apart. It needs billing.usage:read, which the built-in member role does not
+// carry, and a scope breakdown additionally needs reach over every scope. It
+// reports tokens only, never a price.
+func (b BillingAPI) FormationTokenUsage(ctx context.Context, in *billingv1.GetFormationTokenUsageRequest) (*billingv1.GetFormationTokenUsageResponse, error) {
+	return b.c.billing.GetFormationTokenUsage(ctx, in)
+}
+
 // ResolveMarketplace exchanges a marketplace registration token for the
 // subscription it identifies. It runs before the caller is authenticated, since a
 // buyer arriving from the marketplace may not have an enterprise yet.

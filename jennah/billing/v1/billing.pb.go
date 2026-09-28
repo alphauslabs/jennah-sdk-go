@@ -167,6 +167,126 @@ func (SubscriptionState) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{1}
 }
 
+// Calendar period a token usage bucket covers, evaluated in the request's
+// time_zone.
+type TokenUsageGrain int32
+
+const (
+	// No grain: the whole range is one period.
+	TokenUsageGrain_TOKEN_USAGE_GRAIN_UNSPECIFIED TokenUsageGrain = 0
+	// A calendar date.
+	TokenUsageGrain_TOKEN_USAGE_GRAIN_DAY TokenUsageGrain = 1
+	// An ISO week, beginning on Monday. A week can straddle two months or years.
+	TokenUsageGrain_TOKEN_USAGE_GRAIN_WEEK TokenUsageGrain = 2
+	// A calendar month.
+	TokenUsageGrain_TOKEN_USAGE_GRAIN_MONTH TokenUsageGrain = 3
+)
+
+// Enum value maps for TokenUsageGrain.
+var (
+	TokenUsageGrain_name = map[int32]string{
+		0: "TOKEN_USAGE_GRAIN_UNSPECIFIED",
+		1: "TOKEN_USAGE_GRAIN_DAY",
+		2: "TOKEN_USAGE_GRAIN_WEEK",
+		3: "TOKEN_USAGE_GRAIN_MONTH",
+	}
+	TokenUsageGrain_value = map[string]int32{
+		"TOKEN_USAGE_GRAIN_UNSPECIFIED": 0,
+		"TOKEN_USAGE_GRAIN_DAY":         1,
+		"TOKEN_USAGE_GRAIN_WEEK":        2,
+		"TOKEN_USAGE_GRAIN_MONTH":       3,
+	}
+)
+
+func (x TokenUsageGrain) Enum() *TokenUsageGrain {
+	p := new(TokenUsageGrain)
+	*p = x
+	return p
+}
+
+func (x TokenUsageGrain) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TokenUsageGrain) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_billing_v1_billing_proto_enumTypes[2].Descriptor()
+}
+
+func (TokenUsageGrain) Type() protoreflect.EnumType {
+	return &file_jennah_billing_v1_billing_proto_enumTypes[2]
+}
+
+func (x TokenUsageGrain) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TokenUsageGrain.Descriptor instead.
+func (TokenUsageGrain) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{2}
+}
+
+// The one dimension token usage may be grouped by.
+type TokenUsageDimension int32
+
+const (
+	// No grouping: one bucket per period.
+	TokenUsageDimension_TOKEN_USAGE_DIMENSION_UNSPECIFIED TokenUsageDimension = 0
+	// The scope the formation wrote to. Requires blanket reach (see the RPC).
+	TokenUsageDimension_TOKEN_USAGE_DIMENSION_SCOPE TokenUsageDimension = 1
+	// The credential that requested the formation, as "user:<user id>" or
+	// "api_key:<key id>". An API key is the key itself, never its creator.
+	TokenUsageDimension_TOKEN_USAGE_DIMENSION_CALLER TokenUsageDimension = 2
+	// The model called, as configured for the region at the time.
+	TokenUsageDimension_TOKEN_USAGE_DIMENSION_MODEL TokenUsageDimension = 3
+	// The Jennah region that served the formation; empty when none was recorded.
+	TokenUsageDimension_TOKEN_USAGE_DIMENSION_REGION TokenUsageDimension = 4
+)
+
+// Enum value maps for TokenUsageDimension.
+var (
+	TokenUsageDimension_name = map[int32]string{
+		0: "TOKEN_USAGE_DIMENSION_UNSPECIFIED",
+		1: "TOKEN_USAGE_DIMENSION_SCOPE",
+		2: "TOKEN_USAGE_DIMENSION_CALLER",
+		3: "TOKEN_USAGE_DIMENSION_MODEL",
+		4: "TOKEN_USAGE_DIMENSION_REGION",
+	}
+	TokenUsageDimension_value = map[string]int32{
+		"TOKEN_USAGE_DIMENSION_UNSPECIFIED": 0,
+		"TOKEN_USAGE_DIMENSION_SCOPE":       1,
+		"TOKEN_USAGE_DIMENSION_CALLER":      2,
+		"TOKEN_USAGE_DIMENSION_MODEL":       3,
+		"TOKEN_USAGE_DIMENSION_REGION":      4,
+	}
+)
+
+func (x TokenUsageDimension) Enum() *TokenUsageDimension {
+	p := new(TokenUsageDimension)
+	*p = x
+	return p
+}
+
+func (x TokenUsageDimension) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TokenUsageDimension) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_billing_v1_billing_proto_enumTypes[3].Descriptor()
+}
+
+func (TokenUsageDimension) Type() protoreflect.EnumType {
+	return &file_jennah_billing_v1_billing_proto_enumTypes[3]
+}
+
+func (x TokenUsageDimension) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TokenUsageDimension.Descriptor instead.
+func (TokenUsageDimension) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{3}
+}
+
 // One subscription bound to an enterprise. The field names are provider-neutral
 // so a second billing source needs no second message; each comment names the AWS
 // Marketplace meaning.
@@ -645,6 +765,335 @@ func (x *ResolveMarketplaceRegistrationResponse) GetRedirectUrl() string {
 	return ""
 }
 
+// Restricts which usage records are aggregated. Every set field must match. A
+// filter does not imply a grouping.
+type TokenUsageFilter struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Only this scope. Requires blanket reach (see the RPC).
+	ScopeId string `protobuf:"bytes,1,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	// Only this caller: "user" or "api_key", set together with caller_id.
+	CallerKind string `protobuf:"bytes,2,opt,name=caller_kind,json=callerKind,proto3" json:"caller_kind,omitempty"`
+	CallerId   string `protobuf:"bytes,3,opt,name=caller_id,json=callerId,proto3" json:"caller_id,omitempty"`
+	// Only this model.
+	Model string `protobuf:"bytes,4,opt,name=model,proto3" json:"model,omitempty"`
+	// Only this region.
+	Region        string `protobuf:"bytes,5,opt,name=region,proto3" json:"region,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TokenUsageFilter) Reset() {
+	*x = TokenUsageFilter{}
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TokenUsageFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TokenUsageFilter) ProtoMessage() {}
+
+func (x *TokenUsageFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TokenUsageFilter.ProtoReflect.Descriptor instead.
+func (*TokenUsageFilter) Descriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *TokenUsageFilter) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
+func (x *TokenUsageFilter) GetCallerKind() string {
+	if x != nil {
+		return x.CallerKind
+	}
+	return ""
+}
+
+func (x *TokenUsageFilter) GetCallerId() string {
+	if x != nil {
+		return x.CallerId
+	}
+	return ""
+}
+
+func (x *TokenUsageFilter) GetModel() string {
+	if x != nil {
+		return x.Model
+	}
+	return ""
+}
+
+func (x *TokenUsageFilter) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
+type GetFormationTokenUsageRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Start of the half-open range [start_time, end_time) over the time each
+	// usage record was written. Required, and no earlier than 400 days ago.
+	StartTime *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	// End of the range. Defaults to now; a later value is treated as now.
+	EndTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	Grain   TokenUsageGrain        `protobuf:"varint,3,opt,name=grain,proto3,enum=jennahapi.billing.v1.TokenUsageGrain" json:"grain,omitempty"`
+	GroupBy TokenUsageDimension    `protobuf:"varint,4,opt,name=group_by,json=groupBy,proto3,enum=jennahapi.billing.v1.TokenUsageDimension" json:"group_by,omitempty"`
+	// IANA time zone the grain's calendar periods are taken in, such as
+	// "Asia/Tokyo". Defaults to "UTC".
+	TimeZone string `protobuf:"bytes,5,opt,name=time_zone,json=timeZone,proto3" json:"time_zone,omitempty"`
+	// Nested, not flattened, on purpose: a top-level scope_id would be read by the
+	// platform's per-scope access check, which would admit a caller reaching only
+	// that scope. The scope rule for this read is blanket reach, applied by the
+	// method itself.
+	Filter        *TokenUsageFilter `protobuf:"bytes,6,opt,name=filter,proto3" json:"filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFormationTokenUsageRequest) Reset() {
+	*x = GetFormationTokenUsageRequest{}
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFormationTokenUsageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFormationTokenUsageRequest) ProtoMessage() {}
+
+func (x *GetFormationTokenUsageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFormationTokenUsageRequest.ProtoReflect.Descriptor instead.
+func (*GetFormationTokenUsageRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetFormationTokenUsageRequest) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *GetFormationTokenUsageRequest) GetEndTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndTime
+	}
+	return nil
+}
+
+func (x *GetFormationTokenUsageRequest) GetGrain() TokenUsageGrain {
+	if x != nil {
+		return x.Grain
+	}
+	return TokenUsageGrain_TOKEN_USAGE_GRAIN_UNSPECIFIED
+}
+
+func (x *GetFormationTokenUsageRequest) GetGroupBy() TokenUsageDimension {
+	if x != nil {
+		return x.GroupBy
+	}
+	return TokenUsageDimension_TOKEN_USAGE_DIMENSION_UNSPECIFIED
+}
+
+func (x *GetFormationTokenUsageRequest) GetTimeZone() string {
+	if x != nil {
+		return x.TimeZone
+	}
+	return ""
+}
+
+func (x *GetFormationTokenUsageRequest) GetFilter() *TokenUsageFilter {
+	if x != nil {
+		return x.Filter
+	}
+	return nil
+}
+
+// One period's usage for one value of the grouping dimension.
+type TokenUsageBucket struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The period's first calendar date in the request's time zone, as YYYY-MM-DD.
+	// Empty when the request has no grain. A bucket at either end of the range
+	// covers only the part of its period inside the range.
+	PeriodStart string `protobuf:"bytes,1,opt,name=period_start,json=periodStart,proto3" json:"period_start,omitempty"`
+	// The grouping dimension's value. Empty when the request has no grouping.
+	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// Formations that reached the model in this bucket.
+	Formations int64 `protobuf:"varint,3,opt,name=formations,proto3" json:"formations,omitempty"`
+	// Model-reported input and output tokens, summed. Kept apart because they are
+	// priced differently. Output includes the model's reasoning tokens.
+	InputTokens   int64 `protobuf:"varint,4,opt,name=input_tokens,json=inputTokens,proto3" json:"input_tokens,omitempty"`
+	OutputTokens  int64 `protobuf:"varint,5,opt,name=output_tokens,json=outputTokens,proto3" json:"output_tokens,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TokenUsageBucket) Reset() {
+	*x = TokenUsageBucket{}
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TokenUsageBucket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TokenUsageBucket) ProtoMessage() {}
+
+func (x *TokenUsageBucket) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TokenUsageBucket.ProtoReflect.Descriptor instead.
+func (*TokenUsageBucket) Descriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *TokenUsageBucket) GetPeriodStart() string {
+	if x != nil {
+		return x.PeriodStart
+	}
+	return ""
+}
+
+func (x *TokenUsageBucket) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *TokenUsageBucket) GetFormations() int64 {
+	if x != nil {
+		return x.Formations
+	}
+	return 0
+}
+
+func (x *TokenUsageBucket) GetInputTokens() int64 {
+	if x != nil {
+		return x.InputTokens
+	}
+	return 0
+}
+
+func (x *TokenUsageBucket) GetOutputTokens() int64 {
+	if x != nil {
+		return x.OutputTokens
+	}
+	return 0
+}
+
+type GetFormationTokenUsageResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Ordered by period_start, then key.
+	Buckets []*TokenUsageBucket `protobuf:"bytes,1,rep,name=buckets,proto3" json:"buckets,omitempty"`
+	// The range and zone the buckets were computed under, after defaults.
+	StartTime     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
+	EndTime       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	TimeZone      string                 `protobuf:"bytes,4,opt,name=time_zone,json=timeZone,proto3" json:"time_zone,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFormationTokenUsageResponse) Reset() {
+	*x = GetFormationTokenUsageResponse{}
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFormationTokenUsageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFormationTokenUsageResponse) ProtoMessage() {}
+
+func (x *GetFormationTokenUsageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFormationTokenUsageResponse.ProtoReflect.Descriptor instead.
+func (*GetFormationTokenUsageResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetFormationTokenUsageResponse) GetBuckets() []*TokenUsageBucket {
+	if x != nil {
+		return x.Buckets
+	}
+	return nil
+}
+
+func (x *GetFormationTokenUsageResponse) GetStartTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartTime
+	}
+	return nil
+}
+
+func (x *GetFormationTokenUsageResponse) GetEndTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EndTime
+	}
+	return nil
+}
+
+func (x *GetFormationTokenUsageResponse) GetTimeZone() string {
+	if x != nil {
+		return x.TimeZone
+	}
+	return ""
+}
+
 var File_jennah_billing_v1_billing_proto protoreflect.FileDescriptor
 
 const file_jennah_billing_v1_billing_proto_rawDesc = "" +
@@ -680,7 +1129,36 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"%ResolveMarketplaceRegistrationRequest\x12-\n" +
 	"\x12registration_token\x18\x01 \x01(\tR\x11registrationToken\"K\n" +
 	"&ResolveMarketplaceRegistrationResponse\x12!\n" +
-	"\fredirect_url\x18\x01 \x01(\tR\vredirectUrl*\x8d\x01\n" +
+	"\fredirect_url\x18\x01 \x01(\tR\vredirectUrl\"\x99\x01\n" +
+	"\x10TokenUsageFilter\x12\x19\n" +
+	"\bscope_id\x18\x01 \x01(\tR\ascopeId\x12\x1f\n" +
+	"\vcaller_kind\x18\x02 \x01(\tR\n" +
+	"callerKind\x12\x1b\n" +
+	"\tcaller_id\x18\x03 \x01(\tR\bcallerId\x12\x14\n" +
+	"\x05model\x18\x04 \x01(\tR\x05model\x12\x16\n" +
+	"\x06region\x18\x05 \x01(\tR\x06region\"\xf1\x02\n" +
+	"\x1dGetFormationTokenUsageRequest\x129\n" +
+	"\n" +
+	"start_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
+	"\bend_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12;\n" +
+	"\x05grain\x18\x03 \x01(\x0e2%.jennahapi.billing.v1.TokenUsageGrainR\x05grain\x12D\n" +
+	"\bgroup_by\x18\x04 \x01(\x0e2).jennahapi.billing.v1.TokenUsageDimensionR\agroupBy\x12\x1b\n" +
+	"\ttime_zone\x18\x05 \x01(\tR\btimeZone\x12>\n" +
+	"\x06filter\x18\x06 \x01(\v2&.jennahapi.billing.v1.TokenUsageFilterR\x06filter\"\xaf\x01\n" +
+	"\x10TokenUsageBucket\x12!\n" +
+	"\fperiod_start\x18\x01 \x01(\tR\vperiodStart\x12\x10\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1e\n" +
+	"\n" +
+	"formations\x18\x03 \x01(\x03R\n" +
+	"formations\x12!\n" +
+	"\finput_tokens\x18\x04 \x01(\x03R\vinputTokens\x12#\n" +
+	"\routput_tokens\x18\x05 \x01(\x03R\foutputTokens\"\xf1\x01\n" +
+	"\x1eGetFormationTokenUsageResponse\x12@\n" +
+	"\abuckets\x18\x01 \x03(\v2&.jennahapi.billing.v1.TokenUsageBucketR\abuckets\x129\n" +
+	"\n" +
+	"start_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tstartTime\x125\n" +
+	"\bend_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\aendTime\x12\x1b\n" +
+	"\ttime_zone\x18\x04 \x01(\tR\btimeZone*\x8d\x01\n" +
 	"\rBillingSource\x12\x1e\n" +
 	"\x1aBILLING_SOURCE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17BILLING_SOURCE_PLATFORM\x10\x01\x12\x1b\n" +
@@ -692,9 +1170,21 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"\x19SUBSCRIPTION_STATE_ACTIVE\x10\x02\x12+\n" +
 	"'SUBSCRIPTION_STATE_PENDING_VERIFICATION\x10\x03\x12&\n" +
 	"\"SUBSCRIPTION_STATE_NEEDS_ATTENTION\x10\x04\x12 \n" +
-	"\x1cSUBSCRIPTION_STATE_CANCELLED\x10\x052\xea\x03\n" +
+	"\x1cSUBSCRIPTION_STATE_CANCELLED\x10\x05*\x88\x01\n" +
+	"\x0fTokenUsageGrain\x12!\n" +
+	"\x1dTOKEN_USAGE_GRAIN_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15TOKEN_USAGE_GRAIN_DAY\x10\x01\x12\x1a\n" +
+	"\x16TOKEN_USAGE_GRAIN_WEEK\x10\x02\x12\x1b\n" +
+	"\x17TOKEN_USAGE_GRAIN_MONTH\x10\x03*\xc2\x01\n" +
+	"\x13TokenUsageDimension\x12%\n" +
+	"!TOKEN_USAGE_DIMENSION_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bTOKEN_USAGE_DIMENSION_SCOPE\x10\x01\x12 \n" +
+	"\x1cTOKEN_USAGE_DIMENSION_CALLER\x10\x02\x12\x1f\n" +
+	"\x1bTOKEN_USAGE_DIMENSION_MODEL\x10\x03\x12 \n" +
+	"\x1cTOKEN_USAGE_DIMENSION_REGION\x10\x042\x9c\x05\n" +
 	"\x0eBillingService\x12\x83\x01\n" +
-	"\x0fGetBillingState\x12,.jennahapi.billing.v1.GetBillingStateRequest\x1a-.jennahapi.billing.v1.GetBillingStateResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/billing\x12\xb3\x01\n" +
+	"\x0fGetBillingState\x12,.jennahapi.billing.v1.GetBillingStateRequest\x1a-.jennahapi.billing.v1.GetBillingStateResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/billing\x12\xaf\x01\n" +
+	"\x16GetFormationTokenUsage\x123.jennahapi.billing.v1.GetFormationTokenUsageRequest\x1a4.jennahapi.billing.v1.GetFormationTokenUsageResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/v1/billing/usage/formation-tokens\x12\xb3\x01\n" +
 	"\x1bBindMarketplaceRegistration\x128.jennahapi.billing.v1.BindMarketplaceRegistrationRequest\x1a9.jennahapi.billing.v1.BindMarketplaceRegistrationResponse\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/v1/billing/aws:bind\x12\x9b\x01\n" +
 	"\x1eResolveMarketplaceRegistration\x12;.jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest\x1a<.jennahapi.billing.v1.ResolveMarketplaceRegistrationResponseB+Z)github.com/alphauslabs/jennah-api/billingb\x06proto3"
 
@@ -710,38 +1200,54 @@ func file_jennah_billing_v1_billing_proto_rawDescGZIP() []byte {
 	return file_jennah_billing_v1_billing_proto_rawDescData
 }
 
-var file_jennah_billing_v1_billing_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_jennah_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_jennah_billing_v1_billing_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_jennah_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_jennah_billing_v1_billing_proto_goTypes = []any{
 	(BillingSource)(0),                             // 0: jennahapi.billing.v1.BillingSource
 	(SubscriptionState)(0),                         // 1: jennahapi.billing.v1.SubscriptionState
-	(*BoundSubscription)(nil),                      // 2: jennahapi.billing.v1.BoundSubscription
-	(*GetBillingStateRequest)(nil),                 // 3: jennahapi.billing.v1.GetBillingStateRequest
-	(*GetBillingStateResponse)(nil),                // 4: jennahapi.billing.v1.GetBillingStateResponse
-	(*BindMarketplaceRegistrationRequest)(nil),     // 5: jennahapi.billing.v1.BindMarketplaceRegistrationRequest
-	(*BindMarketplaceRegistrationResponse)(nil),    // 6: jennahapi.billing.v1.BindMarketplaceRegistrationResponse
-	(*ResolveMarketplaceRegistrationRequest)(nil),  // 7: jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
-	(*ResolveMarketplaceRegistrationResponse)(nil), // 8: jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
-	(*timestamppb.Timestamp)(nil),                  // 9: google.protobuf.Timestamp
+	(TokenUsageGrain)(0),                           // 2: jennahapi.billing.v1.TokenUsageGrain
+	(TokenUsageDimension)(0),                       // 3: jennahapi.billing.v1.TokenUsageDimension
+	(*BoundSubscription)(nil),                      // 4: jennahapi.billing.v1.BoundSubscription
+	(*GetBillingStateRequest)(nil),                 // 5: jennahapi.billing.v1.GetBillingStateRequest
+	(*GetBillingStateResponse)(nil),                // 6: jennahapi.billing.v1.GetBillingStateResponse
+	(*BindMarketplaceRegistrationRequest)(nil),     // 7: jennahapi.billing.v1.BindMarketplaceRegistrationRequest
+	(*BindMarketplaceRegistrationResponse)(nil),    // 8: jennahapi.billing.v1.BindMarketplaceRegistrationResponse
+	(*ResolveMarketplaceRegistrationRequest)(nil),  // 9: jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
+	(*ResolveMarketplaceRegistrationResponse)(nil), // 10: jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
+	(*TokenUsageFilter)(nil),                       // 11: jennahapi.billing.v1.TokenUsageFilter
+	(*GetFormationTokenUsageRequest)(nil),          // 12: jennahapi.billing.v1.GetFormationTokenUsageRequest
+	(*TokenUsageBucket)(nil),                       // 13: jennahapi.billing.v1.TokenUsageBucket
+	(*GetFormationTokenUsageResponse)(nil),         // 14: jennahapi.billing.v1.GetFormationTokenUsageResponse
+	(*timestamppb.Timestamp)(nil),                  // 15: google.protobuf.Timestamp
 }
 var file_jennah_billing_v1_billing_proto_depIdxs = []int32{
-	0, // 0: jennahapi.billing.v1.BoundSubscription.source:type_name -> jennahapi.billing.v1.BillingSource
-	9, // 1: jennahapi.billing.v1.BoundSubscription.expires_at:type_name -> google.protobuf.Timestamp
-	1, // 2: jennahapi.billing.v1.BoundSubscription.state:type_name -> jennahapi.billing.v1.SubscriptionState
-	0, // 3: jennahapi.billing.v1.GetBillingStateResponse.source:type_name -> jennahapi.billing.v1.BillingSource
-	2, // 4: jennahapi.billing.v1.GetBillingStateResponse.subscriptions:type_name -> jennahapi.billing.v1.BoundSubscription
-	2, // 5: jennahapi.billing.v1.BindMarketplaceRegistrationResponse.subscription:type_name -> jennahapi.billing.v1.BoundSubscription
-	3, // 6: jennahapi.billing.v1.BillingService.GetBillingState:input_type -> jennahapi.billing.v1.GetBillingStateRequest
-	5, // 7: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:input_type -> jennahapi.billing.v1.BindMarketplaceRegistrationRequest
-	7, // 8: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:input_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
-	4, // 9: jennahapi.billing.v1.BillingService.GetBillingState:output_type -> jennahapi.billing.v1.GetBillingStateResponse
-	6, // 10: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:output_type -> jennahapi.billing.v1.BindMarketplaceRegistrationResponse
-	8, // 11: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:output_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
-	9, // [9:12] is the sub-list for method output_type
-	6, // [6:9] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0,  // 0: jennahapi.billing.v1.BoundSubscription.source:type_name -> jennahapi.billing.v1.BillingSource
+	15, // 1: jennahapi.billing.v1.BoundSubscription.expires_at:type_name -> google.protobuf.Timestamp
+	1,  // 2: jennahapi.billing.v1.BoundSubscription.state:type_name -> jennahapi.billing.v1.SubscriptionState
+	0,  // 3: jennahapi.billing.v1.GetBillingStateResponse.source:type_name -> jennahapi.billing.v1.BillingSource
+	4,  // 4: jennahapi.billing.v1.GetBillingStateResponse.subscriptions:type_name -> jennahapi.billing.v1.BoundSubscription
+	4,  // 5: jennahapi.billing.v1.BindMarketplaceRegistrationResponse.subscription:type_name -> jennahapi.billing.v1.BoundSubscription
+	15, // 6: jennahapi.billing.v1.GetFormationTokenUsageRequest.start_time:type_name -> google.protobuf.Timestamp
+	15, // 7: jennahapi.billing.v1.GetFormationTokenUsageRequest.end_time:type_name -> google.protobuf.Timestamp
+	2,  // 8: jennahapi.billing.v1.GetFormationTokenUsageRequest.grain:type_name -> jennahapi.billing.v1.TokenUsageGrain
+	3,  // 9: jennahapi.billing.v1.GetFormationTokenUsageRequest.group_by:type_name -> jennahapi.billing.v1.TokenUsageDimension
+	11, // 10: jennahapi.billing.v1.GetFormationTokenUsageRequest.filter:type_name -> jennahapi.billing.v1.TokenUsageFilter
+	13, // 11: jennahapi.billing.v1.GetFormationTokenUsageResponse.buckets:type_name -> jennahapi.billing.v1.TokenUsageBucket
+	15, // 12: jennahapi.billing.v1.GetFormationTokenUsageResponse.start_time:type_name -> google.protobuf.Timestamp
+	15, // 13: jennahapi.billing.v1.GetFormationTokenUsageResponse.end_time:type_name -> google.protobuf.Timestamp
+	5,  // 14: jennahapi.billing.v1.BillingService.GetBillingState:input_type -> jennahapi.billing.v1.GetBillingStateRequest
+	12, // 15: jennahapi.billing.v1.BillingService.GetFormationTokenUsage:input_type -> jennahapi.billing.v1.GetFormationTokenUsageRequest
+	7,  // 16: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:input_type -> jennahapi.billing.v1.BindMarketplaceRegistrationRequest
+	9,  // 17: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:input_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
+	6,  // 18: jennahapi.billing.v1.BillingService.GetBillingState:output_type -> jennahapi.billing.v1.GetBillingStateResponse
+	14, // 19: jennahapi.billing.v1.BillingService.GetFormationTokenUsage:output_type -> jennahapi.billing.v1.GetFormationTokenUsageResponse
+	8,  // 20: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:output_type -> jennahapi.billing.v1.BindMarketplaceRegistrationResponse
+	10, // 21: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:output_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
+	18, // [18:22] is the sub-list for method output_type
+	14, // [14:18] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_jennah_billing_v1_billing_proto_init() }
@@ -754,8 +1260,8 @@ func file_jennah_billing_v1_billing_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_billing_v1_billing_proto_rawDesc), len(file_jennah_billing_v1_billing_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   7,
+			NumEnums:      4,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

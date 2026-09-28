@@ -153,6 +153,11 @@ func (f *fakeServices) GetBillingState(context.Context, *billingv1.GetBillingSta
 	return &billingv1.GetBillingStateResponse{}, nil
 }
 
+func (f *fakeServices) GetFormationTokenUsage(context.Context, *billingv1.GetFormationTokenUsageRequest) (*billingv1.GetFormationTokenUsageResponse, error) {
+	f.hit("GetFormationTokenUsage")
+	return &billingv1.GetFormationTokenUsageResponse{}, nil
+}
+
 func (f *fakeServices) ListLocations(context.Context, *platformv1.ListLocationsRequest) (*platformv1.ListLocationsResponse, error) {
 	f.hit("ListLocations")
 	return &platformv1.ListLocationsResponse{}, nil
@@ -210,6 +215,9 @@ func TestEveryServiceIsReachable(t *testing.T) {
 	if _, err := jc.Billing.State(ctx); err != nil { // BillingService
 		t.Fatalf("Billing.State: %v", err)
 	}
+	if _, err := jc.Billing.FormationTokenUsage(ctx, &billingv1.GetFormationTokenUsageRequest{}); err != nil {
+		t.Fatalf("Billing.FormationTokenUsage: %v", err)
+	}
 	if _, err := jc.Auth.WhoAmI(ctx); err != nil { // AuthService
 		t.Fatalf("Auth.WhoAmI: %v", err)
 	}
@@ -229,7 +237,7 @@ func TestEveryServiceIsReachable(t *testing.T) {
 	// AgentService and MemoryService are covered against their own fake in
 	// client_test.go; the seven above are the rest of the published set.
 	for _, want := range []string{
-		"ListLocations", "GetBillingState", "WhoAmI", "ListApprovals",
+		"ListLocations", "GetBillingState", "GetFormationTokenUsage", "WhoAmI", "ListApprovals",
 		"ListDatasets", "GetSchema", "QueryData",
 	} {
 		if !fake.hits[want] {

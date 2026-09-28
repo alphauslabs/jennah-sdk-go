@@ -1327,8 +1327,9 @@ type GraphEdge struct {
 	// always-current fact). invalid_at is when the fact ceased to be true; unset
 	// (absent) means the fact is still held. A caller-supplied valid_at must not be
 	// future-dated. Transaction-time (created/expired) is server-assigned and not
-	// expressible here. These are write-time inputs; InspectMemory does not populate
-	// them on read-back in this change.
+	// expressible here. On read-back, InspectMemory reports both, each absent when
+	// the stored column is NULL, so a superseded edge (still listed, since inspect
+	// reports what is held) carries invalid_at and a current one does not.
 	ValidAt   *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=valid_at,json=validAt,proto3" json:"valid_at,omitempty"`
 	InvalidAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=invalid_at,json=invalidAt,proto3" json:"invalid_at,omitempty"`
 	// Optional caller-supplied tags on this edge, on exactly the terms
@@ -5161,9 +5162,9 @@ type GetMemoryVocabularyResponse struct {
 	// absent-versus-empty distinction, which is why it is a message rather than a
 	// bare repeated field:
 	//
-	//	unset                  -> no declaration at this level
-	//	set, classes non-empty -> that declaration
-	//	set, classes empty     -> an EMPTY declaration (classification off here)
+	//   unset                  -> no declaration at this level
+	//   set, classes non-empty -> that declaration
+	//   set, classes empty     -> an EMPTY declaration (classification off here)
 	//
 	// A bare `repeated EntityClass` could not express the first two rows apart, and
 	// `optional` on a proto3 scalar is not an option this shape can reach for.
