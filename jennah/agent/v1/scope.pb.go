@@ -100,7 +100,10 @@ type MemoryScope struct {
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // server-assigned commit timestamp
 	// Human-readable detail for a non-terminal/failed status. Empty for a plain
 	// ACTIVE scope.
-	StatusDetail  string `protobuf:"bytes,8,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
+	StatusDetail string `protobuf:"bytes,8,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
+	// How much semantic memory this scope holds; see ScopeVolume. Unset when the
+	// server did not report it.
+	Volume        *ScopeVolume `protobuf:"bytes,9,opt,name=volume,proto3" json:"volume,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -189,6 +192,13 @@ func (x *MemoryScope) GetStatusDetail() string {
 		return x.StatusDetail
 	}
 	return ""
+}
+
+func (x *MemoryScope) GetVolume() *ScopeVolume {
+	if x != nil {
+		return x.Volume
+	}
+	return nil
 }
 
 // Request message for the ScopeService.CreateScope rpc.
@@ -614,7 +624,7 @@ var File_jennah_agent_v1_scope_proto protoreflect.FileDescriptor
 
 const file_jennah_agent_v1_scope_proto_rawDesc = "" +
 	"\n" +
-	"\x1bjennah/agent/v1/scope.proto\x12\x12jennahapi.agent.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bjennah/agent/v1/agent.proto\"\xd0\x02\n" +
+	"\x1bjennah/agent/v1/scope.proto\x12\x12jennahapi.agent.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bjennah/agent/v1/agent.proto\"\x89\x03\n" +
 	"\vMemoryScope\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12\x19\n" +
 	"\bscope_id\x18\x02 \x01(\tR\ascopeId\x12\x1d\n" +
@@ -625,7 +635,8 @@ const file_jennah_agent_v1_scope_proto_rawDesc = "" +
 	"\x06status\x18\x06 \x01(\x0e2\x1f.jennahapi.agent.v1.AgentStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12#\n" +
-	"\rstatus_detail\x18\b \x01(\tR\fstatusDetail\"\x99\x01\n" +
+	"\rstatus_detail\x18\b \x01(\tR\fstatusDetail\x127\n" +
+	"\x06volume\x18\t \x01(\v2\x1f.jennahapi.agent.v1.ScopeVolumeR\x06volume\"\x99\x01\n" +
 	"\x12CreateScopeRequest\x12\x19\n" +
 	"\bscope_id\x18\x01 \x01(\tR\ascopeId\x12\x1d\n" +
 	"\n" +
@@ -691,30 +702,32 @@ var file_jennah_agent_v1_scope_proto_goTypes = []any{
 	(*DeleteScopeResponse)(nil),   // 9: jennahapi.agent.v1.DeleteScopeResponse
 	(AgentStatus)(0),              // 10: jennahapi.agent.v1.AgentStatus
 	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
+	(*ScopeVolume)(nil),           // 12: jennahapi.agent.v1.ScopeVolume
 }
 var file_jennah_agent_v1_scope_proto_depIdxs = []int32{
 	0,  // 0: jennahapi.agent.v1.MemoryScope.kind:type_name -> jennahapi.agent.v1.ScopeKind
 	10, // 1: jennahapi.agent.v1.MemoryScope.status:type_name -> jennahapi.agent.v1.AgentStatus
 	11, // 2: jennahapi.agent.v1.MemoryScope.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 3: jennahapi.agent.v1.CreateScopeRequest.kind:type_name -> jennahapi.agent.v1.ScopeKind
-	1,  // 4: jennahapi.agent.v1.CreateScopeResponse.scope:type_name -> jennahapi.agent.v1.MemoryScope
-	1,  // 5: jennahapi.agent.v1.GetScopeResponse.scope:type_name -> jennahapi.agent.v1.MemoryScope
-	0,  // 6: jennahapi.agent.v1.ListScopesRequest.kind:type_name -> jennahapi.agent.v1.ScopeKind
-	1,  // 7: jennahapi.agent.v1.ListScopesResponse.scopes:type_name -> jennahapi.agent.v1.MemoryScope
-	11, // 8: jennahapi.agent.v1.DeleteScopeResponse.deleted_at:type_name -> google.protobuf.Timestamp
-	2,  // 9: jennahapi.agent.v1.ScopeService.CreateScope:input_type -> jennahapi.agent.v1.CreateScopeRequest
-	4,  // 10: jennahapi.agent.v1.ScopeService.GetScope:input_type -> jennahapi.agent.v1.GetScopeRequest
-	6,  // 11: jennahapi.agent.v1.ScopeService.ListScopes:input_type -> jennahapi.agent.v1.ListScopesRequest
-	8,  // 12: jennahapi.agent.v1.ScopeService.DeleteScope:input_type -> jennahapi.agent.v1.DeleteScopeRequest
-	3,  // 13: jennahapi.agent.v1.ScopeService.CreateScope:output_type -> jennahapi.agent.v1.CreateScopeResponse
-	5,  // 14: jennahapi.agent.v1.ScopeService.GetScope:output_type -> jennahapi.agent.v1.GetScopeResponse
-	7,  // 15: jennahapi.agent.v1.ScopeService.ListScopes:output_type -> jennahapi.agent.v1.ListScopesResponse
-	9,  // 16: jennahapi.agent.v1.ScopeService.DeleteScope:output_type -> jennahapi.agent.v1.DeleteScopeResponse
-	13, // [13:17] is the sub-list for method output_type
-	9,  // [9:13] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	12, // 3: jennahapi.agent.v1.MemoryScope.volume:type_name -> jennahapi.agent.v1.ScopeVolume
+	0,  // 4: jennahapi.agent.v1.CreateScopeRequest.kind:type_name -> jennahapi.agent.v1.ScopeKind
+	1,  // 5: jennahapi.agent.v1.CreateScopeResponse.scope:type_name -> jennahapi.agent.v1.MemoryScope
+	1,  // 6: jennahapi.agent.v1.GetScopeResponse.scope:type_name -> jennahapi.agent.v1.MemoryScope
+	0,  // 7: jennahapi.agent.v1.ListScopesRequest.kind:type_name -> jennahapi.agent.v1.ScopeKind
+	1,  // 8: jennahapi.agent.v1.ListScopesResponse.scopes:type_name -> jennahapi.agent.v1.MemoryScope
+	11, // 9: jennahapi.agent.v1.DeleteScopeResponse.deleted_at:type_name -> google.protobuf.Timestamp
+	2,  // 10: jennahapi.agent.v1.ScopeService.CreateScope:input_type -> jennahapi.agent.v1.CreateScopeRequest
+	4,  // 11: jennahapi.agent.v1.ScopeService.GetScope:input_type -> jennahapi.agent.v1.GetScopeRequest
+	6,  // 12: jennahapi.agent.v1.ScopeService.ListScopes:input_type -> jennahapi.agent.v1.ListScopesRequest
+	8,  // 13: jennahapi.agent.v1.ScopeService.DeleteScope:input_type -> jennahapi.agent.v1.DeleteScopeRequest
+	3,  // 14: jennahapi.agent.v1.ScopeService.CreateScope:output_type -> jennahapi.agent.v1.CreateScopeResponse
+	5,  // 15: jennahapi.agent.v1.ScopeService.GetScope:output_type -> jennahapi.agent.v1.GetScopeResponse
+	7,  // 16: jennahapi.agent.v1.ScopeService.ListScopes:output_type -> jennahapi.agent.v1.ListScopesResponse
+	9,  // 17: jennahapi.agent.v1.ScopeService.DeleteScope:output_type -> jennahapi.agent.v1.DeleteScopeResponse
+	14, // [14:18] is the sub-list for method output_type
+	10, // [10:14] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_scope_proto_init() }
