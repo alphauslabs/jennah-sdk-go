@@ -4516,8 +4516,17 @@ type FormMemoryResponse struct {
 	// here. Asking an extractor to volunteer what it failed to keep is asking a model
 	// to notice its own absence, which is the least reliable thing a model does.
 	SummarizedStructures []*SummarizedStructure `protobuf:"bytes,13,rep,name=summarized_structures,json=summarizedStructures,proto3" json:"summarized_structures,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// The formation units this formation consumed: the larger of 1, its input
+	// tokens divided by 16,384, and its output tokens (reasoning included) divided
+	// by 8,192, each rounded up, with tokens summed over every model call the
+	// formation made. The formation ceiling counts units, so this is what the
+	// formation took from the enterprise's allowance.
+	//
+	// A receipt returned for a replayed formation key reports the units of the
+	// formation that produced it, and the replay itself consumes none.
+	FormationUnits int64 `protobuf:"varint,14,opt,name=formation_units,json=formationUnits,proto3" json:"formation_units,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *FormMemoryResponse) Reset() {
@@ -4639,6 +4648,13 @@ func (x *FormMemoryResponse) GetSummarizedStructures() []*SummarizedStructure {
 		return x.SummarizedStructures
 	}
 	return nil
+}
+
+func (x *FormMemoryResponse) GetFormationUnits() int64 {
+	if x != nil {
+		return x.FormationUnits
+	}
+	return 0
 }
 
 // One entity class in a memory vocabulary: a kind of thing memory formation may
@@ -5519,7 +5535,7 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\n" +
 	"turn_index\x18\x01 \x01(\x05R\tturnIndex\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12)\n" +
-	"\x10summarized_count\x18\x03 \x01(\x05R\x0fsummarizedCount\"\xb1\x05\n" +
+	"\x10summarized_count\x18\x03 \x01(\x05R\x0fsummarizedCount\"\xda\x05\n" +
 	"\x12FormMemoryResponse\x12E\n" +
 	"\x10commit_timestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0fcommitTimestamp\x12,\n" +
 	"\x12execution_log_rows\x18\x02 \x01(\x03R\x10executionLogRows\x12\x1f\n" +
@@ -5539,7 +5555,8 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	" \x01(\x05R\fcandidateCap\x12-\n" +
 	"\x12candidates_dropped\x18\v \x01(\x05R\x11candidatesDropped\x12\x19\n" +
 	"\bscope_id\x18\f \x01(\tR\ascopeId\x12\\\n" +
-	"\x15summarized_structures\x18\r \x03(\v2'.jennahapi.agent.v1.SummarizedStructureR\x14summarizedStructures\"C\n" +
+	"\x15summarized_structures\x18\r \x03(\v2'.jennahapi.agent.v1.SummarizedStructureR\x14summarizedStructures\x12'\n" +
+	"\x0fformation_units\x18\x0e \x01(\x03R\x0eformationUnits\"C\n" +
 	"\vEntityClass\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"Y\n" +

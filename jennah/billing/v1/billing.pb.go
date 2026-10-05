@@ -953,8 +953,15 @@ type TokenUsageBucket struct {
 	Formations int64 `protobuf:"varint,3,opt,name=formations,proto3" json:"formations,omitempty"`
 	// Model-reported input and output tokens, summed. Kept apart because they are
 	// priced differently. Output includes the model's reasoning tokens.
-	InputTokens   int64 `protobuf:"varint,4,opt,name=input_tokens,json=inputTokens,proto3" json:"input_tokens,omitempty"`
-	OutputTokens  int64 `protobuf:"varint,5,opt,name=output_tokens,json=outputTokens,proto3" json:"output_tokens,omitempty"`
+	InputTokens  int64 `protobuf:"varint,4,opt,name=input_tokens,json=inputTokens,proto3" json:"input_tokens,omitempty"`
+	OutputTokens int64 `protobuf:"varint,5,opt,name=output_tokens,json=outputTokens,proto3" json:"output_tokens,omitempty"`
+	// Formation units consumed by the formations in this bucket, summed per
+	// formation: a formation's units are the larger of 1, its input tokens divided
+	// by 16,384, and its output tokens divided by 8,192, each rounded up. Not
+	// derivable from the bucket's token sums, because units are counted per
+	// formation. A formation whose model calls reported no tokens counts toward the
+	// formation ceiling but has no row here.
+	Units         int64 `protobuf:"varint,6,opt,name=units,proto3" json:"units,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1020,6 +1027,13 @@ func (x *TokenUsageBucket) GetInputTokens() int64 {
 func (x *TokenUsageBucket) GetOutputTokens() int64 {
 	if x != nil {
 		return x.OutputTokens
+	}
+	return 0
+}
+
+func (x *TokenUsageBucket) GetUnits() int64 {
+	if x != nil {
+		return x.Units
 	}
 	return 0
 }
@@ -1144,7 +1158,7 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"\x05grain\x18\x03 \x01(\x0e2%.jennahapi.billing.v1.TokenUsageGrainR\x05grain\x12D\n" +
 	"\bgroup_by\x18\x04 \x01(\x0e2).jennahapi.billing.v1.TokenUsageDimensionR\agroupBy\x12\x1b\n" +
 	"\ttime_zone\x18\x05 \x01(\tR\btimeZone\x12>\n" +
-	"\x06filter\x18\x06 \x01(\v2&.jennahapi.billing.v1.TokenUsageFilterR\x06filter\"\xaf\x01\n" +
+	"\x06filter\x18\x06 \x01(\v2&.jennahapi.billing.v1.TokenUsageFilterR\x06filter\"\xc5\x01\n" +
 	"\x10TokenUsageBucket\x12!\n" +
 	"\fperiod_start\x18\x01 \x01(\tR\vperiodStart\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1e\n" +
@@ -1152,7 +1166,8 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"formations\x18\x03 \x01(\x03R\n" +
 	"formations\x12!\n" +
 	"\finput_tokens\x18\x04 \x01(\x03R\vinputTokens\x12#\n" +
-	"\routput_tokens\x18\x05 \x01(\x03R\foutputTokens\"\xf1\x01\n" +
+	"\routput_tokens\x18\x05 \x01(\x03R\foutputTokens\x12\x14\n" +
+	"\x05units\x18\x06 \x01(\x03R\x05units\"\xf1\x01\n" +
 	"\x1eGetFormationTokenUsageResponse\x12@\n" +
 	"\abuckets\x18\x01 \x03(\v2&.jennahapi.billing.v1.TokenUsageBucketR\abuckets\x129\n" +
 	"\n" +
