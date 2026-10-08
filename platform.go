@@ -39,6 +39,15 @@ func (b BillingAPI) FormationTokenUsage(ctx context.Context, in *billingv1.GetFo
 	return b.c.billing.GetFormationTokenUsage(ctx, in)
 }
 
+// SetFormationOverageCap sets how far past its monthly formation allowance the
+// enterprise may form, as a multiple (0 to 10, in steps of 0.5) of its tier's
+// overage unit band. Only a signed-in root or administrator can call it: an API
+// key is refused, including one created by an administrator, so an agent cannot
+// raise its own spending limit.
+func (b BillingAPI) SetFormationOverageCap(ctx context.Context, multiple float64) (*billingv1.SetFormationOverageCapResponse, error) {
+	return b.c.billing.SetFormationOverageCap(ctx, &billingv1.SetFormationOverageCapRequest{OverageMultiple: multiple})
+}
+
 // ResolveMarketplace exchanges a marketplace registration token for the
 // subscription it identifies. It runs before the caller is authenticated, since a
 // buyer arriving from the marketplace may not have an enterprise yet.

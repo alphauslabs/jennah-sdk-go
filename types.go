@@ -265,6 +265,8 @@ type (
 	TokenUsageGrain                        = billingv1.TokenUsageGrain
 	ResolveMarketplaceRegistrationRequest  = billingv1.ResolveMarketplaceRegistrationRequest
 	ResolveMarketplaceRegistrationResponse = billingv1.ResolveMarketplaceRegistrationResponse
+	SetFormationOverageCapRequest          = billingv1.SetFormationOverageCapRequest
+	SetFormationOverageCapResponse         = billingv1.SetFormationOverageCapResponse
 	SubscriptionState                      = billingv1.SubscriptionState
 )
 

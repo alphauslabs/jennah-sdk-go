@@ -243,6 +243,9 @@ var neverReplay = map[string]bool{
 	// Commits the enterprise to a paid agreement.
 	billingv1.BillingService_BindMarketplaceRegistration_FullMethodName:    true,
 	billingv1.BillingService_ResolveMarketplaceRegistration_FullMethodName: true,
+
+	// Commits the enterprise to more spend, and records each change.
+	billingv1.BillingService_SetFormationOverageCap_FullMethodName: true,
 }
 
 // retryInterceptor replays eligible calls on transient errors using gax.Invoke.

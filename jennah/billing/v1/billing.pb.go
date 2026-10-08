@@ -472,9 +472,30 @@ type GetBillingStateResponse struct {
 	// shown when the tier is the terminal cancelled one, so a former subscriber gets
 	// a re-subscribe link rather than an expired-trial prompt. Empty when the plan is
 	// platform-owned.
-	ManageUrl     string `protobuf:"bytes,6,opt,name=manage_url,json=manageUrl,proto3" json:"manage_url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	ManageUrl string `protobuf:"bytes,6,opt,name=manage_url,json=manageUrl,proto3" json:"manage_url,omitempty"`
+	// The tier's formation allowance for the window, in units. Unbounded on a tier
+	// with no formation ceiling, reported as -1.
+	FormationUnitsAllowance int64 `protobuf:"varint,7,opt,name=formation_units_allowance,json=formationUnitsAllowance,proto3" json:"formation_units_allowance,omitempty"`
+	// Formation units used in the window so far.
+	FormationUnitsUsed int64 `protobuf:"varint,8,opt,name=formation_units_used,json=formationUnitsUsed,proto3" json:"formation_units_used,omitempty"`
+	// Units used above the allowance this window. Zero when the enterprise is not
+	// billable, since a non-billable enterprise is refused at its allowance.
+	FormationOverageUnits int64 `protobuf:"varint,9,opt,name=formation_overage_units,json=formationOverageUnits,proto3" json:"formation_overage_units,omitempty"`
+	// The enterprise's overage multiple: the stored value, or the default of 2 when
+	// none was set. Reported whether or not the enterprise is billable. Only a
+	// signed-in root or administrator can change it (SetFormationOverageCap).
+	OverageMultiple float64 `protobuf:"fixed64,10,opt,name=overage_multiple,json=overageMultiple,proto3" json:"overage_multiple,omitempty"`
+	// The overage band in units: `overage_multiple` times the tier's unit band, the
+	// number of overage units whose price equals one month of the tier's fee,
+	// rounded down. A billable enterprise is refused once the window's units reach
+	// `formation_units_allowance` plus this band. Zero on a tier with no overage.
+	OverageUnitBand int64 `protobuf:"varint,11,opt,name=overage_unit_band,json=overageUnitBand,proto3" json:"overage_unit_band,omitempty"`
+	// True when formations past the allowance are admitted into the overage band
+	// and billed: the enterprise holds an active subscription on a product with a
+	// consumption dimension, on a tier that offers overage.
+	OverageBillable bool `protobuf:"varint,12,opt,name=overage_billable,json=overageBillable,proto3" json:"overage_billable,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetBillingStateResponse) Reset() {
@@ -549,6 +570,141 @@ func (x *GetBillingStateResponse) GetManageUrl() string {
 	return ""
 }
 
+func (x *GetBillingStateResponse) GetFormationUnitsAllowance() int64 {
+	if x != nil {
+		return x.FormationUnitsAllowance
+	}
+	return 0
+}
+
+func (x *GetBillingStateResponse) GetFormationUnitsUsed() int64 {
+	if x != nil {
+		return x.FormationUnitsUsed
+	}
+	return 0
+}
+
+func (x *GetBillingStateResponse) GetFormationOverageUnits() int64 {
+	if x != nil {
+		return x.FormationOverageUnits
+	}
+	return 0
+}
+
+func (x *GetBillingStateResponse) GetOverageMultiple() float64 {
+	if x != nil {
+		return x.OverageMultiple
+	}
+	return 0
+}
+
+func (x *GetBillingStateResponse) GetOverageUnitBand() int64 {
+	if x != nil {
+		return x.OverageUnitBand
+	}
+	return 0
+}
+
+func (x *GetBillingStateResponse) GetOverageBillable() bool {
+	if x != nil {
+		return x.OverageBillable
+	}
+	return false
+}
+
+// Request message for the BillingService.SetFormationOverageCap rpc.
+type SetFormationOverageCapRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The new multiple, from 0 to 10 in steps of 0.5. Zero means no overage: a
+	// billable enterprise is refused at its allowance.
+	OverageMultiple float64 `protobuf:"fixed64,1,opt,name=overage_multiple,json=overageMultiple,proto3" json:"overage_multiple,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetFormationOverageCapRequest) Reset() {
+	*x = SetFormationOverageCapRequest{}
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetFormationOverageCapRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetFormationOverageCapRequest) ProtoMessage() {}
+
+func (x *SetFormationOverageCapRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetFormationOverageCapRequest.ProtoReflect.Descriptor instead.
+func (*SetFormationOverageCapRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *SetFormationOverageCapRequest) GetOverageMultiple() float64 {
+	if x != nil {
+		return x.OverageMultiple
+	}
+	return 0
+}
+
+// Response message for the BillingService.SetFormationOverageCap rpc.
+type SetFormationOverageCapResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The multiple as stored.
+	OverageMultiple float64 `protobuf:"fixed64,1,opt,name=overage_multiple,json=overageMultiple,proto3" json:"overage_multiple,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetFormationOverageCapResponse) Reset() {
+	*x = SetFormationOverageCapResponse{}
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetFormationOverageCapResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetFormationOverageCapResponse) ProtoMessage() {}
+
+func (x *SetFormationOverageCapResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetFormationOverageCapResponse.ProtoReflect.Descriptor instead.
+func (*SetFormationOverageCapResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SetFormationOverageCapResponse) GetOverageMultiple() float64 {
+	if x != nil {
+		return x.OverageMultiple
+	}
+	return 0
+}
+
 // Request message for the BillingService.BindMarketplaceRegistration rpc.
 type BindMarketplaceRegistrationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -562,7 +718,7 @@ type BindMarketplaceRegistrationRequest struct {
 
 func (x *BindMarketplaceRegistrationRequest) Reset() {
 	*x = BindMarketplaceRegistrationRequest{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[3]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -574,7 +730,7 @@ func (x *BindMarketplaceRegistrationRequest) String() string {
 func (*BindMarketplaceRegistrationRequest) ProtoMessage() {}
 
 func (x *BindMarketplaceRegistrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[3]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +743,7 @@ func (x *BindMarketplaceRegistrationRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use BindMarketplaceRegistrationRequest.ProtoReflect.Descriptor instead.
 func (*BindMarketplaceRegistrationRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{3}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *BindMarketplaceRegistrationRequest) GetHandle() string {
@@ -618,7 +774,7 @@ type BindMarketplaceRegistrationResponse struct {
 
 func (x *BindMarketplaceRegistrationResponse) Reset() {
 	*x = BindMarketplaceRegistrationResponse{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[4]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +786,7 @@ func (x *BindMarketplaceRegistrationResponse) String() string {
 func (*BindMarketplaceRegistrationResponse) ProtoMessage() {}
 
 func (x *BindMarketplaceRegistrationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[4]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +799,7 @@ func (x *BindMarketplaceRegistrationResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use BindMarketplaceRegistrationResponse.ProtoReflect.Descriptor instead.
 func (*BindMarketplaceRegistrationResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{4}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *BindMarketplaceRegistrationResponse) GetSubscription() *BoundSubscription {
@@ -678,7 +834,7 @@ type ResolveMarketplaceRegistrationRequest struct {
 
 func (x *ResolveMarketplaceRegistrationRequest) Reset() {
 	*x = ResolveMarketplaceRegistrationRequest{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[5]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -690,7 +846,7 @@ func (x *ResolveMarketplaceRegistrationRequest) String() string {
 func (*ResolveMarketplaceRegistrationRequest) ProtoMessage() {}
 
 func (x *ResolveMarketplaceRegistrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[5]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -703,7 +859,7 @@ func (x *ResolveMarketplaceRegistrationRequest) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ResolveMarketplaceRegistrationRequest.ProtoReflect.Descriptor instead.
 func (*ResolveMarketplaceRegistrationRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{5}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ResolveMarketplaceRegistrationRequest) GetRegistrationToken() string {
@@ -730,7 +886,7 @@ type ResolveMarketplaceRegistrationResponse struct {
 
 func (x *ResolveMarketplaceRegistrationResponse) Reset() {
 	*x = ResolveMarketplaceRegistrationResponse{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[6]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +898,7 @@ func (x *ResolveMarketplaceRegistrationResponse) String() string {
 func (*ResolveMarketplaceRegistrationResponse) ProtoMessage() {}
 
 func (x *ResolveMarketplaceRegistrationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[6]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +911,7 @@ func (x *ResolveMarketplaceRegistrationResponse) ProtoReflect() protoreflect.Mes
 
 // Deprecated: Use ResolveMarketplaceRegistrationResponse.ProtoReflect.Descriptor instead.
 func (*ResolveMarketplaceRegistrationResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{6}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ResolveMarketplaceRegistrationResponse) GetRedirectUrl() string {
@@ -784,7 +940,7 @@ type TokenUsageFilter struct {
 
 func (x *TokenUsageFilter) Reset() {
 	*x = TokenUsageFilter{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[7]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -796,7 +952,7 @@ func (x *TokenUsageFilter) String() string {
 func (*TokenUsageFilter) ProtoMessage() {}
 
 func (x *TokenUsageFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[7]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -809,7 +965,7 @@ func (x *TokenUsageFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenUsageFilter.ProtoReflect.Descriptor instead.
 func (*TokenUsageFilter) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{7}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TokenUsageFilter) GetScopeId() string {
@@ -870,7 +1026,7 @@ type GetFormationTokenUsageRequest struct {
 
 func (x *GetFormationTokenUsageRequest) Reset() {
 	*x = GetFormationTokenUsageRequest{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[8]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -882,7 +1038,7 @@ func (x *GetFormationTokenUsageRequest) String() string {
 func (*GetFormationTokenUsageRequest) ProtoMessage() {}
 
 func (x *GetFormationTokenUsageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[8]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -895,7 +1051,7 @@ func (x *GetFormationTokenUsageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFormationTokenUsageRequest.ProtoReflect.Descriptor instead.
 func (*GetFormationTokenUsageRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{8}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetFormationTokenUsageRequest) GetStartTime() *timestamppb.Timestamp {
@@ -968,7 +1124,7 @@ type TokenUsageBucket struct {
 
 func (x *TokenUsageBucket) Reset() {
 	*x = TokenUsageBucket{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[9]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -980,7 +1136,7 @@ func (x *TokenUsageBucket) String() string {
 func (*TokenUsageBucket) ProtoMessage() {}
 
 func (x *TokenUsageBucket) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[9]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -993,7 +1149,7 @@ func (x *TokenUsageBucket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenUsageBucket.ProtoReflect.Descriptor instead.
 func (*TokenUsageBucket) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{9}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TokenUsageBucket) GetPeriodStart() string {
@@ -1052,7 +1208,7 @@ type GetFormationTokenUsageResponse struct {
 
 func (x *GetFormationTokenUsageResponse) Reset() {
 	*x = GetFormationTokenUsageResponse{}
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[10]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1064,7 +1220,7 @@ func (x *GetFormationTokenUsageResponse) String() string {
 func (*GetFormationTokenUsageResponse) ProtoMessage() {}
 
 func (x *GetFormationTokenUsageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_billing_v1_billing_proto_msgTypes[10]
+	mi := &file_jennah_billing_v1_billing_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1077,7 +1233,7 @@ func (x *GetFormationTokenUsageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFormationTokenUsageResponse.ProtoReflect.Descriptor instead.
 func (*GetFormationTokenUsageResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{10}
+	return file_jennah_billing_v1_billing_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetFormationTokenUsageResponse) GetBuckets() []*TokenUsageBucket {
@@ -1125,7 +1281,7 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12=\n" +
 	"\x05state\x18\a \x01(\x0e2'.jennahapi.billing.v1.SubscriptionStateR\x05state\x12\x1a\n" +
 	"\bquantity\x18\b \x01(\x03R\bquantity\"\x18\n" +
-	"\x16GetBillingStateRequest\"\xa4\x02\n" +
+	"\x16GetBillingStateRequest\"\xcc\x04\n" +
 	"\x17GetBillingStateResponse\x12\x12\n" +
 	"\x04tier\x18\x01 \x01(\tR\x04tier\x12;\n" +
 	"\x06source\x18\x02 \x01(\x0e2#.jennahapi.billing.v1.BillingSourceR\x06source\x12\x1b\n" +
@@ -1133,7 +1289,18 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"\x12externally_managed\x18\x04 \x01(\bR\x11externallyManaged\x12M\n" +
 	"\rsubscriptions\x18\x05 \x03(\v2'.jennahapi.billing.v1.BoundSubscriptionR\rsubscriptions\x12\x1d\n" +
 	"\n" +
-	"manage_url\x18\x06 \x01(\tR\tmanageUrl\"<\n" +
+	"manage_url\x18\x06 \x01(\tR\tmanageUrl\x12:\n" +
+	"\x19formation_units_allowance\x18\a \x01(\x03R\x17formationUnitsAllowance\x120\n" +
+	"\x14formation_units_used\x18\b \x01(\x03R\x12formationUnitsUsed\x126\n" +
+	"\x17formation_overage_units\x18\t \x01(\x03R\x15formationOverageUnits\x12)\n" +
+	"\x10overage_multiple\x18\n" +
+	" \x01(\x01R\x0foverageMultiple\x12*\n" +
+	"\x11overage_unit_band\x18\v \x01(\x03R\x0foverageUnitBand\x12)\n" +
+	"\x10overage_billable\x18\f \x01(\bR\x0foverageBillable\"J\n" +
+	"\x1dSetFormationOverageCapRequest\x12)\n" +
+	"\x10overage_multiple\x18\x01 \x01(\x01R\x0foverageMultiple\"K\n" +
+	"\x1eSetFormationOverageCapResponse\x12)\n" +
+	"\x10overage_multiple\x18\x01 \x01(\x01R\x0foverageMultiple\"<\n" +
 	"\"BindMarketplaceRegistrationRequest\x12\x16\n" +
 	"\x06handle\x18\x01 \x01(\tR\x06handle\"\xc9\x01\n" +
 	"#BindMarketplaceRegistrationResponse\x12K\n" +
@@ -1196,11 +1363,12 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"\x1bTOKEN_USAGE_DIMENSION_SCOPE\x10\x01\x12 \n" +
 	"\x1cTOKEN_USAGE_DIMENSION_CALLER\x10\x02\x12\x1f\n" +
 	"\x1bTOKEN_USAGE_DIMENSION_MODEL\x10\x03\x12 \n" +
-	"\x1cTOKEN_USAGE_DIMENSION_REGION\x10\x042\x9c\x05\n" +
+	"\x1cTOKEN_USAGE_DIMENSION_REGION\x10\x042\xd0\x06\n" +
 	"\x0eBillingService\x12\x83\x01\n" +
 	"\x0fGetBillingState\x12,.jennahapi.billing.v1.GetBillingStateRequest\x1a-.jennahapi.billing.v1.GetBillingStateResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/billing\x12\xaf\x01\n" +
 	"\x16GetFormationTokenUsage\x123.jennahapi.billing.v1.GetFormationTokenUsageRequest\x1a4.jennahapi.billing.v1.GetFormationTokenUsageResponse\"*\x82\xd3\xe4\x93\x02$\x12\"/v1/billing/usage/formation-tokens\x12\xb3\x01\n" +
-	"\x1bBindMarketplaceRegistration\x128.jennahapi.billing.v1.BindMarketplaceRegistrationRequest\x1a9.jennahapi.billing.v1.BindMarketplaceRegistrationResponse\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/v1/billing/aws:bind\x12\x9b\x01\n" +
+	"\x1bBindMarketplaceRegistration\x128.jennahapi.billing.v1.BindMarketplaceRegistrationRequest\x1a9.jennahapi.billing.v1.BindMarketplaceRegistrationResponse\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/v1/billing/aws:bind\x12\xb1\x01\n" +
+	"\x16SetFormationOverageCap\x123.jennahapi.billing.v1.SetFormationOverageCapRequest\x1a4.jennahapi.billing.v1.SetFormationOverageCapResponse\",\x82\xd3\xe4\x93\x02&:\x01*\x1a!/v1/billing/formation-overage-cap\x12\x9b\x01\n" +
 	"\x1eResolveMarketplaceRegistration\x12;.jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest\x1a<.jennahapi.billing.v1.ResolveMarketplaceRegistrationResponseB+Z)github.com/alphauslabs/jennah-api/billingb\x06proto3"
 
 var (
@@ -1216,7 +1384,7 @@ func file_jennah_billing_v1_billing_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_billing_v1_billing_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_jennah_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_jennah_billing_v1_billing_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_jennah_billing_v1_billing_proto_goTypes = []any{
 	(BillingSource)(0),                             // 0: jennahapi.billing.v1.BillingSource
 	(SubscriptionState)(0),                         // 1: jennahapi.billing.v1.SubscriptionState
@@ -1225,41 +1393,45 @@ var file_jennah_billing_v1_billing_proto_goTypes = []any{
 	(*BoundSubscription)(nil),                      // 4: jennahapi.billing.v1.BoundSubscription
 	(*GetBillingStateRequest)(nil),                 // 5: jennahapi.billing.v1.GetBillingStateRequest
 	(*GetBillingStateResponse)(nil),                // 6: jennahapi.billing.v1.GetBillingStateResponse
-	(*BindMarketplaceRegistrationRequest)(nil),     // 7: jennahapi.billing.v1.BindMarketplaceRegistrationRequest
-	(*BindMarketplaceRegistrationResponse)(nil),    // 8: jennahapi.billing.v1.BindMarketplaceRegistrationResponse
-	(*ResolveMarketplaceRegistrationRequest)(nil),  // 9: jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
-	(*ResolveMarketplaceRegistrationResponse)(nil), // 10: jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
-	(*TokenUsageFilter)(nil),                       // 11: jennahapi.billing.v1.TokenUsageFilter
-	(*GetFormationTokenUsageRequest)(nil),          // 12: jennahapi.billing.v1.GetFormationTokenUsageRequest
-	(*TokenUsageBucket)(nil),                       // 13: jennahapi.billing.v1.TokenUsageBucket
-	(*GetFormationTokenUsageResponse)(nil),         // 14: jennahapi.billing.v1.GetFormationTokenUsageResponse
-	(*timestamppb.Timestamp)(nil),                  // 15: google.protobuf.Timestamp
+	(*SetFormationOverageCapRequest)(nil),          // 7: jennahapi.billing.v1.SetFormationOverageCapRequest
+	(*SetFormationOverageCapResponse)(nil),         // 8: jennahapi.billing.v1.SetFormationOverageCapResponse
+	(*BindMarketplaceRegistrationRequest)(nil),     // 9: jennahapi.billing.v1.BindMarketplaceRegistrationRequest
+	(*BindMarketplaceRegistrationResponse)(nil),    // 10: jennahapi.billing.v1.BindMarketplaceRegistrationResponse
+	(*ResolveMarketplaceRegistrationRequest)(nil),  // 11: jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
+	(*ResolveMarketplaceRegistrationResponse)(nil), // 12: jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
+	(*TokenUsageFilter)(nil),                       // 13: jennahapi.billing.v1.TokenUsageFilter
+	(*GetFormationTokenUsageRequest)(nil),          // 14: jennahapi.billing.v1.GetFormationTokenUsageRequest
+	(*TokenUsageBucket)(nil),                       // 15: jennahapi.billing.v1.TokenUsageBucket
+	(*GetFormationTokenUsageResponse)(nil),         // 16: jennahapi.billing.v1.GetFormationTokenUsageResponse
+	(*timestamppb.Timestamp)(nil),                  // 17: google.protobuf.Timestamp
 }
 var file_jennah_billing_v1_billing_proto_depIdxs = []int32{
 	0,  // 0: jennahapi.billing.v1.BoundSubscription.source:type_name -> jennahapi.billing.v1.BillingSource
-	15, // 1: jennahapi.billing.v1.BoundSubscription.expires_at:type_name -> google.protobuf.Timestamp
+	17, // 1: jennahapi.billing.v1.BoundSubscription.expires_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: jennahapi.billing.v1.BoundSubscription.state:type_name -> jennahapi.billing.v1.SubscriptionState
 	0,  // 3: jennahapi.billing.v1.GetBillingStateResponse.source:type_name -> jennahapi.billing.v1.BillingSource
 	4,  // 4: jennahapi.billing.v1.GetBillingStateResponse.subscriptions:type_name -> jennahapi.billing.v1.BoundSubscription
 	4,  // 5: jennahapi.billing.v1.BindMarketplaceRegistrationResponse.subscription:type_name -> jennahapi.billing.v1.BoundSubscription
-	15, // 6: jennahapi.billing.v1.GetFormationTokenUsageRequest.start_time:type_name -> google.protobuf.Timestamp
-	15, // 7: jennahapi.billing.v1.GetFormationTokenUsageRequest.end_time:type_name -> google.protobuf.Timestamp
+	17, // 6: jennahapi.billing.v1.GetFormationTokenUsageRequest.start_time:type_name -> google.protobuf.Timestamp
+	17, // 7: jennahapi.billing.v1.GetFormationTokenUsageRequest.end_time:type_name -> google.protobuf.Timestamp
 	2,  // 8: jennahapi.billing.v1.GetFormationTokenUsageRequest.grain:type_name -> jennahapi.billing.v1.TokenUsageGrain
 	3,  // 9: jennahapi.billing.v1.GetFormationTokenUsageRequest.group_by:type_name -> jennahapi.billing.v1.TokenUsageDimension
-	11, // 10: jennahapi.billing.v1.GetFormationTokenUsageRequest.filter:type_name -> jennahapi.billing.v1.TokenUsageFilter
-	13, // 11: jennahapi.billing.v1.GetFormationTokenUsageResponse.buckets:type_name -> jennahapi.billing.v1.TokenUsageBucket
-	15, // 12: jennahapi.billing.v1.GetFormationTokenUsageResponse.start_time:type_name -> google.protobuf.Timestamp
-	15, // 13: jennahapi.billing.v1.GetFormationTokenUsageResponse.end_time:type_name -> google.protobuf.Timestamp
+	13, // 10: jennahapi.billing.v1.GetFormationTokenUsageRequest.filter:type_name -> jennahapi.billing.v1.TokenUsageFilter
+	15, // 11: jennahapi.billing.v1.GetFormationTokenUsageResponse.buckets:type_name -> jennahapi.billing.v1.TokenUsageBucket
+	17, // 12: jennahapi.billing.v1.GetFormationTokenUsageResponse.start_time:type_name -> google.protobuf.Timestamp
+	17, // 13: jennahapi.billing.v1.GetFormationTokenUsageResponse.end_time:type_name -> google.protobuf.Timestamp
 	5,  // 14: jennahapi.billing.v1.BillingService.GetBillingState:input_type -> jennahapi.billing.v1.GetBillingStateRequest
-	12, // 15: jennahapi.billing.v1.BillingService.GetFormationTokenUsage:input_type -> jennahapi.billing.v1.GetFormationTokenUsageRequest
-	7,  // 16: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:input_type -> jennahapi.billing.v1.BindMarketplaceRegistrationRequest
-	9,  // 17: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:input_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
-	6,  // 18: jennahapi.billing.v1.BillingService.GetBillingState:output_type -> jennahapi.billing.v1.GetBillingStateResponse
-	14, // 19: jennahapi.billing.v1.BillingService.GetFormationTokenUsage:output_type -> jennahapi.billing.v1.GetFormationTokenUsageResponse
-	8,  // 20: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:output_type -> jennahapi.billing.v1.BindMarketplaceRegistrationResponse
-	10, // 21: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:output_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
-	18, // [18:22] is the sub-list for method output_type
-	14, // [14:18] is the sub-list for method input_type
+	14, // 15: jennahapi.billing.v1.BillingService.GetFormationTokenUsage:input_type -> jennahapi.billing.v1.GetFormationTokenUsageRequest
+	9,  // 16: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:input_type -> jennahapi.billing.v1.BindMarketplaceRegistrationRequest
+	7,  // 17: jennahapi.billing.v1.BillingService.SetFormationOverageCap:input_type -> jennahapi.billing.v1.SetFormationOverageCapRequest
+	11, // 18: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:input_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationRequest
+	6,  // 19: jennahapi.billing.v1.BillingService.GetBillingState:output_type -> jennahapi.billing.v1.GetBillingStateResponse
+	16, // 20: jennahapi.billing.v1.BillingService.GetFormationTokenUsage:output_type -> jennahapi.billing.v1.GetFormationTokenUsageResponse
+	10, // 21: jennahapi.billing.v1.BillingService.BindMarketplaceRegistration:output_type -> jennahapi.billing.v1.BindMarketplaceRegistrationResponse
+	8,  // 22: jennahapi.billing.v1.BillingService.SetFormationOverageCap:output_type -> jennahapi.billing.v1.SetFormationOverageCapResponse
+	12, // 23: jennahapi.billing.v1.BillingService.ResolveMarketplaceRegistration:output_type -> jennahapi.billing.v1.ResolveMarketplaceRegistrationResponse
+	19, // [19:24] is the sub-list for method output_type
+	14, // [14:19] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
 	14, // [14:14] is the sub-list for extension extendee
 	0,  // [0:14] is the sub-list for field type_name
@@ -1276,7 +1448,7 @@ func file_jennah_billing_v1_billing_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_billing_v1_billing_proto_rawDesc), len(file_jennah_billing_v1_billing_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
