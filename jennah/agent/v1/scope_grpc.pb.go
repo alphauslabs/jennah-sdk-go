@@ -34,8 +34,8 @@ type ScopeServiceClient interface {
 	// Creates a memory scope of an explicit kind under the caller's enterprise.
 	// The home region is resolved exactly as it is for an agent workspace, from
 	// the optional `region` field or the platform default, and is FIXED for the
-	// scope's life: a subject scope's memory lives in that region's data-plane
-	// database and is never replicated elsewhere, which is what makes a residency
+	// scope's life: a subject scope's memory is stored in that region and is never
+	// replicated elsewhere, which is what makes a residency
 	// commitment about a subject hold irrespective of which agent reads it.
 	//
 	// The identifier space is shared across both kinds, so an id that already
@@ -120,8 +120,8 @@ type ScopeServiceServer interface {
 	// Creates a memory scope of an explicit kind under the caller's enterprise.
 	// The home region is resolved exactly as it is for an agent workspace, from
 	// the optional `region` field or the platform default, and is FIXED for the
-	// scope's life: a subject scope's memory lives in that region's data-plane
-	// database and is never replicated elsewhere, which is what makes a residency
+	// scope's life: a subject scope's memory is stored in that region and is never
+	// replicated elsewhere, which is what makes a residency
 	// commitment about a subject hold irrespective of which agent reads it.
 	//
 	// The identifier space is shared across both kinds, so an id that already

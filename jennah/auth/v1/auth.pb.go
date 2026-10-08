@@ -186,7 +186,7 @@ func (ResponseMode) EnumDescriptor() ([]byte, []int) {
 }
 
 // A caller's role within an enterprise. Exactly one ROLE_ROOT per enterprise
-// (its creator/owner); resolved from the Memberships table, never carried in
+// (its creator/owner); resolved from the current membership, never carried in
 // the access token (so role changes apply immediately).
 type Role int32
 
@@ -351,9 +351,8 @@ func (PollDeviceLoginResponse_Status) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{14, 0}
 }
 
-// One of the caller's enterprise memberships (a row in the Memberships join
-// table), surfaced in Identity so a multi-enterprise user can pick which one to
-// switch into.
+// One of the caller's enterprise memberships, surfaced in Identity so a
+// multi-enterprise user can pick which one to switch into.
 type Membership struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	EnterpriseId   string                 `protobuf:"bytes,1,opt,name=enterprise_id,json=enterpriseId,proto3" json:"enterprise_id,omitempty"`
@@ -2245,7 +2244,7 @@ type Member struct {
 	// Built-in role within the enterprise. ROLE_UNSPECIFIED when the member holds
 	// a custom role instead, see custom_role_id.
 	Role     Role                   `protobuf:"varint,3,opt,name=role,proto3,enum=jennahapi.auth.v1.Role" json:"role,omitempty"`
-	JoinedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"` // Memberships row creation time
+	JoinedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"` // when the member joined the enterprise
 	// Set when the member holds a custom RBAC role rather than a built-in one; it
 	// is the assigned role's id (join against ListRoles for its name/permissions).
 	// Empty for a built-in role, where `role` carries the assignment.

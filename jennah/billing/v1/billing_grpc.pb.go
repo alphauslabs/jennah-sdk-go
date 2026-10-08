@@ -68,8 +68,9 @@ type BillingServiceClient interface {
 	// Binds the subscription behind a single-use registration handle to the caller's
 	// active enterprise and applies its resolved tier. External (gateway) RPC.
 	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN on the active enterprise,
-	// resolved live from the Memberships table. Also on the entitlement exempt
-	// allowlist, since this is the call that restores a blocked caller's access.
+	// checked against the caller's current role, so a role change applies at once.
+	// Also on the entitlement exempt allowlist, since this is the call that
+	// restores a blocked caller's access.
 	//
 	// The handle is a bearer capability with a deliberately small blast radius:
 	// whoever presents it attaches that subscription to THEIR active enterprise.
@@ -101,7 +102,7 @@ type BillingServiceClient interface {
 	// taken or returned.
 	//
 	// Only a signed-in user holding ROLE_ROOT or ROLE_ADMIN on the active
-	// enterprise can call it, resolved live from the Memberships table. It is not
+	// enterprise can call it, checked against the caller's current role. It is not
 	// grantable by any permission, and an API key is refused before any role is
 	// resolved, including a key created by an administrator, so an agent can never
 	// raise its own spending limit.
@@ -253,8 +254,9 @@ type BillingServiceServer interface {
 	// Binds the subscription behind a single-use registration handle to the caller's
 	// active enterprise and applies its resolved tier. External (gateway) RPC.
 	// Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN on the active enterprise,
-	// resolved live from the Memberships table. Also on the entitlement exempt
-	// allowlist, since this is the call that restores a blocked caller's access.
+	// checked against the caller's current role, so a role change applies at once.
+	// Also on the entitlement exempt allowlist, since this is the call that
+	// restores a blocked caller's access.
 	//
 	// The handle is a bearer capability with a deliberately small blast radius:
 	// whoever presents it attaches that subscription to THEIR active enterprise.
@@ -286,7 +288,7 @@ type BillingServiceServer interface {
 	// taken or returned.
 	//
 	// Only a signed-in user holding ROLE_ROOT or ROLE_ADMIN on the active
-	// enterprise can call it, resolved live from the Memberships table. It is not
+	// enterprise can call it, checked against the caller's current role. It is not
 	// grantable by any permission, and an API key is refused before any role is
 	// resolved, including a key created by an administrator, so an agent can never
 	// raise its own spending limit.

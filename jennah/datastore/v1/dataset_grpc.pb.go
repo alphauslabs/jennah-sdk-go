@@ -31,14 +31,12 @@ const (
 //
 // DatasetService is the lifecycle control plane for an enterprise's application datasets.
 type DatasetServiceClient interface {
-	// Creates a dataset under the caller's enterprise, registers it in the
-	// control-plane directory, and places it on a data-plane database compatible
-	// with the requested location. The EnterpriseId is taken from the token, never
-	// the body.
+	// Creates a dataset under the caller's enterprise and places it in the
+	// requested location. The enterprise is taken from the token, never the body.
 	//
-	// Returns the dataset synchronously. When the data-plane database for the
-	// chosen location must be provisioned first, the returned Dataset carries
-	// DATASET_STATUS_PROVISIONING; poll GetDataset until DATASET_STATUS_ACTIVE.
+	// Returns the dataset synchronously. When the chosen location must be prepared
+	// first, the returned Dataset carries DATASET_STATUS_PROVISIONING; poll
+	// GetDataset until DATASET_STATUS_ACTIVE.
 	//
 	// Requires datastore.datasets:create AND a dataset selector already covering
 	// the requested dataset_id: creating a dataset grants no access to it, for
@@ -56,7 +54,7 @@ type DatasetServiceClient interface {
 	// selectors receives an empty page rather than a permission error.
 	ListDatasets(ctx context.Context, in *ListDatasetsRequest, opts ...grpc.CallOption) (*ListDatasetsResponse, error)
 	// Deletes a dataset the caller owns: drops its declared tables and removes its
-	// catalog and directory records, cascading to all of its application rows.
+	// table catalog and the dataset itself, along with all of its application rows.
 	// Every table the dataset holds is dropped, whatever their number. Returns a
 	// receipt carrying the instant the teardown committed. A dataset_id not owned
 	// by the caller's enterprise is treated as not found.
@@ -117,14 +115,12 @@ func (c *datasetServiceClient) DeleteDataset(ctx context.Context, in *DeleteData
 //
 // DatasetService is the lifecycle control plane for an enterprise's application datasets.
 type DatasetServiceServer interface {
-	// Creates a dataset under the caller's enterprise, registers it in the
-	// control-plane directory, and places it on a data-plane database compatible
-	// with the requested location. The EnterpriseId is taken from the token, never
-	// the body.
+	// Creates a dataset under the caller's enterprise and places it in the
+	// requested location. The enterprise is taken from the token, never the body.
 	//
-	// Returns the dataset synchronously. When the data-plane database for the
-	// chosen location must be provisioned first, the returned Dataset carries
-	// DATASET_STATUS_PROVISIONING; poll GetDataset until DATASET_STATUS_ACTIVE.
+	// Returns the dataset synchronously. When the chosen location must be prepared
+	// first, the returned Dataset carries DATASET_STATUS_PROVISIONING; poll
+	// GetDataset until DATASET_STATUS_ACTIVE.
 	//
 	// Requires datastore.datasets:create AND a dataset selector already covering
 	// the requested dataset_id: creating a dataset grants no access to it, for
@@ -142,7 +138,7 @@ type DatasetServiceServer interface {
 	// selectors receives an empty page rather than a permission error.
 	ListDatasets(context.Context, *ListDatasetsRequest) (*ListDatasetsResponse, error)
 	// Deletes a dataset the caller owns: drops its declared tables and removes its
-	// catalog and directory records, cascading to all of its application rows.
+	// table catalog and the dataset itself, along with all of its application rows.
 	// Every table the dataset holds is dropped, whatever their number. Returns a
 	// receipt carrying the instant the teardown committed. A dataset_id not owned
 	// by the caller's enterprise is treated as not found.

@@ -397,10 +397,9 @@ type TableDeclaration struct {
 	Name    string               `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Columns []*ColumnDeclaration `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
 	// Logical column names forming the table's primary key, in order. The
-	// platform PREPENDS `(EnterpriseId, DatasetId)` to whatever is named here:
-	// that is not expressible in the declaration and cannot be overridden or
-	// reordered, because it is what makes cross-slice access structurally
-	// impossible rather than merely denied.
+	// platform additionally scopes every key to the dataset, outside the
+	// declaration: that cannot be overridden, and it is what makes access across
+	// datasets structurally impossible rather than merely denied.
 	PrimaryKey    []string            `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
 	Indexes       []*IndexDeclaration `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -766,9 +765,9 @@ type TableSchema struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Name    string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // logical name
 	Columns []*ColumnSchema        `protobuf:"bytes,2,rep,name=columns,proto3" json:"columns,omitempty"`
-	// Logical primary-key columns AS DECLARED: the `(EnterpriseId, DatasetId)`
-	// prefix the platform prepends is not listed, because it is not a tenant
-	// concept and naming it here would imply it were optional.
+	// Logical primary-key columns AS DECLARED. The platform's own scoping of the
+	// key to the dataset is not listed: it is not something a caller declares or
+	// can change.
 	PrimaryKey    []string               `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
 	Indexes       []*IndexDeclaration    `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
 	Status        SchemaStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.datastore.v1.SchemaStatus" json:"status,omitempty"`

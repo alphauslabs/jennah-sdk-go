@@ -92,7 +92,7 @@ type RetrievalMode int32
 
 const (
 	RetrievalMode_RETRIEVAL_MODE_UNSPECIFIED RetrievalMode = 0 // treated as VECTOR_ONLY
-	// Rank by exact cosine distance over the caller's slice. The default, and what
+	// Rank by exact cosine distance over the caller's scope. The default, and what
 	// the semantic section has always done.
 	RetrievalMode_RETRIEVAL_MODE_VECTOR_ONLY RetrievalMode = 1
 	// Run the vector and lexical channels over one read snapshot and fuse them by
@@ -534,7 +534,7 @@ type CommitMemoryRequest struct {
 	// Execution-log section: a single step the agent recorded. Absent to commit
 	// no log step.
 	Log *ExecutionLogStep `protobuf:"bytes,2,opt,name=log,proto3" json:"log,omitempty"`
-	// Vector section: chunks to upsert (write-or-replace) within the agent slice.
+	// Vector section: chunks to upsert (write-or-replace) within the scope.
 	// Empty to commit no vectors.
 	Vectors []*VectorChunk `protobuf:"bytes,3,rep,name=vectors,proto3" json:"vectors,omitempty"`
 	// Graph section: node and/or edge writes. Absent to commit no graph data.
@@ -547,10 +547,10 @@ type CommitMemoryRequest struct {
 	// Every section of the commit is applied to this ONE scope in one transaction.
 	//
 	// A commit never writes more than one scope, and that holds even when two
-	// scopes happen to share a data-plane database. A commit spanning scopes is
-	// impossible across regions, so permitting it for co-resident scopes alone
-	// would make the atomicity a caller can rely on depend on deployment topology
-	// rather than on the contract. Naming a second scope is INVALID_ARGUMENT.
+	// scopes share a home region. A commit spanning scopes is impossible across
+	// regions, so permitting it for scopes in the same region alone would make the
+	// atomicity a caller can rely on depend on where scopes happen to live rather
+	// than on the contract. Naming a second scope is INVALID_ARGUMENT.
 	TargetScope string `protobuf:"bytes,6,opt,name=target_scope,json=targetScope,proto3" json:"target_scope,omitempty"`
 	// Route path parameter, never read from the body: the memory scope this commit
 	// addresses, of EITHER kind. Bound by both `/v1/agents/{scope_id}/...` and
@@ -674,7 +674,7 @@ func (x *CommitMemoryRequest) GetSupersessions() *SupersessionWrite {
 // step is read back via QueryMemory's log section.
 type ExecutionLogStep struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	StepId         string                 `protobuf:"bytes,1,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"` // caller-chosen; unique within the agent slice
+	StepId         string                 `protobuf:"bytes,1,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"` // caller-chosen; unique within the scope
 	ThoughtProcess string                 `protobuf:"bytes,2,opt,name=thought_process,json=thoughtProcess,proto3" json:"thought_process,omitempty"`
 	ToolUsed       string                 `protobuf:"bytes,3,opt,name=tool_used,json=toolUsed,proto3" json:"tool_used,omitempty"`
 	ToolInput      string                 `protobuf:"bytes,4,opt,name=tool_input,json=toolInput,proto3" json:"tool_input,omitempty"`
@@ -793,7 +793,7 @@ func (x *ExecutionLogStep) GetMetadata() map[string]string {
 // A semantic-memory chunk to upsert.
 type VectorChunk struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
-	ChunkId    string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"` // caller-chosen; unique within the agent slice
+	ChunkId    string                 `protobuf:"bytes,1,opt,name=chunk_id,json=chunkId,proto3" json:"chunk_id,omitempty"` // caller-chosen; unique within the scope
 	RawContent string                 `protobuf:"bytes,2,opt,name=raw_content,json=rawContent,proto3" json:"raw_content,omitempty"`
 	// Optional precomputed embedding. When empty, the platform generates it from
 	// raw_content server-side, using the managed embedding model configured for the
@@ -915,7 +915,7 @@ func (x *VectorChunk) GetInvalidAt() *timestamppb.Timestamp {
 }
 
 // Graph-memory writes for one commit. Edges may only connect nodes within the
-// same (EnterpriseId, AgentInstanceId) slice. Edges carry an optional bi-temporal
+// same scope. Edges carry an optional bi-temporal
 // validity window (see GraphEdge.valid_at/invalid_at); a plain write with neither
 // field set records an always-current fact. Replacing a fact while preserving
 // history is the caller-driven supersession operation (CommitMemoryRequest's
@@ -1037,7 +1037,7 @@ func (x *SupersessionWrite) GetChunks() []*ChunkSupersession {
 }
 
 // One edge supersession: close `prior_edge_id`'s valid-time window at the
-// replacement's valid_at, and insert `new_edge` in the same slice. The prior edge
+// replacement's valid_at, and insert `new_edge` in the same scope. The prior edge
 // stays stored and queryable as history, with its own transaction-time start
 // preserved.
 //
@@ -1048,10 +1048,10 @@ func (x *SupersessionWrite) GetChunks() []*ChunkSupersession {
 // never closed.
 type EdgeSupersession struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The currently-held edge to close. Resolved within the caller's slice; an
-	// unknown id is NotFound (never a cross-slice touch).
+	// The currently-held edge to close. Resolved within the caller's scope; an
+	// unknown id is NotFound (never a touch outside the scope).
 	PriorEdgeId string `protobuf:"bytes,1,opt,name=prior_edge_id,json=priorEdgeId,proto3" json:"prior_edge_id,omitempty"`
-	// The replacement fact, INSERTED in the same slice. new_edge.valid_at is
+	// The replacement fact, INSERTED in the same scope. new_edge.valid_at is
 	// REQUIRED: it is the supersession boundary (the prior edge's invalid_at and the
 	// new edge's valid_at) and must be a concrete, non-future timestamp.
 	// new_edge.edge_id must be set and differ from prior_edge_id; because the
@@ -1109,7 +1109,7 @@ func (x *EdgeSupersession) GetNewEdge() *GraphEdge {
 }
 
 // One chunk supersession: close `prior_chunk_id`'s valid-time window at the
-// replacement's valid_at, and insert `new_chunk` in the same slice. The prior
+// replacement's valid_at, and insert `new_chunk` in the same scope. The prior
 // chunk stays stored with its CONTENT INTACT and readable as history: closing a
 // window writes the validity end and nothing else.
 //
@@ -1117,10 +1117,10 @@ func (x *EdgeSupersession) GetNewEdge() *GraphEdge {
 // EdgeSupersession.
 type ChunkSupersession struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The currently-held chunk to close. Resolved within the caller's slice; an
-	// unknown id is NotFound (never a cross-slice touch).
+	// The currently-held chunk to close. Resolved within the caller's scope; an
+	// unknown id is NotFound (never a touch outside the scope).
 	PriorChunkId string `protobuf:"bytes,1,opt,name=prior_chunk_id,json=priorChunkId,proto3" json:"prior_chunk_id,omitempty"`
-	// The replacement passage, INSERTED in the same slice. new_chunk.valid_at is
+	// The replacement passage, INSERTED in the same scope. new_chunk.valid_at is
 	// REQUIRED: it is the supersession boundary (the prior chunk's invalid_at and
 	// the new chunk's valid_at) and must be a concrete, non-future timestamp.
 	// new_chunk.chunk_id must be set and differ from prior_chunk_id; because the
@@ -1184,7 +1184,7 @@ func (x *ChunkSupersession) GetNewChunk() *VectorChunk {
 
 type GraphNode struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
-	NodeId     string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // caller-chosen; unique within the agent slice
+	NodeId     string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // caller-chosen; unique within the scope
 	Label      string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
 	Properties *structpb.Struct       `protobuf:"bytes,3,opt,name=properties,proto3" json:"properties,omitempty"` // free-form JSON properties
 	// Output-only: the row's last-write commit timestamp, populated when the node
@@ -1312,9 +1312,9 @@ func (x *GraphNode) GetNodeType() string {
 
 type GraphEdge struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
-	EdgeId           string                 `protobuf:"bytes,1,opt,name=edge_id,json=edgeId,proto3" json:"edge_id,omitempty"`                     // caller-chosen; unique within the agent slice
-	SourceNodeId     string                 `protobuf:"bytes,2,opt,name=source_node_id,json=sourceNodeId,proto3" json:"source_node_id,omitempty"` // must reference a GraphNode in the same slice
-	TargetNodeId     string                 `protobuf:"bytes,3,opt,name=target_node_id,json=targetNodeId,proto3" json:"target_node_id,omitempty"` // must reference a GraphNode in the same slice
+	EdgeId           string                 `protobuf:"bytes,1,opt,name=edge_id,json=edgeId,proto3" json:"edge_id,omitempty"`                     // caller-chosen; unique within the scope
+	SourceNodeId     string                 `protobuf:"bytes,2,opt,name=source_node_id,json=sourceNodeId,proto3" json:"source_node_id,omitempty"` // must reference a GraphNode in the same scope
+	TargetNodeId     string                 `protobuf:"bytes,3,opt,name=target_node_id,json=targetNodeId,proto3" json:"target_node_id,omitempty"` // must reference a GraphNode in the same scope
 	RelationshipType string                 `protobuf:"bytes,4,opt,name=relationship_type,json=relationshipType,proto3" json:"relationship_type,omitempty"`
 	Properties       *structpb.Struct       `protobuf:"bytes,5,opt,name=properties,proto3" json:"properties,omitempty"` // free-form JSON properties
 	// Output-only: the row's last-write commit timestamp, populated when the edge
@@ -1625,18 +1625,17 @@ type QueryMemoryRequest struct {
 	//     with PERMISSION_DENIED. It is never dropped from the set, because a
 	//     silently narrowed set returns a partial answer indistinguishable from a
 	//     complete one.
-	//   - Every named scope must resolve to the SAME data-plane database. One
-	//     naming a scope homed in another region is refused with an error
-	//     identifying the offending scope and the mismatch, never satisfied by
-	//     reading each database separately: two databases cannot share a read
-	//     snapshot, so combining their results would present two instants as one
-	//     consistent answer. A query naming exactly ONE scope is servable from
+	//   - Every named scope must have the SAME home region. A query naming a
+	//     scope homed in another region is refused with an error identifying the
+	//     offending scope and the mismatch, never satisfied by reading each region
+	//     separately: two regions cannot share a read snapshot, so combining their
+	//     results would present two instants as one consistent answer. A query naming exactly ONE scope is servable from
 	//     anywhere, because routing resolves that scope to its own region.
 	//   - The number of scopes in one query is bounded by a server maximum;
 	//     exceeding it is refused with an error naming the limit rather than
 	//     truncated to the first N. Semantic search is exact KNN, affordable
-	//     because each scope is a small contiguous key range, and a multi-scope
-	//     query scans one such range per scope.
+	//     because each scope is searched on its own, and a multi-scope query
+	//     searches each named scope once.
 	//
 	// Graph traversal stays INSIDE a scope: an edge connects nodes within one
 	// scope, so a multi-scope graph section returns one subgraph per requested
@@ -1751,13 +1750,13 @@ func (x *QueryMemoryRequest) GetScopeId() string {
 }
 
 // Semantic-section query. Exactly one of `embedding` or `query_text` MUST be
-// supplied; when `query_text` is given the gateway embeds it server-side
+// supplied; when `query_text` is given the platform embeds it server-side
 // (task_type RETRIEVAL_QUERY). Results are ranked by ascending cosine distance
-// and clamped to the caller's agent slice (the clamp never silently truncates
+// and drawn only from the caller's own scope (which never silently truncates
 // below `limit`).
 type SemanticQuery struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
-	Embedding []float32              `protobuf:"fixed32,1,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`         // precomputed query embedding; width must match the db
+	Embedding []float32              `protobuf:"fixed32,1,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`         // precomputed query embedding; width must match the scope's embedding width
 	QueryText string                 `protobuf:"bytes,2,opt,name=query_text,json=queryText,proto3" json:"query_text,omitempty"` // embedded server-side when `embedding` is absent
 	Limit     int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                         // max matches to return
 	// Optional metadata predicates narrowing the candidate set. All must match
@@ -1786,8 +1785,7 @@ type SemanticQuery struct {
 	//
 	// A filtered section MAY therefore return fewer than `limit` results when fewer
 	// chunks match. That is the caller's own narrowing and is reproducible from the
-	// filters; it is NOT the silent truncation the tenant/agent clamp guarantees
-	// against.
+	// filters; it is NOT a silent truncation, which the platform never applies.
 	Filters []*MetadataFilter `protobuf:"bytes,4,rep,name=filters,proto3" json:"filters,omitempty"`
 	// Bi-temporal time-travel over chunk validity (add-temporal-vectors), named and
 	// behaving IDENTICALLY to GraphQuery.as_of_valid/as_of_tx so one temporal model
@@ -1808,11 +1806,10 @@ type SemanticQuery struct {
 	// agent held at that instant, consistent with one another.
 	//
 	// This is NOT QueryMemoryRequest.as_of. That field moves the physical read
-	// snapshot and is bounded by the backend's version-retention window (about an
-	// hour); valid-time is a bound predicate over stored columns evaluated at the
-	// current snapshot, so it reaches arbitrarily far back. Both bounds bind as query
-	// parameters and are injected alongside the tenant/agent clamp, which cannot be
-	// omitted or widened.
+	// snapshot and may be at most about an hour in the past; valid-time is a bound
+	// predicate over stored columns evaluated at the current snapshot, so it
+	// reaches arbitrarily far back. Both bounds only narrow the read; they never
+	// reach outside the caller's own scope.
 	AsOfValid *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=as_of_valid,json=asOfValid,proto3" json:"as_of_valid,omitempty"`
 	AsOfTx    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=as_of_tx,json=asOfTx,proto3" json:"as_of_tx,omitempty"`
 	// Which retrieval channels this section runs (add-hybrid-retrieval). Absent means
@@ -1830,7 +1827,7 @@ type SemanticQuery struct {
 	// Hybrid also requires the workspace's enterprise to have the lexical channel
 	// enabled and its stored chunks fully indexed. Where that is not yet true the
 	// request is refused rather than answered from a partial index, because a lexical
-	// channel ranking over part of a slice returns fewer results than the slice holds
+	// channel ranking over part of a scope returns fewer results than the scope holds
 	// without saying so.
 	RetrievalMode RetrievalMode `protobuf:"varint,7,opt,name=retrieval_mode,json=retrievalMode,proto3,enum=jennahapi.agent.v1.RetrievalMode" json:"retrieval_mode,omitempty"`
 	// Reorder this section's candidate set with an external reranking model
@@ -1850,7 +1847,7 @@ type SemanticQuery struct {
 	// constant, not a caller knob, because its right value is a property of the
 	// retrieval path rather than of any one request.
 	//
-	// Reranking resolves within the workspace's own data-plane region, on the same
+	// Reranking resolves within the workspace's own home region, on the same
 	// rule every other external inference follows. A region with no configured
 	// reranking endpoint refuses the request rather than sending the workspace's
 	// content elsewhere, and a request that opts in where reranking cannot be
@@ -2015,7 +2012,7 @@ func (x *MetadataFilter) GetOperator() MetadataFilter_Operator {
 
 // Graph-section query: a STRUCTURED traversal over the agent's knowledge graph.
 // The platform ensures graph queries remain within the caller's authorized
-// (EnterpriseId, AgentInstanceId) slice.
+// scope.
 //
 // A query is an anchor node set plus zero or more single-hop traversals. Each
 // hop is one `GraphStep`; multi-hop traversal is expressed as successive steps.
@@ -2032,11 +2029,10 @@ type GraphQuery struct {
 	// as_of_tx additionally constrains transaction-time ("as known at as_of_tx"),
 	// and is only meaningful together with as_of_valid.
 	//
-	// Graph valid-time is evaluated as a bound predicate over the validity columns
-	// at the current snapshot, never by moving
-	// the physical read timestamp. Both bounds bind as query parameters; the clamp
-	// is injected onto every hop exactly like the tenant/agent clamp and cannot be
-	// omitted or widened.
+	// Graph valid-time is evaluated as a predicate over each edge's validity window
+	// at the current snapshot, never by moving the physical read timestamp. It
+	// applies to every hop, only narrows the traversal, and never reaches outside
+	// the caller's own scope.
 	AsOfValid     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=as_of_valid,json=asOfValid,proto3" json:"as_of_valid,omitempty"`
 	AsOfTx        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=as_of_tx,json=asOfTx,proto3" json:"as_of_tx,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2110,8 +2106,8 @@ func (x *GraphQuery) GetAsOfTx() *timestamppb.Timestamp {
 
 // A node-pattern constraint. `label` optionally filters the node's semantic
 // `Label` property (e.g. "Person"); `filters` are optional equality predicates.
-// The gateway always adds the (EnterpriseId, AgentInstanceId) clamp to the
-// generated element: it is NOT expressible here and cannot be overridden.
+// The platform always confines the match to the caller's own scope: that is NOT
+// expressible here and cannot be overridden.
 type GraphNodeMatch struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Label   string                 `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`     // optional equality filter on the node's `Label`
@@ -2121,11 +2117,11 @@ type GraphNodeMatch struct {
 	//
 	// THIS IS A SEPARATE LIST FROM `filters`, and it stays separate deliberately.
 	// `filters` names FIRST-CLASS COLUMNS and is allowlisted (`NodeId`, `Label`,
-	// `NodeType`) so that a caller cannot filter on a clamp column. If the two lists
-	// merged, resolving a key would mean asking "is this the name of a column?",
-	// which would hand a caller-chosen string the power to pick which branch it
-	// takes and make a metadata key named `AgentInstanceId` a question rather than
-	// an answer. Two lists means a key's meaning is fixed by which list it is in.
+	// `NodeType`) so that a caller cannot filter on any column the platform uses
+	// to keep scopes apart. If the two lists merged, resolving a key would mean
+	// asking "is this the name of a column?", which would hand a caller-chosen
+	// string the power to pick which branch it takes and make a metadata key that
+	// shares a column's name a question rather than an answer. Two lists means a key's meaning is fixed by which list it is in.
 	//
 	// The rule for choosing: filtering a stored column (`NodeId`, `Label`,
 	// `NodeType`) is `filters`; filtering a tag you wrote in GraphNode.metadata is
@@ -2274,8 +2270,8 @@ func (x *GraphStep) GetMetadata() []*MetadataFilter {
 // classes its current vocabulary no longer declares, and those nodes stay
 // reachable.
 //
-// The allowlist is what keeps a caller off the clamp columns, so it is narrow on
-// purpose and does not fall back to anything. In particular it does NOT reach into
+// The allowlist is what keeps a caller off the columns that keep scopes apart, so
+// it is narrow on purpose and does not fall back to anything. In particular it does NOT reach into
 // `properties`: that field is a payload and is not filterable at all, because
 // filtering a JSON column needs a caller-supplied key inside a JSON path and that
 // is an injection surface the platform does not open. To filter on something a
@@ -2349,7 +2345,7 @@ type LogQuery struct {
 	//
 	// A filtered section returning fewer steps than `limit` means fewer steps
 	// matched. That is the caller's own narrowing and is reproducible from the
-	// filter; it is not the truncation the tenant clamp forbids.
+	// filter; it is not a silent truncation, which the platform never applies.
 	Metadata      []*MetadataFilter `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2554,7 +2550,7 @@ type SemanticMatch struct {
 	// rather than a single value: agreement between two independent retrieval
 	// strategies is a stronger signal than either alone.
 	Channels []RetrievalChannel `protobuf:"varint,6,rep,packed,name=channels,proto3,enum=jennahapi.agent.v1.RetrievalChannel" json:"channels,omitempty"`
-	// Spanner's whole-word relevance score, set only when `channels` includes
+	// The lexical (whole-word) relevance score, set only when `channels` includes
 	// RETRIEVAL_CHANNEL_LEXICAL and 0 otherwise. Higher is more relevant, OPPOSITE to
 	// `distance`.
 	//
@@ -2618,7 +2614,7 @@ type SemanticMatch struct {
 	//
 	// It is reported so a layer above the platform can compare WHEN a recalled
 	// passage became valid against when a new statement was made, through the
-	// ordinary clamped query path rather than a privileged read. Memory formation is
+	// ordinary scope-confined query path rather than a privileged read. Memory formation is
 	// the first such caller: it is how a revision knows it is not retiring something
 	// newer than the conversation it came from.
 	ValidAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=valid_at,json=validAt,proto3" json:"valid_at,omitempty"`
@@ -2755,7 +2751,7 @@ func (x *SemanticMatch) GetInvalidAt() *timestamppb.Timestamp {
 }
 
 // Graph traversal result rows. Each row carries the matched elements' key
-// fields (node ids and labels, and edge relationship types) keyed by gateway-
+// fields (node ids and labels, and edge relationship types) keyed by platform-
 // assigned binding names, so the shape is carried as a structured value rather
 // than a fixed schema.
 //
@@ -2763,7 +2759,7 @@ func (x *SemanticMatch) GetInvalidAt() *timestamppb.Timestamp {
 // rather than as a field beside it: the row has no fixed schema to add a field
 // to, and a parallel array would have to stay index-aligned with one. The key
 // cannot collide with a caller's binding, because binding names are assigned by
-// the gateway and never taken from the request. Every row carries it, including
+// the platform and never taken from the request. Every row carries it, including
 // for a single-scope query, and no returned path crosses scopes, so one row
 // names exactly one scope.
 type GraphResult struct {
@@ -2910,7 +2906,7 @@ func (x *FusedResult) GetItems() []*structpb.Struct {
 //
 // Any subset of the three section fields may be present; at least one SHOULD
 // be. All present sections are enumerated at one read snapshot within the
-// caller's (EnterpriseId, AgentInstanceId) slice. There is no query anchor:
+// caller's own scope. There is no query anchor:
 // unlike QueryMemory this lists stored rows for debugging, so a section is
 // requested simply by being present, bounded by its limit.
 type InspectMemoryRequest struct {
@@ -3245,8 +3241,8 @@ type InspectMemoryResponse struct {
 	// recent steps rather than an enumerable listing and has nothing to continue.
 	//
 	// CONSISTENCY: pages are independently snapshotted, so a commit landing mid-walk
-	// may appear. Set `as_of` on every request of the walk for a stable view,
-	// bounded by the backend's version-retention window (about an hour).
+	// may appear. Set `as_of` on every request of the walk for a stable view; it
+	// may be at most about an hour in the past.
 	NextChunkToken string `protobuf:"bytes,5,opt,name=next_chunk_token,json=nextChunkToken,proto3" json:"next_chunk_token,omitempty"`
 	NextNodeToken  string `protobuf:"bytes,6,opt,name=next_node_token,json=nextNodeToken,proto3" json:"next_node_token,omitempty"`
 	NextEdgeToken  string `protobuf:"bytes,7,opt,name=next_edge_token,json=nextEdgeToken,proto3" json:"next_edge_token,omitempty"`
@@ -3612,10 +3608,10 @@ type SupersedeEdgeRequest struct {
 	//
 	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
-	// The currently-held edge to close. Resolved within the caller's slice; an
-	// unknown id is NotFound (never a cross-slice touch).
+	// The currently-held edge to close. Resolved within the caller's scope; an
+	// unknown id is NotFound (never a touch outside the scope).
 	PriorEdgeId string `protobuf:"bytes,2,opt,name=prior_edge_id,json=priorEdgeId,proto3" json:"prior_edge_id,omitempty"`
-	// The replacement fact, inserted in the same slice. new_edge.valid_at is
+	// The replacement fact, inserted in the same scope. new_edge.valid_at is
 	// REQUIRED: it is the supersession boundary (the prior edge's invalid_at and
 	// the new edge's valid_at) and must be a concrete timestamp. new_edge.edge_id
 	// must be set and differ from prior_edge_id (the replacement is inserted, not
@@ -3753,12 +3749,12 @@ type SupersedeChunkRequest struct {
 	//
 	// Deprecated: Marked as deprecated in jennah/agent/v1/memory.proto.
 	AgentInstanceId string `protobuf:"bytes,1,opt,name=agent_instance_id,json=agentInstanceId,proto3" json:"agent_instance_id,omitempty"`
-	// The currently-held chunk to close. Resolved within the caller's slice; an
-	// unknown id is NotFound (never a cross-slice touch). Its content is left
+	// The currently-held chunk to close. Resolved within the caller's scope; an
+	// unknown id is NotFound (never a touch outside the scope). Its content is left
 	// intact: closing a window writes the validity end and nothing else, so the
 	// superseded passage stays readable as history.
 	PriorChunkId string `protobuf:"bytes,2,opt,name=prior_chunk_id,json=priorChunkId,proto3" json:"prior_chunk_id,omitempty"`
-	// The replacement passage, inserted in the same slice. new_chunk.valid_at is
+	// The replacement passage, inserted in the same scope. new_chunk.valid_at is
 	// REQUIRED: it is the supersession boundary (the prior chunk's invalid_at and the
 	// new chunk's valid_at) and must be a concrete timestamp. new_chunk.chunk_id must
 	// be set and differ from prior_chunk_id (the replacement is inserted, not
@@ -4041,10 +4037,10 @@ func (x *ConversationTurn) GetTools() []*ToolTrace {
 type FormMemoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Route path parameter, never read from the body: the agent workspace this
-	// formation reads and writes. Every stage is clamped to the caller's
-	// (EnterpriseId, this scope) slice: extraction has no field that could widen
-	// it, and recall and commit take the same clamped paths CommitMemory and
-	// QueryMemory take.
+	// formation reads and writes. Every stage is confined to this scope of the
+	// caller's enterprise: extraction has no field that could widen it, and recall
+	// and commit take the same scope-confined paths CommitMemory and QueryMemory
+	// take.
 	ScopeId string `protobuf:"bytes,1,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
 	// The conversation to form memory from, in order. Order is meaningful:
 	// extraction resolves references across turns ("she", "that one", "the second

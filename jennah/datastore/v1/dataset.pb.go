@@ -28,11 +28,10 @@ type DatasetStatus int32
 
 const (
 	DatasetStatus_DATASET_STATUS_UNSPECIFIED DatasetStatus = 0
-	// Ready for use: the data-plane database exists and the directory row is
-	// registered. Tables may be declared and data committed.
+	// Ready for use: tables may be declared and data committed.
 	DatasetStatus_DATASET_STATUS_ACTIVE DatasetStatus = 1
-	// The data-plane database for the chosen location is being created (which can
-	// take minutes). No table may be declared yet; poll GetDataset until ACTIVE.
+	// The chosen location is being prepared (which can take minutes). No table may
+	// be declared yet; poll GetDataset until ACTIVE.
 	DatasetStatus_DATASET_STATUS_PROVISIONING DatasetStatus = 2
 	// Provisioning failed; status_detail carries the reason. The caller may retry
 	// CreateDataset (idempotent on dataset_id) or delete the failed record.
@@ -221,7 +220,7 @@ type CreateDatasetRequest struct {
 	CreateApiKey bool `protobuf:"varint,4,opt,name=create_api_key,json=createApiKey,proto3" json:"create_api_key,omitempty"`
 	// Scopes for the key minted when create_api_key is set. Each MUST be a subset
 	// of the caller's own effective permissions and MUST NOT be management-class.
-	// When empty the key defaults to the member-equivalent data-plane scope, which
+	// When empty the key defaults to the member-equivalent data scopes, which
 	// includes datastore.data:read/write but NOT datastore.schema:manage, so a key
 	// meant to declare tables must name that permission explicitly.
 	ApiKeyScopes  []string `protobuf:"bytes,5,rep,name=api_key_scopes,json=apiKeyScopes,proto3" json:"api_key_scopes,omitempty"`
@@ -465,8 +464,8 @@ type ListDatasetsRequest struct {
 	// one: a token the server cannot interpret is REJECTED with INVALID_ARGUMENT
 	// rather than quietly restarting from the first page, because a silent restart
 	// would hand a caller walking to exhaustion a partial listing that looks
-	// complete. A token can only narrow within the caller's slice; it can never
-	// widen it.
+	// complete. A token can only narrow within the caller's enterprise; it can
+	// never widen it.
 	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -40,7 +40,8 @@ type MemoryServiceClient interface {
 	// optional execution-log step, an optional set of vector chunks, an optional
 	// set of graph writes, and an optional set of supersessions. The commit is
 	// all-or-nothing: if any section fails (e.g. a vector whose width does not
-	// match the database, or a supersession naming a prior id that is not there),
+	// match the workspace's embedding width, or a supersession naming a prior id
+	// that is not there),
 	// no section's rows are written. The commit is rejected, writing nothing, if
 	// the target workspace does not exist under the caller's tenant. Returns a
 	// receipt: the commit timestamp and per-memory-type row counts.
@@ -51,24 +52,22 @@ type MemoryServiceClient interface {
 	// section. Returns one result section per requested section, plus a fused
 	// result when `link` is set. An optional `as_of` timestamp is applied
 	// uniformly to every section so all sections observe the same historical
-	// instant. Every section is clamped to the caller's (EnterpriseId,
-	// AgentInstanceId) slice.
+	// instant. Every section reads only the caller's own scope.
 	QueryMemory(ctx context.Context, in *QueryMemoryRequest, opts ...grpc.CallOption) (*QueryMemoryResponse, error)
 	// Lists the stored rows of one or more memory sections WITHOUT a query anchor,
 	// for debugging and inspection: the vector chunks (content only; embedding
 	// vectors are never returned), the graph nodes and edges, and the recent
 	// execution-log steps. Unlike QueryMemory it takes no semantic query or graph
 	// start pattern; each requested section is simply enumerated within the
-	// caller's (EnterpriseId, AgentInstanceId) slice, up to a per-section limit,
+	// caller's own scope, up to a per-section limit,
 	// at ONE read snapshot so every section observes the same instant. This is a
 	// read-only diagnostic surface, not a retrieval path.
 	InspectMemory(ctx context.Context, in *InspectMemoryRequest, opts ...grpc.CallOption) (*InspectMemoryResponse, error)
 	// Replaces a currently-held graph fact WITHOUT destroying it (add-temporal-
 	// graph). In one read-write transaction it closes the prior edge's valid-time
 	// window (its invalid_at becomes the new edge's valid_at, its transaction-time
-	// start preserved) and inserts the replacement edge in the same
-	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and
-	// an open window (unless new_edge.invalid_at is set). The prior edge stays
+	// start preserved) and inserts the replacement edge in the same scope with a
+	// fresh transaction-time start and an open window (unless new_edge.invalid_at is set). The prior edge stays
 	// queryable as history via an as_of graph query. Supersession is caller-driven:
 	// the platform never infers which facts conflict. new_edge.valid_at (the
 	// supersession boundary) is REQUIRED and new_edge.edge_id must differ from
@@ -86,8 +85,7 @@ type MemoryServiceClient interface {
 	// semantics on the same terms: in one read-write transaction it closes the prior
 	// chunk's valid-time window (its invalid_at becomes the new chunk's valid_at, its
 	// transaction-time start preserved) and inserts the replacement chunk in the same
-	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and an
-	// open window. The prior chunk keeps its content and stays readable as history via
+	// scope with a fresh transaction-time start and an open window. The prior chunk keeps its content and stays readable as history via
 	// an as_of_valid semantic query. Supersession is caller-driven: the platform never
 	// infers which passages conflict, and performs no model-driven detection of it.
 	// new_chunk.valid_at (the supersession boundary) is REQUIRED and new_chunk.chunk_id
@@ -315,7 +313,8 @@ type MemoryServiceServer interface {
 	// optional execution-log step, an optional set of vector chunks, an optional
 	// set of graph writes, and an optional set of supersessions. The commit is
 	// all-or-nothing: if any section fails (e.g. a vector whose width does not
-	// match the database, or a supersession naming a prior id that is not there),
+	// match the workspace's embedding width, or a supersession naming a prior id
+	// that is not there),
 	// no section's rows are written. The commit is rejected, writing nothing, if
 	// the target workspace does not exist under the caller's tenant. Returns a
 	// receipt: the commit timestamp and per-memory-type row counts.
@@ -326,24 +325,22 @@ type MemoryServiceServer interface {
 	// section. Returns one result section per requested section, plus a fused
 	// result when `link` is set. An optional `as_of` timestamp is applied
 	// uniformly to every section so all sections observe the same historical
-	// instant. Every section is clamped to the caller's (EnterpriseId,
-	// AgentInstanceId) slice.
+	// instant. Every section reads only the caller's own scope.
 	QueryMemory(context.Context, *QueryMemoryRequest) (*QueryMemoryResponse, error)
 	// Lists the stored rows of one or more memory sections WITHOUT a query anchor,
 	// for debugging and inspection: the vector chunks (content only; embedding
 	// vectors are never returned), the graph nodes and edges, and the recent
 	// execution-log steps. Unlike QueryMemory it takes no semantic query or graph
 	// start pattern; each requested section is simply enumerated within the
-	// caller's (EnterpriseId, AgentInstanceId) slice, up to a per-section limit,
+	// caller's own scope, up to a per-section limit,
 	// at ONE read snapshot so every section observes the same instant. This is a
 	// read-only diagnostic surface, not a retrieval path.
 	InspectMemory(context.Context, *InspectMemoryRequest) (*InspectMemoryResponse, error)
 	// Replaces a currently-held graph fact WITHOUT destroying it (add-temporal-
 	// graph). In one read-write transaction it closes the prior edge's valid-time
 	// window (its invalid_at becomes the new edge's valid_at, its transaction-time
-	// start preserved) and inserts the replacement edge in the same
-	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and
-	// an open window (unless new_edge.invalid_at is set). The prior edge stays
+	// start preserved) and inserts the replacement edge in the same scope with a
+	// fresh transaction-time start and an open window (unless new_edge.invalid_at is set). The prior edge stays
 	// queryable as history via an as_of graph query. Supersession is caller-driven:
 	// the platform never infers which facts conflict. new_edge.valid_at (the
 	// supersession boundary) is REQUIRED and new_edge.edge_id must differ from
@@ -361,8 +358,7 @@ type MemoryServiceServer interface {
 	// semantics on the same terms: in one read-write transaction it closes the prior
 	// chunk's valid-time window (its invalid_at becomes the new chunk's valid_at, its
 	// transaction-time start preserved) and inserts the replacement chunk in the same
-	// (EnterpriseId, AgentInstanceId) slice with a fresh transaction-time start and an
-	// open window. The prior chunk keeps its content and stays readable as history via
+	// scope with a fresh transaction-time start and an open window. The prior chunk keeps its content and stays readable as history via
 	// an as_of_valid semantic query. Supersession is caller-driven: the platform never
 	// infers which passages conflict, and performs no model-driven detection of it.
 	// new_chunk.valid_at (the supersession boundary) is REQUIRED and new_chunk.chunk_id

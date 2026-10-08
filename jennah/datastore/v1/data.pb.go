@@ -100,8 +100,8 @@ func (OperationType) EnumDescriptor() ([]byte, []int) {
 }
 
 // How a join combines rows. Both sides must be tables in the SAME dataset:
-// cross-dataset joins are not expressible, because each query is clamped to one
-// dataset slice exactly as a memory query is clamped to one agent.
+// cross-dataset joins are not expressible, because each query is confined to one
+// dataset exactly as a memory query is confined to one agent.
 type JoinType int32
 
 const (
@@ -584,19 +584,19 @@ func (x *Row) GetColumns() map[string]*Value {
 
 // One predicate over a column.
 //
-// The operator set is deliberately IDENTICAL to the memory plane's metadata
-// filter grammar. Predicates combine conjunctively: all must match.
+// The operator set is deliberately IDENTICAL to agent memory's metadata filter
+// grammar (MemoryService). Predicates combine conjunctively: all must match.
 //
 // ONE SEMANTIC DIFFERENCE, and it is deliberate. Metadata comparison is
 // LEXICOGRAPHIC, because a metadata value is an untyped string and the platform
 // refuses to guess a type for it. An application column HAS a declared type, so
 // comparison here is TYPED and natural: an INT64 column orders numerically
-// (10 > 9), a TIMESTAMP column chronologically. The metadata plane's
-// zero-pad-your-numbers advice does not apply and must not be carried over.
+// (10 > 9), a TIMESTAMP column chronologically. The zero-pad-your-numbers advice
+// for memory metadata filters does not apply and must not be carried over.
 //
 // A row whose column is NULL matches NO operator, including OPERATOR_EQUALS:
 // there is no value to compare or order against, so a NULL excludes. This
-// matches the metadata plane's absent-key rule.
+// matches memory metadata filters, where an absent key matches nothing.
 type Predicate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Logical column name, resolved through the dataset catalog. A name the
@@ -754,14 +754,14 @@ type RowOperation struct {
 	// A SUPPLIED vector is stored exactly as given and the model is not invoked,
 	// so a caller may use its own embedding model provided the width matches. The
 	// platform can dimension-check a supplied vector but cannot verify which model
-	// produced it, as is already true of the memory plane.
+	// produced it, as is already true of agent memory.
 	Row *Row `protobuf:"bytes,3,opt,name=row,proto3" json:"row,omitempty"`
-	// Row selector for UPDATE and DELETE, combined conjunctively with the
-	// dataset clamp (which is injected and cannot be omitted or widened). Ignored
-	// for INSERT and UPSERT.
+	// Row selector for UPDATE and DELETE. It can only narrow within the dataset:
+	// the platform always confines the operation to this dataset, and no predicate
+	// can omit or widen that. Ignored for INSERT and UPSERT.
 	//
 	// An UPDATE or DELETE with no predicates affects every row of the table
-	// WITHIN THE DATASET SLICE. That is permitted and bounded, but it is rarely
+	// WITHIN THE DATASET. That is permitted and bounded, but it is rarely
 	// what a caller means, so state the key explicitly unless a full-table
 	// operation is intended.
 	Where []*Predicate `protobuf:"bytes,4,rep,name=where,proto3" json:"where,omitempty"`
@@ -1003,8 +1003,8 @@ type CommitDataRequest struct {
 	// merely reported: if the model truncates any embedding the SERVER generated,
 	// the commit is rejected and no row from any table in it is written.
 	//
-	// Truncation policy belongs to the caller, exactly as it does on the memory
-	// plane, and the same reasoning applies: an audit-trail writer may prefer a
+	// Truncation policy belongs to the caller, exactly as it does for agent
+	// memory, and the same reasoning applies: an audit-trail writer may prefer a
 	// degraded embedding over a lost commit, while a retrieval-critical writer
 	// prefers to fail, split the content, and re-commit. Defaults to false, where
 	// the receipt's `truncations` reports the same fact without refusing the
@@ -1367,7 +1367,7 @@ type RelationalQuery struct {
 	// so only one of the two could survive and nothing in the response would say
 	// which one was kept.
 	Select []string `protobuf:"bytes,2,rep,name=select,proto3" json:"select,omitempty"`
-	// Conjunctive predicates, combined with the injected dataset clamp.
+	// Conjunctive predicates. They narrow within the dataset and cannot widen it.
 	Where []*Predicate `protobuf:"bytes,3,rep,name=where,proto3" json:"where,omitempty"`
 	// Joins onto `table`, applied in order. Restricted to this dataset's
 	// cataloged tables.
@@ -1381,7 +1381,7 @@ type RelationalQuery struct {
 	// QueryDataResponse.next_page_token for the exhaustion contract. Opaque and
 	// server-generated: a token the server cannot interpret is REJECTED with
 	// INVALID_ARGUMENT rather than silently restarting, and a token can only
-	// narrow within the caller's slice, never widen it.
+	// narrow within the caller's dataset, never widen it.
 	PageToken     string `protobuf:"bytes,7,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1468,9 +1468,9 @@ func (x *RelationalQuery) GetPageToken() string {
 
 // Vector section: exact-KNN ranking over one vector column.
 //
-// Ranking is by EXACT cosine distance, not an approximate index. Each query is
-// already clamped to a dataset slice, which makes the scan small and an ANN
-// index pointless: the same conclusion the memory plane reached.
+// Ranking is by EXACT cosine distance, not an approximate index. Each query
+// searches one dataset only, which keeps the search small and makes an
+// approximate index pointless: agent memory search is exact for the same reason.
 type VectorQuery struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Table  string                 `protobuf:"bytes,1,opt,name=table,proto3" json:"table,omitempty"`   // logical table name
@@ -1496,12 +1496,12 @@ type VectorQuery struct {
 	// the nearest `limit` rows AMONG those matching the predicates, not the
 	// predicates applied to an unfiltered nearest-`limit` set, which would return
 	// fewer rows (often zero) for reasons a caller could not predict. Same rule
-	// the memory plane applies to metadata filters.
+	// agent memory applies to metadata filters.
 	Where []*Predicate `protobuf:"bytes,6,rep,name=where,proto3" json:"where,omitempty"`
 	// Max matches to return, clamped to the tier's ceiling like the relational
 	// section's. A filtered section MAY return fewer when fewer rows match; that
 	// is the caller's own narrowing and is reproducible from the predicates, not
-	// the silent truncation the dataset clamp guarantees against.
+	// a silent truncation, which the platform never applies.
 	Limit         int32 `protobuf:"varint,7,opt,name=limit,proto3" json:"limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1586,9 +1586,9 @@ func (x *VectorQuery) GetLimit() int32 {
 	return 0
 }
 
-// Read staleness for the whole query. Absent means a STRONG, externally
-// consistent read: the default, and the right one unless latency demands
-// otherwise.
+// Read staleness for the whole query. Absent means a STRONG read, which sees
+// every commit acknowledged before the query began: the default, and the right
+// one unless latency demands otherwise.
 //
 // A staleness bound is applied UNIFORMLY to every section, so sections can never
 // observe different instants. Bounded staleness is what makes a multi-region
@@ -1674,8 +1674,9 @@ type isReadStaleness_Mode interface {
 }
 
 type ReadStaleness_MaxStaleness struct {
-	// Read at any timestamp at most this far in the past, letting the backend pick a
-	// replica-local timestamp. The usual choice for a low-latency global read.
+	// Read at any instant at most this far in the past, letting the platform
+	// serve the read from the nearest copy of the data. The usual choice for a
+	// low-latency global read.
 	MaxStaleness *durationpb.Duration `protobuf:"bytes,1,opt,name=max_staleness,json=maxStaleness,proto3,oneof"`
 }
 
@@ -1685,8 +1686,8 @@ type ReadStaleness_ExactStaleness struct {
 }
 
 type ReadStaleness_ReadTimestamp struct {
-	// Read at this exact timestamp. Bounded by the backend's version-retention
-	// window (about an hour); an older timestamp is refused.
+	// Read at this exact timestamp, at most about an hour in the past; an older
+	// timestamp is refused.
 	ReadTimestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=read_timestamp,json=readTimestamp,proto3,oneof"`
 }
 

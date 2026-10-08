@@ -30,9 +30,9 @@ const (
 // DataService is the structured row transport for a dataset's application tables.
 type DataServiceClient interface {
 	// Applies a set of structured row operations across one or more of the
-	// dataset's tables in a SINGLE read-write transaction, clamped to
-	// `(EnterpriseId, DatasetId)`. All-or-nothing: if any operation fails, no
-	// operation's rows are written.
+	// dataset's tables in a SINGLE read-write transaction, confined to that one
+	// dataset of the caller's enterprise. All-or-nothing: if any operation fails,
+	// no operation's rows are written.
 	//
 	// This is the atomic multi-table write a split stack cannot offer: a row, its
 	// embedding, and rows in other tables land together or not at all. An
@@ -58,7 +58,7 @@ type DataServiceClient interface {
 	// Evaluates a multi-section read against ONE read snapshot, so a relational
 	// predicate and a vector ranking observe the same instant: an optional
 	// relational section and an optional exact-KNN vector section. Every section
-	// is clamped to the caller's `(EnterpriseId, DatasetId)` slice, and joins are
+	// reads only the named dataset of the caller's enterprise, and joins are
 	// restricted to tables within the same dataset.
 	//
 	// The request is a SECTIONED ENVELOPE for the same reason QueryMemory is: a
@@ -105,9 +105,9 @@ func (c *dataServiceClient) QueryData(ctx context.Context, in *QueryDataRequest,
 // DataService is the structured row transport for a dataset's application tables.
 type DataServiceServer interface {
 	// Applies a set of structured row operations across one or more of the
-	// dataset's tables in a SINGLE read-write transaction, clamped to
-	// `(EnterpriseId, DatasetId)`. All-or-nothing: if any operation fails, no
-	// operation's rows are written.
+	// dataset's tables in a SINGLE read-write transaction, confined to that one
+	// dataset of the caller's enterprise. All-or-nothing: if any operation fails,
+	// no operation's rows are written.
 	//
 	// This is the atomic multi-table write a split stack cannot offer: a row, its
 	// embedding, and rows in other tables land together or not at all. An
@@ -133,7 +133,7 @@ type DataServiceServer interface {
 	// Evaluates a multi-section read against ONE read snapshot, so a relational
 	// predicate and a vector ranking observe the same instant: an optional
 	// relational section and an optional exact-KNN vector section. Every section
-	// is clamped to the caller's `(EnterpriseId, DatasetId)` slice, and joins are
+	// reads only the named dataset of the caller's enterprise, and joins are
 	// restricted to tables within the same dataset.
 	//
 	// The request is a SECTIONED ENVELOPE for the same reason QueryMemory is: a

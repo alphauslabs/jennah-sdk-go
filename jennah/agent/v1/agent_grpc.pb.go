@@ -32,12 +32,10 @@ const (
 // AgentService is the lifecycle control plane for an enterprise's agent workspaces.
 type AgentServiceClient interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
-	// is resolved from the optional `region` field (a Jennah region identifier
-	// validated against the configured allowlist) or the platform default region;
-	// the region's data-plane instance is provisioned on first use (its tables are
-	// created once per database, and tenancy is row-level: the AgentInstances row
-	// is keyed by EnterpriseId). The EnterpriseId is taken from the token, never
-	// the body.
+	// is resolved from the optional `region` field (a Jennah region identifier, one
+	// of those ListLocations reports) or the platform default region, and the
+	// region is prepared for the enterprise on first use. The enterprise is taken
+	// from the token, never the body.
 	//
 	// Returns the workspace synchronously. When provisioning is still in flight
 	// the returned AgentInstance carries status AGENT_STATUS_PROVISIONING; poll
@@ -115,12 +113,10 @@ func (c *agentServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentReq
 // AgentService is the lifecycle control plane for an enterprise's agent workspaces.
 type AgentServiceServer interface {
 	// Creates a new agent workspace under the caller's enterprise. The home region
-	// is resolved from the optional `region` field (a Jennah region identifier
-	// validated against the configured allowlist) or the platform default region;
-	// the region's data-plane instance is provisioned on first use (its tables are
-	// created once per database, and tenancy is row-level: the AgentInstances row
-	// is keyed by EnterpriseId). The EnterpriseId is taken from the token, never
-	// the body.
+	// is resolved from the optional `region` field (a Jennah region identifier, one
+	// of those ListLocations reports) or the platform default region, and the
+	// region is prepared for the enterprise on first use. The enterprise is taken
+	// from the token, never the body.
 	//
 	// Returns the workspace synchronously. When provisioning is still in flight
 	// the returned AgentInstance carries status AGENT_STATUS_PROVISIONING; poll

@@ -28,13 +28,12 @@ type AgentStatus int32
 
 const (
 	AgentStatus_AGENT_STATUS_UNSPECIFIED AgentStatus = 0
-	// Ready for use: the region's data-plane instance is provisioned and the
-	// AgentInstances row exists in the data plane.
+	// Ready for use: the workspace exists in its home region.
 	AgentStatus_AGENT_STATUS_ACTIVE    AgentStatus = 1
 	AgentStatus_AGENT_STATUS_PAUSED    AgentStatus = 2
 	AgentStatus_AGENT_STATUS_COMPLETED AgentStatus = 3
-	// Provisioning is still in flight (the region's data-plane instance is being
-	// created). No data-plane row exists yet; poll GetAgent until ACTIVE.
+	// Provisioning is still in flight: the home region is being prepared and the
+	// workspace cannot hold memory yet. Poll GetAgent until ACTIVE.
 	AgentStatus_AGENT_STATUS_PROVISIONING AgentStatus = 4
 	// Provisioning failed; status_detail carries the reason. The caller may retry
 	// CreateAgent (idempotent on agent_instance_id) or delete the failed record.
@@ -201,9 +200,9 @@ func (x *AgentInstance) GetVolume() *ScopeVolume {
 // the per-query scan budget are measured against, reported so a caller can see it
 // before either limit refuses them.
 //
-// It counts vector chunk ROWS, including chunks retired by supersession: a retired
-// chunk still occupies a row and is still read by a search that travels back to
-// it, so it costs what a current chunk costs. It can therefore exceed the number
+// It counts every STORED vector chunk, including chunks retired by supersession:
+// a retired chunk is still stored and is still read by a search that travels back
+// to it, so it costs what a current chunk costs. It can therefore exceed the number
 // of chunks an ordinary query returns. It may briefly lag a commit that just
 // landed.
 type ScopeVolume struct {
@@ -616,12 +615,12 @@ func (x *DeleteAgentRequest) GetAgentInstanceId() string {
 // Response message for the AgentService.DeleteAgent rpc.
 //
 // The deletion receipt: the instant the erasure committed. It deliberately does
-// NOT enumerate what was removed. The cascade prunes every table interleaved
-// under AgentInstances, including ones added after this message was written, so
-// an enumeration would have to be widened by every change that adds a table and
-// would report an internal row shape the caller cannot verify against anything.
-// What the receipt attests to is that the workspace and everything beneath it
-// were erased in one transaction, at one instant.
+// NOT enumerate what was removed. Everything stored beneath the workspace is
+// erased with it, including kinds of data added after this message was written,
+// so an enumeration would have to be widened every time a new kind is added and
+// would report counts the caller cannot verify against anything. What the
+// receipt attests to is that the workspace and everything beneath it were erased
+// in one transaction, at one instant.
 type DeleteAgentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"` // cascade-delete commit timestamp

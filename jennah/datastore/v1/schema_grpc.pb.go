@@ -46,8 +46,8 @@ type SchemaServiceClient interface {
 	// table reaches SCHEMA_STATUS_READY before committing data to it.
 	//
 	// Requires datastore.schema:manage, which is deliberately NOT part of the
-	// built-in member role: declaring a table issues DDL against a shared
-	// data-plane database, so it is always an explicit grant to a custom role or
+	// built-in member role: declaring a table changes schema on storage shared
+	// with other datasets, so it is always an explicit grant to a custom role or
 	// an explicitly scoped key. It IS grantable to an API key: a machine
 	// principal building an app has to be able to declare its own tables.
 	DeclareTables(ctx context.Context, in *DeclareTablesRequest, opts ...grpc.CallOption) (*DeclareTablesResponse, error)
@@ -109,8 +109,8 @@ type SchemaServiceServer interface {
 	// table reaches SCHEMA_STATUS_READY before committing data to it.
 	//
 	// Requires datastore.schema:manage, which is deliberately NOT part of the
-	// built-in member role: declaring a table issues DDL against a shared
-	// data-plane database, so it is always an explicit grant to a custom role or
+	// built-in member role: declaring a table changes schema on storage shared
+	// with other datasets, so it is always an explicit grant to a custom role or
 	// an explicitly scoped key. It IS grantable to an API key: a machine
 	// principal building an app has to be able to declare its own tables.
 	DeclareTables(context.Context, *DeclareTablesRequest) (*DeclareTablesResponse, error)
