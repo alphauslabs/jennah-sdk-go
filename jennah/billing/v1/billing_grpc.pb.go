@@ -81,17 +81,18 @@ type BillingServiceClient interface {
 	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
 	// the reason, never on the human-readable message: each reason needs a
 	// different recovery path in the UI.
-	//   FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
-	//     consumed, or unknown. Not distinguished from one another on purpose, so a
-	//     caller cannot probe which handles exist.
-	//   ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
-	//     enterprise. The existing binding is NOT moved; recovery is an operator
-	//     action with a recorded reason.
-	//   PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
-	//     without an administrator role on the active enterprise.
-	//   FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
-	//     already owned by a DIFFERENT billing source. (A second subscription from
-	//     the SAME source is accepted, not refused.)
+	//
+	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
+	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
+	//	  caller cannot probe which handles exist.
+	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
+	//	  enterprise. The existing binding is NOT moved; recovery is an operator
+	//	  action with a recorded reason.
+	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
+	//	  without an administrator role on the active enterprise.
+	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
+	//	  already owned by a DIFFERENT billing source. (A second subscription from
+	//	  the SAME source is accepted, not refused.)
 	BindMarketplaceRegistration(ctx context.Context, in *BindMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*BindMarketplaceRegistrationResponse, error)
 	// Sets the active enterprise's formation overage multiple: how far past its
 	// monthly formation allowance a billable enterprise may form, as a multiple of
@@ -111,10 +112,11 @@ type BillingServiceClient interface {
 	// store a multiple; it applies once the enterprise is billable.
 	//
 	// Rejections:
-	//   INVALID_ARGUMENT: the multiple is outside 0 to 10, or not a multiple of 0.5.
-	//   PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
-	//     without an administrator role, or is an API key. Carries a
-	//     `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud".
+	//
+	//	INVALID_ARGUMENT: the multiple is outside 0 to 10, or not a multiple of 0.5.
+	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
+	//	  without an administrator role, or is an API key. Carries a
+	//	  `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud".
 	SetFormationOverageCap(ctx context.Context, in *SetFormationOverageCapRequest, opts ...grpc.CallOption) (*SetFormationOverageCapResponse, error)
 	// Exchanges an AWS Marketplace registration token for the buyer's marketplace
 	// identity, persists the subscription in the unbound state, mints a single-use
@@ -137,16 +139,17 @@ type BillingServiceClient interface {
 	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
 	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
 	// carry NO ErrorInfo; for those the status code is the whole signal.
-	//   INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
-	//     or one AWS refuses. Permanent; do not retry.
-	//   FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
-	//     product code this deployment has no mapping for. Permanent, and no
-	//     subscription record is written.
-	//   UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
-	//     minted and no partial subscription is left behind. The purchase still
-	//     reaches us independently as a marketplace notification, so no revenue is
-	//     lost by a failed registration.
-	//   UNIMPLEMENTED: the deployment has no billing configuration at all.
+	//
+	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
+	//	  or one AWS refuses. Permanent; do not retry.
+	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
+	//	  product code this deployment has no mapping for. Permanent, and no
+	//	  subscription record is written.
+	//	UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
+	//	  minted and no partial subscription is left behind. The purchase still
+	//	  reaches us independently as a marketplace notification, so no revenue is
+	//	  lost by a failed registration.
+	//	UNIMPLEMENTED: the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(ctx context.Context, in *ResolveMarketplaceRegistrationRequest, opts ...grpc.CallOption) (*ResolveMarketplaceRegistrationResponse, error)
 }
 
@@ -263,17 +266,18 @@ type BillingServiceServer interface {
 	// "jennah.alphaus.cloud" and whose `reason` is the constant named below. Key on
 	// the reason, never on the human-readable message: each reason needs a
 	// different recovery path in the UI.
-	//   FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
-	//     consumed, or unknown. Not distinguished from one another on purpose, so a
-	//     caller cannot probe which handles exist.
-	//   ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
-	//     enterprise. The existing binding is NOT moved; recovery is an operator
-	//     action with a recorded reason.
-	//   PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
-	//     without an administrator role on the active enterprise.
-	//   FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
-	//     already owned by a DIFFERENT billing source. (A second subscription from
-	//     the SAME source is accepted, not refused.)
+	//
+	//	FAILED_PRECONDITION / REGISTRATION_HANDLE_INVALID: expired, already
+	//	  consumed, or unknown. Not distinguished from one another on purpose, so a
+	//	  caller cannot probe which handles exist.
+	//	ALREADY_EXISTS / SUBSCRIPTION_BOUND_ELSEWHERE: bound to a different
+	//	  enterprise. The existing binding is NOT moved; recovery is an operator
+	//	  action with a recorded reason.
+	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
+	//	  without an administrator role on the active enterprise.
+	//	FAILED_PRECONDITION / BILLING_SOURCE_CONFLICT: the enterprise's tier is
+	//	  already owned by a DIFFERENT billing source. (A second subscription from
+	//	  the SAME source is accepted, not refused.)
 	BindMarketplaceRegistration(context.Context, *BindMarketplaceRegistrationRequest) (*BindMarketplaceRegistrationResponse, error)
 	// Sets the active enterprise's formation overage multiple: how far past its
 	// monthly formation allowance a billable enterprise may form, as a multiple of
@@ -293,10 +297,11 @@ type BillingServiceServer interface {
 	// store a multiple; it applies once the enterprise is billable.
 	//
 	// Rejections:
-	//   INVALID_ARGUMENT: the multiple is outside 0 to 10, or not a multiple of 0.5.
-	//   PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
-	//     without an administrator role, or is an API key. Carries a
-	//     `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud".
+	//
+	//	INVALID_ARGUMENT: the multiple is outside 0 to 10, or not a multiple of 0.5.
+	//	PERMISSION_DENIED / ENTERPRISE_ADMIN_REQUIRED: the caller is a member
+	//	  without an administrator role, or is an API key. Carries a
+	//	  `google.rpc.ErrorInfo` whose `domain` is "jennah.alphaus.cloud".
 	SetFormationOverageCap(context.Context, *SetFormationOverageCapRequest) (*SetFormationOverageCapResponse, error)
 	// Exchanges an AWS Marketplace registration token for the buyer's marketplace
 	// identity, persists the subscription in the unbound state, mints a single-use
@@ -319,16 +324,17 @@ type BillingServiceServer interface {
 	// "jennah.alphaus.cloud" and whose `reason` is that constant; key on the
 	// reason, never on the human-readable message. UNAVAILABLE and UNIMPLEMENTED
 	// carry NO ErrorInfo; for those the status code is the whole signal.
-	//   INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
-	//     or one AWS refuses. Permanent; do not retry.
-	//   FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
-	//     product code this deployment has no mapping for. Permanent, and no
-	//     subscription record is written.
-	//   UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
-	//     minted and no partial subscription is left behind. The purchase still
-	//     reaches us independently as a marketplace notification, so no revenue is
-	//     lost by a failed registration.
-	//   UNIMPLEMENTED: the deployment has no billing configuration at all.
+	//
+	//	INVALID_ARGUMENT / REGISTRATION_TOKEN_INVALID: missing or malformed token,
+	//	  or one AWS refuses. Permanent; do not retry.
+	//	FAILED_PRECONDITION / PRODUCT_CODE_NOT_CONFIGURED: the token resolved to a
+	//	  product code this deployment has no mapping for. Permanent, and no
+	//	  subscription record is written.
+	//	UNAVAILABLE: AWS was unreachable or throttled. Retryable, and no handle is
+	//	  minted and no partial subscription is left behind. The purchase still
+	//	  reaches us independently as a marketplace notification, so no revenue is
+	//	  lost by a failed registration.
+	//	UNIMPLEMENTED: the deployment has no billing configuration at all.
 	ResolveMarketplaceRegistration(context.Context, *ResolveMarketplaceRegistrationRequest) (*ResolveMarketplaceRegistrationResponse, error)
 	mustEmbedUnimplementedBillingServiceServer()
 }
