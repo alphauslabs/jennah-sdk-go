@@ -32,8 +32,8 @@ func (a *Agent) Get(ctx context.Context) (*agentv1.AgentInstance, error) {
 	return resp.GetAgent(), nil
 }
 
-// Destroy deletes the workspace and cascades to all of its memory. The returned
-// receipt reports the commit timestamp and per-memory-type row counts removed.
+// Destroy deletes the workspace and all of its memory. The returned receipt
+// carries the instant the erasure committed.
 func (a *Agent) Destroy(ctx context.Context) (*agentv1.DeleteAgentResponse, error) {
 	return a.c.agents.DeleteAgent(ctx, &agentv1.DeleteAgentRequest{AgentInstanceId: a.id})
 }
@@ -67,8 +67,8 @@ func (m memoryAPI) Commit(ctx context.Context, in CommitInput) (*agentv1.CommitM
 // QueryInput is a fused, snapshot-consistent read. Any subset of the sections
 // may be set; all present sections are evaluated at one read timestamp.
 type QueryInput struct {
-	Semantic *agentv1.SemanticQuery // semantic/ANN section
-	Graph    *agentv1.GraphQuery    // graph (GQL) section
+	Semantic *agentv1.SemanticQuery // semantic (vector similarity) section
+	Graph    *agentv1.GraphQuery    // graph traversal section
 	Log      *agentv1.LogQuery      // execution-log recency section
 
 	// Link composes the semantic and graph sections into an additional fused
@@ -107,7 +107,7 @@ type InspectInput struct {
 	Log     *agentv1.InspectLog     // log-step listing
 
 	// AsOf lists every section at the same historical instant. Nil reads latest,
-	// and the instant must fall inside the backend's version-retention window.
+	// and the instant may be at most about an hour in the past.
 	AsOf *timestamppb.Timestamp
 }
 
@@ -156,7 +156,7 @@ func (v vectorsAPI) Upsert(ctx context.Context, chunks ...*agentv1.VectorChunk) 
 	return v.a.Memory.Commit(ctx, CommitInput{Vectors: chunks})
 }
 
-// Search runs a semantic (ANN) query (the semantic section of Query).
+// Search runs a semantic (vector similarity) query (the semantic section of Query).
 func (v vectorsAPI) Search(ctx context.Context, q *agentv1.SemanticQuery) (*agentv1.SemanticResult, error) {
 	resp, err := v.a.Memory.Query(ctx, QueryInput{Semantic: q})
 	if err != nil {
@@ -186,8 +186,8 @@ func (g graphAPI) Supersede(ctx context.Context, priorEdgeID string, newEdge *ag
 
 // Query runs a graph traversal (the graph section of Query). The traversal is
 // described structurally: an anchor node match plus single-hop steps, from which
-// the server generates the GQL. That is what lets the tenant/agent clamp be
-// injected onto every hop rather than trusted to a caller-supplied query string.
+// the server builds the query itself. That is what keeps every hop inside the
+// caller's own scope, rather than trusting a caller-supplied query string.
 func (g graphAPI) Query(ctx context.Context, q *agentv1.GraphQuery) (*agentv1.GraphResult, error) {
 	resp, err := g.a.Memory.Query(ctx, QueryInput{Graph: q})
 	if err != nil {
