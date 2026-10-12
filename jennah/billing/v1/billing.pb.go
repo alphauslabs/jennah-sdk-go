@@ -494,10 +494,11 @@ type GetBillingStateResponse struct {
 	// and billed: the enterprise holds an active subscription on a product with a
 	// consumption dimension, on a tier that offers overage.
 	OverageBillable bool `protobuf:"varint,12,opt,name=overage_billable,json=overageBillable,proto3" json:"overage_billable,omitempty"`
-	// Formations in the window that ran on the enterprise's own formation model
-	// (see MemoryService.SetFormationModel). They consume no formation units and
-	// are not in `formation_units_used`, because the enterprise pays its model
-	// provider for them directly; they are counted here so they stay visible.
+	// Formations in the window that were sent to the enterprise's own formation
+	// model (see MemoryService.SetFormationModel), including any that failed there.
+	// They consume no formation units and are not in `formation_units_used`,
+	// because the enterprise pays its model provider for them directly; they are
+	// counted here so they stay visible.
 	ByoFormations int64 `protobuf:"varint,13,opt,name=byo_formations,json=byoFormations,proto3" json:"byo_formations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

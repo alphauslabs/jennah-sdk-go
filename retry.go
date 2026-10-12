@@ -211,6 +211,8 @@ var neverReplay = map[string]bool{
 	agentv1.MemoryService_PrepareFormationModel_FullMethodName: true,
 	agentv1.MemoryService_SetFormationModel_FullMethodName:     true,
 	agentv1.MemoryService_RemoveFormationModel_FullMethodName:  true,
+	// Checking makes a real call to the enterprise's own model, which it pays for.
+	agentv1.MemoryService_CheckFormationModel_FullMethodName: true,
 
 	// A long poll that reports a pending approval as success. Retrying inside the
 	// interceptor would stack another 30-second wait inside the caller's budget;

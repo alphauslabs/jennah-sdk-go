@@ -32,6 +32,7 @@ const (
 	MemoryService_SetFormationModel_FullMethodName       = "/jennahapi.agent.v1.MemoryService/SetFormationModel"
 	MemoryService_GetFormationModel_FullMethodName       = "/jennahapi.agent.v1.MemoryService/GetFormationModel"
 	MemoryService_RemoveFormationModel_FullMethodName    = "/jennahapi.agent.v1.MemoryService/RemoveFormationModel"
+	MemoryService_CheckFormationModel_FullMethodName     = "/jennahapi.agent.v1.MemoryService/CheckFormationModel"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -249,6 +250,16 @@ type MemoryServiceClient interface {
 	// formation model can form memory again without upgrading. Removes no memory
 	// and leaves the issued setup values in place.
 	RemoveFormationModel(ctx context.Context, in *RemoveFormationModelRequest, opts ...grpc.CallOption) (*RemoveFormationModelResponse, error)
+	// Checks the enterprise's formation model without changing it. External
+	// (gateway) RPC. Makes the same check call SetFormationModel makes, against the
+	// model as it is stored, through the same access formations use, and saves
+	// nothing. A failed check is a successful response with `ok` false and the step
+	// that failed, because the check itself ran: use it to find out why formations
+	// are failing, or to confirm access works again after fixing it.
+	//
+	// NOT_FOUND when no formation model is set. Available on every plan. The check
+	// call is billed by your model provider.
+	CheckFormationModel(ctx context.Context, in *CheckFormationModelRequest, opts ...grpc.CallOption) (*CheckFormationModelResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -383,6 +394,16 @@ func (c *memoryServiceClient) RemoveFormationModel(ctx context.Context, in *Remo
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RemoveFormationModelResponse)
 	err := c.cc.Invoke(ctx, MemoryService_RemoveFormationModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) CheckFormationModel(ctx context.Context, in *CheckFormationModelRequest, opts ...grpc.CallOption) (*CheckFormationModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckFormationModelResponse)
+	err := c.cc.Invoke(ctx, MemoryService_CheckFormationModel_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -604,6 +625,16 @@ type MemoryServiceServer interface {
 	// formation model can form memory again without upgrading. Removes no memory
 	// and leaves the issued setup values in place.
 	RemoveFormationModel(context.Context, *RemoveFormationModelRequest) (*RemoveFormationModelResponse, error)
+	// Checks the enterprise's formation model without changing it. External
+	// (gateway) RPC. Makes the same check call SetFormationModel makes, against the
+	// model as it is stored, through the same access formations use, and saves
+	// nothing. A failed check is a successful response with `ok` false and the step
+	// that failed, because the check itself ran: use it to find out why formations
+	// are failing, or to confirm access works again after fixing it.
+	//
+	// NOT_FOUND when no formation model is set. Available on every plan. The check
+	// call is billed by your model provider.
+	CheckFormationModel(context.Context, *CheckFormationModelRequest) (*CheckFormationModelResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -652,6 +683,9 @@ func (UnimplementedMemoryServiceServer) GetFormationModel(context.Context, *GetF
 }
 func (UnimplementedMemoryServiceServer) RemoveFormationModel(context.Context, *RemoveFormationModelRequest) (*RemoveFormationModelResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveFormationModel not implemented")
+}
+func (UnimplementedMemoryServiceServer) CheckFormationModel(context.Context, *CheckFormationModelRequest) (*CheckFormationModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckFormationModel not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -908,6 +942,24 @@ func _MemoryService_RemoveFormationModel_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_CheckFormationModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckFormationModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).CheckFormationModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_CheckFormationModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).CheckFormationModel(ctx, req.(*CheckFormationModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -966,6 +1018,10 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveFormationModel",
 			Handler:    _MemoryService_RemoveFormationModel_Handler,
+		},
+		{
+			MethodName: "CheckFormationModel",
+			Handler:    _MemoryService_CheckFormationModel_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
