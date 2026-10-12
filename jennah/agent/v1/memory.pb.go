@@ -5322,9 +5322,18 @@ type BedrockFormationModelSetup struct {
 	ExternalId string `protobuf:"bytes,2,opt,name=external_id,json=externalId,proto3" json:"external_id,omitempty"`
 	// The role-session name every call uses, for the enterprise's audit trail:
 	// `jennah-` followed by the enterprise id.
-	SessionName   string `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SessionName string `protobuf:"bytes,3,opt,name=session_name,json=sessionName,proto3" json:"session_name,omitempty"`
+	// A CloudFormation template that creates a correct role: it trusts
+	// `principal_arn` only with `external_id`, may only invoke the model it names,
+	// and outputs the role ARN to set. Empty when none is published. Each URL names
+	// one immutable version of the template.
+	RoleTemplateUrl string `protobuf:"bytes,4,opt,name=role_template_url,json=roleTemplateUrl,proto3" json:"role_template_url,omitempty"`
+	// A link that opens the AWS console's stack-creation form for that template,
+	// with `external_id` and `principal_arn` already filled in. Empty when no
+	// template is published.
+	LaunchStackUrl string `protobuf:"bytes,5,opt,name=launch_stack_url,json=launchStackUrl,proto3" json:"launch_stack_url,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *BedrockFormationModelSetup) Reset() {
@@ -5374,6 +5383,20 @@ func (x *BedrockFormationModelSetup) GetExternalId() string {
 func (x *BedrockFormationModelSetup) GetSessionName() string {
 	if x != nil {
 		return x.SessionName
+	}
+	return ""
+}
+
+func (x *BedrockFormationModelSetup) GetRoleTemplateUrl() string {
+	if x != nil {
+		return x.RoleTemplateUrl
+	}
+	return ""
+}
+
+func (x *BedrockFormationModelSetup) GetLaunchStackUrl() string {
+	if x != nil {
+		return x.LaunchStackUrl
 	}
 	return ""
 }
@@ -6391,12 +6414,14 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\bscope_id\x18\x01 \x01(\tR\ascopeId\"\xa7\x01\n" +
 	"\x1bGetMemoryVocabularyResponse\x12F\n" +
 	"\vdeclaration\x18\x01 \x01(\v2$.jennahapi.agent.v1.MemoryVocabularyR\vdeclaration\x12@\n" +
-	"\bresolved\x18\x02 \x01(\v2$.jennahapi.agent.v1.MemoryVocabularyR\bresolved\"\x85\x01\n" +
+	"\bresolved\x18\x02 \x01(\v2$.jennahapi.agent.v1.MemoryVocabularyR\bresolved\"\xdb\x01\n" +
 	"\x1aBedrockFormationModelSetup\x12#\n" +
 	"\rprincipal_arn\x18\x01 \x01(\tR\fprincipalArn\x12\x1f\n" +
 	"\vexternal_id\x18\x02 \x01(\tR\n" +
 	"externalId\x12!\n" +
-	"\fsession_name\x18\x03 \x01(\tR\vsessionName\"O\n" +
+	"\fsession_name\x18\x03 \x01(\tR\vsessionName\x12*\n" +
+	"\x11role_template_url\x18\x04 \x01(\tR\x0froleTemplateUrl\x12(\n" +
+	"\x10launch_stack_url\x18\x05 \x01(\tR\x0elaunchStackUrl\"O\n" +
 	"\x19VertexFormationModelSetup\x122\n" +
 	"\x15service_account_email\x18\x01 \x01(\tR\x13serviceAccountEmail\"`\n" +
 	"\x15BedrockFormationModel\x12\x19\n" +
