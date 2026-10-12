@@ -28,6 +28,10 @@ const (
 	MemoryService_DeclareMemoryVocabulary_FullMethodName = "/jennahapi.agent.v1.MemoryService/DeclareMemoryVocabulary"
 	MemoryService_RemoveMemoryVocabulary_FullMethodName  = "/jennahapi.agent.v1.MemoryService/RemoveMemoryVocabulary"
 	MemoryService_GetMemoryVocabulary_FullMethodName     = "/jennahapi.agent.v1.MemoryService/GetMemoryVocabulary"
+	MemoryService_PrepareFormationModel_FullMethodName   = "/jennahapi.agent.v1.MemoryService/PrepareFormationModel"
+	MemoryService_SetFormationModel_FullMethodName       = "/jennahapi.agent.v1.MemoryService/SetFormationModel"
+	MemoryService_GetFormationModel_FullMethodName       = "/jennahapi.agent.v1.MemoryService/GetFormationModel"
+	MemoryService_RemoveFormationModel_FullMethodName    = "/jennahapi.agent.v1.MemoryService/RemoveFormationModel"
 )
 
 // MemoryServiceClient is the client API for MemoryService service.
@@ -137,6 +141,11 @@ type MemoryServiceClient interface {
 	// in another region, because a region-pinned scope whose content is inferred
 	// elsewhere breaks a residency commitment invisibly.
 	//
+	// An enterprise that configured its OWN formation model (SetFormationModel)
+	// forms on that model instead, in every region, and never on the platform's:
+	// a formation that cannot reach it fails with a status naming it, and writes
+	// nothing. Such a formation consumes no formation units.
+	//
 	// Formation NEVER DELETES and never overwrites: a revision closes the prior
 	// assertion's valid-time window and inserts a replacement, exactly as
 	// SupersedeEdge and SupersedeChunk do, so what the agent believed before the
@@ -203,6 +212,43 @@ type MemoryServiceClient interface {
 	// never confirms that the scope is there. A call naming no scope addresses the
 	// enterprise level, which names no scope and so requires no reach.
 	GetMemoryVocabulary(ctx context.Context, in *GetMemoryVocabularyRequest, opts ...grpc.CallOption) (*GetMemoryVocabularyResponse, error)
+	// Issues the values the enterprise needs to grant the platform access to its
+	// model, for one provider. External (gateway) RPC.
+	//
+	// For BEDROCK: the AWS principal to trust and the external ID the trust policy
+	// must require. For VERTEX: the email of the service account created for this
+	// enterprise, which the enterprise grants Vertex access to in its project.
+	//
+	// Idempotent: repeating it returns the same values, and they do not change
+	// while the enterprise exists. Requires a plan that includes a formation model
+	// (`pro`, `scale`, `team`, `enterprise`).
+	PrepareFormationModel(ctx context.Context, in *PrepareFormationModelRequest, opts ...grpc.CallOption) (*PrepareFormationModelResponse, error)
+	// Sets the enterprise's formation model, replacing any previous one. External
+	// (gateway) RPC. Requires a plan that includes a formation model.
+	//
+	// PROBES THE MODEL FIRST: one structured-output generation through the same
+	// identity, request shape and bounds a formation uses. If it fails, nothing is
+	// stored, any previous model stays in place, and the error is
+	// FAILED_PRECONDITION with an ErrorInfo whose `step` metadata says which step
+	// failed: `access` (the role could not be assumed, or the service account was
+	// refused), `model` (the model is not enabled, not found, or refused the
+	// settings), or `answer` (the model answered but not with usable structured
+	// output). The provider's own message is included, since it describes the
+	// enterprise's own account.
+	//
+	// `max_output_tokens` above 65,536 or negative is refused with
+	// INVALID_ARGUMENT before any probe. Zero means the provider default.
+	SetFormationModel(ctx context.Context, in *SetFormationModelRequest, opts ...grpc.CallOption) (*SetFormationModelResponse, error)
+	// Reads the enterprise's formation model and the setup values issued to it.
+	// External (gateway) RPC. Available on every plan, so an enterprise whose plan
+	// no longer includes a formation model can still see the one it configured.
+	GetFormationModel(ctx context.Context, in *GetFormationModelRequest, opts ...grpc.CallOption) (*GetFormationModelResponse, error)
+	// Removes the enterprise's formation model, so formation runs on the platform's
+	// model again from the next request. External (gateway) RPC. Available on every
+	// plan, and the only way an enterprise whose plan no longer includes a
+	// formation model can form memory again without upgrading. Removes no memory
+	// and leaves the issued setup values in place.
+	RemoveFormationModel(ctx context.Context, in *RemoveFormationModelRequest, opts ...grpc.CallOption) (*RemoveFormationModelResponse, error)
 }
 
 type memoryServiceClient struct {
@@ -297,6 +343,46 @@ func (c *memoryServiceClient) GetMemoryVocabulary(ctx context.Context, in *GetMe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetMemoryVocabularyResponse)
 	err := c.cc.Invoke(ctx, MemoryService_GetMemoryVocabulary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) PrepareFormationModel(ctx context.Context, in *PrepareFormationModelRequest, opts ...grpc.CallOption) (*PrepareFormationModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PrepareFormationModelResponse)
+	err := c.cc.Invoke(ctx, MemoryService_PrepareFormationModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) SetFormationModel(ctx context.Context, in *SetFormationModelRequest, opts ...grpc.CallOption) (*SetFormationModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetFormationModelResponse)
+	err := c.cc.Invoke(ctx, MemoryService_SetFormationModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) GetFormationModel(ctx context.Context, in *GetFormationModelRequest, opts ...grpc.CallOption) (*GetFormationModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFormationModelResponse)
+	err := c.cc.Invoke(ctx, MemoryService_GetFormationModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) RemoveFormationModel(ctx context.Context, in *RemoveFormationModelRequest, opts ...grpc.CallOption) (*RemoveFormationModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveFormationModelResponse)
+	err := c.cc.Invoke(ctx, MemoryService_RemoveFormationModel_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -410,6 +496,11 @@ type MemoryServiceServer interface {
 	// in another region, because a region-pinned scope whose content is inferred
 	// elsewhere breaks a residency commitment invisibly.
 	//
+	// An enterprise that configured its OWN formation model (SetFormationModel)
+	// forms on that model instead, in every region, and never on the platform's:
+	// a formation that cannot reach it fails with a status naming it, and writes
+	// nothing. Such a formation consumes no formation units.
+	//
 	// Formation NEVER DELETES and never overwrites: a revision closes the prior
 	// assertion's valid-time window and inserts a replacement, exactly as
 	// SupersedeEdge and SupersedeChunk do, so what the agent believed before the
@@ -476,6 +567,43 @@ type MemoryServiceServer interface {
 	// never confirms that the scope is there. A call naming no scope addresses the
 	// enterprise level, which names no scope and so requires no reach.
 	GetMemoryVocabulary(context.Context, *GetMemoryVocabularyRequest) (*GetMemoryVocabularyResponse, error)
+	// Issues the values the enterprise needs to grant the platform access to its
+	// model, for one provider. External (gateway) RPC.
+	//
+	// For BEDROCK: the AWS principal to trust and the external ID the trust policy
+	// must require. For VERTEX: the email of the service account created for this
+	// enterprise, which the enterprise grants Vertex access to in its project.
+	//
+	// Idempotent: repeating it returns the same values, and they do not change
+	// while the enterprise exists. Requires a plan that includes a formation model
+	// (`pro`, `scale`, `team`, `enterprise`).
+	PrepareFormationModel(context.Context, *PrepareFormationModelRequest) (*PrepareFormationModelResponse, error)
+	// Sets the enterprise's formation model, replacing any previous one. External
+	// (gateway) RPC. Requires a plan that includes a formation model.
+	//
+	// PROBES THE MODEL FIRST: one structured-output generation through the same
+	// identity, request shape and bounds a formation uses. If it fails, nothing is
+	// stored, any previous model stays in place, and the error is
+	// FAILED_PRECONDITION with an ErrorInfo whose `step` metadata says which step
+	// failed: `access` (the role could not be assumed, or the service account was
+	// refused), `model` (the model is not enabled, not found, or refused the
+	// settings), or `answer` (the model answered but not with usable structured
+	// output). The provider's own message is included, since it describes the
+	// enterprise's own account.
+	//
+	// `max_output_tokens` above 65,536 or negative is refused with
+	// INVALID_ARGUMENT before any probe. Zero means the provider default.
+	SetFormationModel(context.Context, *SetFormationModelRequest) (*SetFormationModelResponse, error)
+	// Reads the enterprise's formation model and the setup values issued to it.
+	// External (gateway) RPC. Available on every plan, so an enterprise whose plan
+	// no longer includes a formation model can still see the one it configured.
+	GetFormationModel(context.Context, *GetFormationModelRequest) (*GetFormationModelResponse, error)
+	// Removes the enterprise's formation model, so formation runs on the platform's
+	// model again from the next request. External (gateway) RPC. Available on every
+	// plan, and the only way an enterprise whose plan no longer includes a
+	// formation model can form memory again without upgrading. Removes no memory
+	// and leaves the issued setup values in place.
+	RemoveFormationModel(context.Context, *RemoveFormationModelRequest) (*RemoveFormationModelResponse, error)
 	mustEmbedUnimplementedMemoryServiceServer()
 }
 
@@ -512,6 +640,18 @@ func (UnimplementedMemoryServiceServer) RemoveMemoryVocabulary(context.Context, 
 }
 func (UnimplementedMemoryServiceServer) GetMemoryVocabulary(context.Context, *GetMemoryVocabularyRequest) (*GetMemoryVocabularyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMemoryVocabulary not implemented")
+}
+func (UnimplementedMemoryServiceServer) PrepareFormationModel(context.Context, *PrepareFormationModelRequest) (*PrepareFormationModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PrepareFormationModel not implemented")
+}
+func (UnimplementedMemoryServiceServer) SetFormationModel(context.Context, *SetFormationModelRequest) (*SetFormationModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetFormationModel not implemented")
+}
+func (UnimplementedMemoryServiceServer) GetFormationModel(context.Context, *GetFormationModelRequest) (*GetFormationModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFormationModel not implemented")
+}
+func (UnimplementedMemoryServiceServer) RemoveFormationModel(context.Context, *RemoveFormationModelRequest) (*RemoveFormationModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveFormationModel not implemented")
 }
 func (UnimplementedMemoryServiceServer) mustEmbedUnimplementedMemoryServiceServer() {}
 func (UnimplementedMemoryServiceServer) testEmbeddedByValue()                       {}
@@ -696,6 +836,78 @@ func _MemoryService_GetMemoryVocabulary_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MemoryService_PrepareFormationModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareFormationModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).PrepareFormationModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_PrepareFormationModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).PrepareFormationModel(ctx, req.(*PrepareFormationModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_SetFormationModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetFormationModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).SetFormationModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_SetFormationModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).SetFormationModel(ctx, req.(*SetFormationModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_GetFormationModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFormationModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).GetFormationModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_GetFormationModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).GetFormationModel(ctx, req.(*GetFormationModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_RemoveFormationModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveFormationModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).RemoveFormationModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_RemoveFormationModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).RemoveFormationModel(ctx, req.(*RemoveFormationModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MemoryService_ServiceDesc is the grpc.ServiceDesc for MemoryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -738,6 +950,22 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMemoryVocabulary",
 			Handler:    _MemoryService_GetMemoryVocabulary_Handler,
+		},
+		{
+			MethodName: "PrepareFormationModel",
+			Handler:    _MemoryService_PrepareFormationModel_Handler,
+		},
+		{
+			MethodName: "SetFormationModel",
+			Handler:    _MemoryService_SetFormationModel_Handler,
+		},
+		{
+			MethodName: "GetFormationModel",
+			Handler:    _MemoryService_GetFormationModel_Handler,
+		},
+		{
+			MethodName: "RemoveFormationModel",
+			Handler:    _MemoryService_RemoveFormationModel_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

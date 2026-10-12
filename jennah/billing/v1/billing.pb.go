@@ -494,8 +494,13 @@ type GetBillingStateResponse struct {
 	// and billed: the enterprise holds an active subscription on a product with a
 	// consumption dimension, on a tier that offers overage.
 	OverageBillable bool `protobuf:"varint,12,opt,name=overage_billable,json=overageBillable,proto3" json:"overage_billable,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Formations in the window that ran on the enterprise's own formation model
+	// (see MemoryService.SetFormationModel). They consume no formation units and
+	// are not in `formation_units_used`, because the enterprise pays its model
+	// provider for them directly; they are counted here so they stay visible.
+	ByoFormations int64 `protobuf:"varint,13,opt,name=byo_formations,json=byoFormations,proto3" json:"byo_formations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetBillingStateResponse) Reset() {
@@ -610,6 +615,13 @@ func (x *GetBillingStateResponse) GetOverageBillable() bool {
 		return x.OverageBillable
 	}
 	return false
+}
+
+func (x *GetBillingStateResponse) GetByoFormations() int64 {
+	if x != nil {
+		return x.ByoFormations
+	}
+	return 0
 }
 
 // Request message for the BillingService.SetFormationOverageCap rpc.
@@ -1281,7 +1293,7 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12=\n" +
 	"\x05state\x18\a \x01(\x0e2'.jennahapi.billing.v1.SubscriptionStateR\x05state\x12\x1a\n" +
 	"\bquantity\x18\b \x01(\x03R\bquantity\"\x18\n" +
-	"\x16GetBillingStateRequest\"\xcc\x04\n" +
+	"\x16GetBillingStateRequest\"\xf3\x04\n" +
 	"\x17GetBillingStateResponse\x12\x12\n" +
 	"\x04tier\x18\x01 \x01(\tR\x04tier\x12;\n" +
 	"\x06source\x18\x02 \x01(\x0e2#.jennahapi.billing.v1.BillingSourceR\x06source\x12\x1b\n" +
@@ -1296,7 +1308,8 @@ const file_jennah_billing_v1_billing_proto_rawDesc = "" +
 	"\x10overage_multiple\x18\n" +
 	" \x01(\x01R\x0foverageMultiple\x12*\n" +
 	"\x11overage_unit_band\x18\v \x01(\x03R\x0foverageUnitBand\x12)\n" +
-	"\x10overage_billable\x18\f \x01(\bR\x0foverageBillable\"J\n" +
+	"\x10overage_billable\x18\f \x01(\bR\x0foverageBillable\x12%\n" +
+	"\x0ebyo_formations\x18\r \x01(\x03R\rbyoFormations\"J\n" +
 	"\x1dSetFormationOverageCapRequest\x12)\n" +
 	"\x10overage_multiple\x18\x01 \x01(\x01R\x0foverageMultiple\"K\n" +
 	"\x1eSetFormationOverageCapResponse\x12)\n" +

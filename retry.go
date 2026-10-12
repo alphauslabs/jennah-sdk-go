@@ -134,6 +134,7 @@ var replayableReads = map[string]bool{
 	agentv1.MemoryService_QueryMemory_FullMethodName:         true,
 	agentv1.MemoryService_InspectMemory_FullMethodName:       true,
 	agentv1.MemoryService_GetMemoryVocabulary_FullMethodName: true,
+	agentv1.MemoryService_GetFormationModel_FullMethodName:   true,
 	agentv1.ScopeService_GetScope_FullMethodName:             true,
 	agentv1.ScopeService_ListScopes_FullMethodName:           true,
 
@@ -202,6 +203,14 @@ var neverReplay = map[string]bool{
 	// administrative calls: the caller retries them, knowingly.
 	agentv1.MemoryService_DeclareMemoryVocabulary_FullMethodName: true,
 	agentv1.MemoryService_RemoveMemoryVocabulary_FullMethodName:  true,
+
+	// The formation model: preparing is idempotent, but setting runs a probe
+	// that spends the enterprise's own model tokens and replaces whatever model
+	// is set, and removing changes which model every later formation runs on.
+	// Rare administrative calls, retried knowingly by the caller.
+	agentv1.MemoryService_PrepareFormationModel_FullMethodName: true,
+	agentv1.MemoryService_SetFormationModel_FullMethodName:     true,
+	agentv1.MemoryService_RemoveFormationModel_FullMethodName:  true,
 
 	// A long poll that reports a pending approval as success. Retrying inside the
 	// interceptor would stack another 30-second wait inside the caller's budget;
