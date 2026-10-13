@@ -43,6 +43,10 @@ const (
 	// Every listed approver must approve. Persists a required count equal to the
 	// size of the approver set.
 	Quorum_QUORUM_ALL Quorum = 2
+	// The rule of a question (APPROVAL_KIND_QUESTION), and the only rule a question
+	// accepts: the first recorded answer is terminal as ANSWERED. Persists a
+	// required count of 1. Refused on an approval of kind APPROVAL.
+	Quorum_QUORUM_FIRST_ANSWER Quorum = 3
 )
 
 // Enum value maps for Quorum.
@@ -51,11 +55,13 @@ var (
 		0: "QUORUM_UNSPECIFIED",
 		1: "QUORUM_ANY_ONE",
 		2: "QUORUM_ALL",
+		3: "QUORUM_FIRST_ANSWER",
 	}
 	Quorum_value = map[string]int32{
-		"QUORUM_UNSPECIFIED": 0,
-		"QUORUM_ANY_ONE":     1,
-		"QUORUM_ALL":         2,
+		"QUORUM_UNSPECIFIED":  0,
+		"QUORUM_ANY_ONE":      1,
+		"QUORUM_ALL":          2,
+		"QUORUM_FIRST_ANSWER": 3,
 	}
 )
 
@@ -86,19 +92,83 @@ func (Quorum) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{0}
 }
 
-// Lifecycle of an approval. PENDING is the only non-terminal value; the other
-// four never change once reached, for any reason, through any operation.
+// Whether an approval asks "may I?" or "which?".
+//
+// Fixed at creation. As with Quorum, a client MUST NOT infer a kind by
+// exclusion: a kind added later arrives at an older client as
+// APPROVAL_KIND_UNSPECIFIED.
+type ApprovalKind int32
+
+const (
+	// On a creation request, means APPROVAL_KIND_APPROVAL. On a read, the kind is
+	// unknown to this client's proto version.
+	ApprovalKind_APPROVAL_KIND_UNSPECIFIED ApprovalKind = 0
+	// Approve or reject. Every approval created before kinds existed is this kind.
+	ApprovalKind_APPROVAL_KIND_APPROVAL ApprovalKind = 1
+	// A question with choices, free text, or both, answered with
+	// DECISION_VALUE_ANSWER or declined with DECISION_VALUE_REJECT. Takes only
+	// QUORUM_FIRST_ANSWER and ON_EXPIRE_EXPIRE.
+	ApprovalKind_APPROVAL_KIND_QUESTION ApprovalKind = 2
+)
+
+// Enum value maps for ApprovalKind.
+var (
+	ApprovalKind_name = map[int32]string{
+		0: "APPROVAL_KIND_UNSPECIFIED",
+		1: "APPROVAL_KIND_APPROVAL",
+		2: "APPROVAL_KIND_QUESTION",
+	}
+	ApprovalKind_value = map[string]int32{
+		"APPROVAL_KIND_UNSPECIFIED": 0,
+		"APPROVAL_KIND_APPROVAL":    1,
+		"APPROVAL_KIND_QUESTION":    2,
+	}
+)
+
+func (x ApprovalKind) Enum() *ApprovalKind {
+	p := new(ApprovalKind)
+	*p = x
+	return p
+}
+
+func (x ApprovalKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ApprovalKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_approval_v1_approval_proto_enumTypes[1].Descriptor()
+}
+
+func (ApprovalKind) Type() protoreflect.EnumType {
+	return &file_jennah_approval_v1_approval_proto_enumTypes[1]
+}
+
+func (x ApprovalKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ApprovalKind.Descriptor instead.
+func (ApprovalKind) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{1}
+}
+
+// Lifecycle of an approval. PENDING is the only non-terminal value; the others
+// never change once reached, for any reason, through any operation.
 type ApprovalStatus int32
 
 const (
 	ApprovalStatus_APPROVAL_STATUS_UNSPECIFIED ApprovalStatus = 0
 	ApprovalStatus_APPROVAL_STATUS_PENDING     ApprovalStatus = 1
 	ApprovalStatus_APPROVAL_STATUS_APPROVED    ApprovalStatus = 2
-	ApprovalStatus_APPROVAL_STATUS_REJECTED    ApprovalStatus = 3
+	// Rejected by an approver. For a question, an approver declined to answer.
+	ApprovalStatus_APPROVAL_STATUS_REJECTED ApprovalStatus = 3
 	// Reached its deadline undecided, under an on_expire of ON_EXPIRE_EXPIRE.
 	ApprovalStatus_APPROVAL_STATUS_EXPIRED ApprovalStatus = 4
 	// Withdrawn by the enterprise before any decision.
 	ApprovalStatus_APPROVAL_STATUS_CANCELLED ApprovalStatus = 5
+	// A question that received its answer. Only a question reaches this status,
+	// and the answer is carried on the approval (Approval.answer).
+	ApprovalStatus_APPROVAL_STATUS_ANSWERED ApprovalStatus = 6
 )
 
 // Enum value maps for ApprovalStatus.
@@ -110,6 +180,7 @@ var (
 		3: "APPROVAL_STATUS_REJECTED",
 		4: "APPROVAL_STATUS_EXPIRED",
 		5: "APPROVAL_STATUS_CANCELLED",
+		6: "APPROVAL_STATUS_ANSWERED",
 	}
 	ApprovalStatus_value = map[string]int32{
 		"APPROVAL_STATUS_UNSPECIFIED": 0,
@@ -118,6 +189,7 @@ var (
 		"APPROVAL_STATUS_REJECTED":    3,
 		"APPROVAL_STATUS_EXPIRED":     4,
 		"APPROVAL_STATUS_CANCELLED":   5,
+		"APPROVAL_STATUS_ANSWERED":    6,
 	}
 )
 
@@ -132,11 +204,11 @@ func (x ApprovalStatus) String() string {
 }
 
 func (ApprovalStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_approval_v1_approval_proto_enumTypes[1].Descriptor()
+	return file_jennah_approval_v1_approval_proto_enumTypes[2].Descriptor()
 }
 
 func (ApprovalStatus) Type() protoreflect.EnumType {
-	return &file_jennah_approval_v1_approval_proto_enumTypes[1]
+	return &file_jennah_approval_v1_approval_proto_enumTypes[2]
 }
 
 func (x ApprovalStatus) Number() protoreflect.EnumNumber {
@@ -145,7 +217,7 @@ func (x ApprovalStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ApprovalStatus.Descriptor instead.
 func (ApprovalStatus) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{1}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{2}
 }
 
 // What an undecided approval becomes at its deadline.
@@ -154,7 +226,8 @@ func (ApprovalStatus) EnumDescriptor() ([]byte, []int) {
 type OnExpire int32
 
 const (
-	// Treated as ON_EXPIRE_DENY.
+	// Treated as ON_EXPIRE_DENY for an approval, and as ON_EXPIRE_EXPIRE for a
+	// question.
 	OnExpire_ON_EXPIRE_UNSPECIFIED OnExpire = 0
 	// Resolve as REJECTED: the deadline itself is the refusal. The default, and the
 	// right choice when a downstream caller branches on approved-vs-not.
@@ -189,11 +262,11 @@ func (x OnExpire) String() string {
 }
 
 func (OnExpire) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_approval_v1_approval_proto_enumTypes[2].Descriptor()
+	return file_jennah_approval_v1_approval_proto_enumTypes[3].Descriptor()
 }
 
 func (OnExpire) Type() protoreflect.EnumType {
-	return &file_jennah_approval_v1_approval_proto_enumTypes[2]
+	return &file_jennah_approval_v1_approval_proto_enumTypes[3]
 }
 
 func (x OnExpire) Number() protoreflect.EnumNumber {
@@ -202,7 +275,7 @@ func (x OnExpire) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OnExpire.Descriptor instead.
 func (OnExpire) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{2}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{3}
 }
 
 // Where an approver's notification is in its delivery lifecycle. This exists so
@@ -252,11 +325,11 @@ func (x DeliveryState) String() string {
 }
 
 func (DeliveryState) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_approval_v1_approval_proto_enumTypes[3].Descriptor()
+	return file_jennah_approval_v1_approval_proto_enumTypes[4].Descriptor()
 }
 
 func (DeliveryState) Type() protoreflect.EnumType {
-	return &file_jennah_approval_v1_approval_proto_enumTypes[3]
+	return &file_jennah_approval_v1_approval_proto_enumTypes[4]
 }
 
 func (x DeliveryState) Number() protoreflect.EnumNumber {
@@ -265,7 +338,7 @@ func (x DeliveryState) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DeliveryState.Descriptor instead.
 func (DeliveryState) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{3}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{4}
 }
 
 // The channel an approver is notified over. Only email ships; the field exists so
@@ -300,11 +373,11 @@ func (x ApproverChannel) String() string {
 }
 
 func (ApproverChannel) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_approval_v1_approval_proto_enumTypes[4].Descriptor()
+	return file_jennah_approval_v1_approval_proto_enumTypes[5].Descriptor()
 }
 
 func (ApproverChannel) Type() protoreflect.EnumType {
-	return &file_jennah_approval_v1_approval_proto_enumTypes[4]
+	return &file_jennah_approval_v1_approval_proto_enumTypes[5]
 }
 
 func (x ApproverChannel) Number() protoreflect.EnumNumber {
@@ -313,7 +386,7 @@ func (x ApproverChannel) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ApproverChannel.Descriptor instead.
 func (ApproverChannel) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{4}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{5}
 }
 
 // The decision an approver renders.
@@ -323,8 +396,13 @@ const (
 	DecisionValue_DECISION_VALUE_UNSPECIFIED DecisionValue = 0
 	DecisionValue_DECISION_VALUE_APPROVE     DecisionValue = 1
 	// Terminal immediately under EVERY quorum rule: one refusal ends the request
-	// however many approvals preceded it.
+	// however many approvals preceded it. On a question, the approver declined to
+	// answer.
 	DecisionValue_DECISION_VALUE_REJECT DecisionValue = 2
+	// An answer to a question, carried in `answer`. Accepted only on a question;
+	// DECISION_VALUE_APPROVE is refused on a question and this value is refused on
+	// an approval.
+	DecisionValue_DECISION_VALUE_ANSWER DecisionValue = 3
 )
 
 // Enum value maps for DecisionValue.
@@ -333,11 +411,13 @@ var (
 		0: "DECISION_VALUE_UNSPECIFIED",
 		1: "DECISION_VALUE_APPROVE",
 		2: "DECISION_VALUE_REJECT",
+		3: "DECISION_VALUE_ANSWER",
 	}
 	DecisionValue_value = map[string]int32{
 		"DECISION_VALUE_UNSPECIFIED": 0,
 		"DECISION_VALUE_APPROVE":     1,
 		"DECISION_VALUE_REJECT":      2,
+		"DECISION_VALUE_ANSWER":      3,
 	}
 )
 
@@ -352,11 +432,11 @@ func (x DecisionValue) String() string {
 }
 
 func (DecisionValue) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_approval_v1_approval_proto_enumTypes[5].Descriptor()
+	return file_jennah_approval_v1_approval_proto_enumTypes[6].Descriptor()
 }
 
 func (DecisionValue) Type() protoreflect.EnumType {
-	return &file_jennah_approval_v1_approval_proto_enumTypes[5]
+	return &file_jennah_approval_v1_approval_proto_enumTypes[6]
 }
 
 func (x DecisionValue) Number() protoreflect.EnumNumber {
@@ -365,7 +445,7 @@ func (x DecisionValue) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DecisionValue.Descriptor instead.
 func (DecisionValue) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{5}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{6}
 }
 
 // What an approver-allowlist entry matches.
@@ -405,11 +485,11 @@ func (x AllowlistKind) String() string {
 }
 
 func (AllowlistKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_approval_v1_approval_proto_enumTypes[6].Descriptor()
+	return file_jennah_approval_v1_approval_proto_enumTypes[7].Descriptor()
 }
 
 func (AllowlistKind) Type() protoreflect.EnumType {
-	return &file_jennah_approval_v1_approval_proto_enumTypes[6]
+	return &file_jennah_approval_v1_approval_proto_enumTypes[7]
 }
 
 func (x AllowlistKind) Number() protoreflect.EnumNumber {
@@ -418,7 +498,226 @@ func (x AllowlistKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AllowlistKind.Descriptor instead.
 func (AllowlistKind) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{6}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{7}
+}
+
+// One choice offered by a question.
+type QuestionChoice struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Caller-chosen id, unique within the question: at most 64 characters, each a
+	// letter, a digit, `_`, `.`, or `-`. An answer names choices by this id.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// What the approver reads. Required; at most 200 characters.
+	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// Optional detail shown under the label; at most 1000 characters.
+	Description   string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QuestionChoice) Reset() {
+	*x = QuestionChoice{}
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QuestionChoice) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QuestionChoice) ProtoMessage() {}
+
+func (x *QuestionChoice) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QuestionChoice.ProtoReflect.Descriptor instead.
+func (*QuestionChoice) Descriptor() ([]byte, []int) {
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *QuestionChoice) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *QuestionChoice) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *QuestionChoice) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+// The shape of what a question asks. A question offers choices, free text, or
+// both.
+type Question struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Presented to the approver in this order, which is part of what was asked:
+	// the same choices in a different order are a different question. At most 10.
+	Choices []*QuestionChoice `protobuf:"bytes,1,rep,name=choices,proto3" json:"choices,omitempty"`
+	// When set, an answer may select more than one choice. Requires choices.
+	MultiSelect bool `protobuf:"varint,2,opt,name=multi_select,json=multiSelect,proto3" json:"multi_select,omitempty"`
+	// When set, an answer may carry free text (at most 4000 characters).
+	AllowFreeText bool `protobuf:"varint,3,opt,name=allow_free_text,json=allowFreeText,proto3" json:"allow_free_text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Question) Reset() {
+	*x = Question{}
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Question) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Question) ProtoMessage() {}
+
+func (x *Question) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Question.ProtoReflect.Descriptor instead.
+func (*Question) Descriptor() ([]byte, []int) {
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Question) GetChoices() []*QuestionChoice {
+	if x != nil {
+		return x.Choices
+	}
+	return nil
+}
+
+func (x *Question) GetMultiSelect() bool {
+	if x != nil {
+		return x.MultiSelect
+	}
+	return false
+}
+
+func (x *Question) GetAllowFreeText() bool {
+	if x != nil {
+		return x.AllowFreeText
+	}
+	return false
+}
+
+// An answer to a question.
+//
+// On SubmitApprovalDecisionRequest only `choice_ids` and `text` are read; the
+// other fields are filled by the server on reads. An answer must name only
+// offered choice ids, exactly one when the question is not multi-select and a
+// choice is named, carry `text` only where the question allows free text, and
+// carry at least one choice or non-empty text. Declining is
+// DECISION_VALUE_REJECT, not an empty answer.
+//
+// Free text is written by the approver. To the agent that asked, it is
+// untrusted input, like any other message from a person.
+type Answer struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ChoiceIds []string               `protobuf:"bytes,1,rep,name=choice_ids,json=choiceIds,proto3" json:"choice_ids,omitempty"`
+	// The labels of `choice_ids`, in the same order, as they were offered.
+	ChoiceLabels  []string               `protobuf:"bytes,2,rep,name=choice_labels,json=choiceLabels,proto3" json:"choice_labels,omitempty"`
+	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	ApproverId    string                 `protobuf:"bytes,4,opt,name=approver_id,json=approverId,proto3" json:"approver_id,omitempty"` // the approver who answered
+	AnsweredAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=answered_at,json=answeredAt,proto3" json:"answered_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Answer) Reset() {
+	*x = Answer{}
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Answer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Answer) ProtoMessage() {}
+
+func (x *Answer) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Answer.ProtoReflect.Descriptor instead.
+func (*Answer) Descriptor() ([]byte, []int) {
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Answer) GetChoiceIds() []string {
+	if x != nil {
+		return x.ChoiceIds
+	}
+	return nil
+}
+
+func (x *Answer) GetChoiceLabels() []string {
+	if x != nil {
+		return x.ChoiceLabels
+	}
+	return nil
+}
+
+func (x *Answer) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *Answer) GetApproverId() string {
+	if x != nil {
+		return x.ApproverId
+	}
+	return ""
+}
+
+func (x *Answer) GetAnsweredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AnsweredAt
+	}
+	return nil
 }
 
 // One human an approval was put to, with the delivery state of their notification.
@@ -455,7 +754,7 @@ type Approver struct {
 
 func (x *Approver) Reset() {
 	*x = Approver{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[0]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -467,7 +766,7 @@ func (x *Approver) String() string {
 func (*Approver) ProtoMessage() {}
 
 func (x *Approver) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[0]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -480,7 +779,7 @@ func (x *Approver) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Approver.ProtoReflect.Descriptor instead.
 func (*Approver) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{0}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Approver) GetApproverId() string {
@@ -568,7 +867,7 @@ type ApproverSpec struct {
 
 func (x *ApproverSpec) Reset() {
 	*x = ApproverSpec{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[1]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -580,7 +879,7 @@ func (x *ApproverSpec) String() string {
 func (*ApproverSpec) ProtoMessage() {}
 
 func (x *ApproverSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[1]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -593,7 +892,7 @@ func (x *ApproverSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproverSpec.ProtoReflect.Descriptor instead.
 func (*ApproverSpec) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{1}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ApproverSpec) GetEmail() string {
@@ -630,12 +929,13 @@ type Approval struct {
 	Payload *structpb.Struct `protobuf:"bytes,7,opt,name=payload,proto3" json:"payload,omitempty"`
 	Quorum  Quorum           `protobuf:"varint,8,opt,name=quorum,proto3,enum=jennahapi.approval.v1.Quorum" json:"quorum,omitempty"`
 	// How many approvals resolve this request: 1 for ANY_ONE, the approver count
-	// for ALL. Assigned at creation and immutable thereafter. This column, not the
+	// for ALL, 1 (answer) for FIRST_ANSWER. Assigned at creation and immutable
+	// thereafter. This column, not the
 	// rule name, is the sole authority on the threshold: resolution is a count
 	// comparison, which is why it stays correct for a rule this client predates.
 	RequiredApprovals int32 `protobuf:"varint,9,opt,name=required_approvals,json=requiredApprovals,proto3" json:"required_approvals,omitempty"`
-	// Approvals recorded so far, so a partially-approved request is legible rather
-	// than merely PENDING.
+	// Approvals recorded so far (answers, for a question), so a partially-approved
+	// request is legible rather than merely PENDING.
 	ApprovalsRecorded int32 `protobuf:"varint,10,opt,name=approvals_recorded,json=approvalsRecorded,proto3" json:"approvals_recorded,omitempty"`
 	// When set, the user who created this approval may not decide it, even if they
 	// are a listed approver (four-eyes).
@@ -645,8 +945,8 @@ type Approval struct {
 	// only an authenticated listed approver may decide. Creatable only where every
 	// approver is a member, since a non-member has no account to sign in with.
 	RequireAuthenticatedDecider bool `protobuf:"varint,12,opt,name=require_authenticated_decider,json=requireAuthenticatedDecider,proto3" json:"require_authenticated_decider,omitempty"`
-	// Carries the outcome once terminal: APPROVED and REJECTED are the recorded
-	// decision, EXPIRED and CANCELLED are its absence. There is no second outcome
+	// Carries the outcome once terminal: APPROVED, REJECTED, and ANSWERED are the
+	// recorded decision, EXPIRED and CANCELLED are its absence. There is no second outcome
 	// field to disagree with this one.
 	Status          ApprovalStatus         `protobuf:"varint,13,opt,name=status,proto3,enum=jennahapi.approval.v1.ApprovalStatus" json:"status,omitempty"`
 	DecidedAt       *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=decided_at,json=decidedAt,proto3" json:"decided_at,omitempty"`                       // unset while PENDING
@@ -669,14 +969,19 @@ type Approval struct {
 	Approvers []*Approver `protobuf:"bytes,22,rep,name=approvers,proto3" json:"approvers,omitempty"`
 	// When true and `agent_id` is set, the terminal outcome is written into that
 	// agent's memory as an execution-log step.
-	RecordToMemory bool `protobuf:"varint,23,opt,name=record_to_memory,json=recordToMemory,proto3" json:"record_to_memory,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	RecordToMemory bool         `protobuf:"varint,23,opt,name=record_to_memory,json=recordToMemory,proto3" json:"record_to_memory,omitempty"`
+	Kind           ApprovalKind `protobuf:"varint,24,opt,name=kind,proto3,enum=jennahapi.approval.v1.ApprovalKind" json:"kind,omitempty"`
+	// What a question asks. Unset for kind APPROVAL.
+	Question *Question `protobuf:"bytes,25,opt,name=question,proto3" json:"question,omitempty"`
+	// The answer that resolved a question. Set only when `status` is ANSWERED.
+	Answer        *Answer `protobuf:"bytes,26,opt,name=answer,proto3" json:"answer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Approval) Reset() {
 	*x = Approval{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[2]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -688,7 +993,7 @@ func (x *Approval) String() string {
 func (*Approval) ProtoMessage() {}
 
 func (x *Approval) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[2]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -701,7 +1006,7 @@ func (x *Approval) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Approval.ProtoReflect.Descriptor instead.
 func (*Approval) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{2}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Approval) GetEnterpriseId() string {
@@ -865,6 +1170,27 @@ func (x *Approval) GetRecordToMemory() bool {
 	return false
 }
 
+func (x *Approval) GetKind() ApprovalKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ApprovalKind_APPROVAL_KIND_UNSPECIFIED
+}
+
+func (x *Approval) GetQuestion() *Question {
+	if x != nil {
+		return x.Question
+	}
+	return nil
+}
+
+func (x *Approval) GetAnswer() *Answer {
+	if x != nil {
+		return x.Answer
+	}
+	return nil
+}
+
 // One recorded decision. Append-only: no API modifies or deletes these, for any
 // caller, at any permission level.
 type ApprovalDecision struct {
@@ -886,14 +1212,16 @@ type ApprovalDecision struct {
 	// Digest of the content as RENDERED to this approver. This is what makes the
 	// record answer a compliance question: not merely that they approved an
 	// identifier, but that they were shown the request this digest covers.
-	SeenDigest    string `protobuf:"bytes,10,opt,name=seen_digest,json=seenDigest,proto3" json:"seen_digest,omitempty"`
+	SeenDigest string `protobuf:"bytes,10,opt,name=seen_digest,json=seenDigest,proto3" json:"seen_digest,omitempty"`
+	// The answer, when `decision` is DECISION_VALUE_ANSWER.
+	Answer        *Answer `protobuf:"bytes,11,opt,name=answer,proto3" json:"answer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ApprovalDecision) Reset() {
 	*x = ApprovalDecision{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[3]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -905,7 +1233,7 @@ func (x *ApprovalDecision) String() string {
 func (*ApprovalDecision) ProtoMessage() {}
 
 func (x *ApprovalDecision) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[3]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -918,7 +1246,7 @@ func (x *ApprovalDecision) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApprovalDecision.ProtoReflect.Descriptor instead.
 func (*ApprovalDecision) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{3}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ApprovalDecision) GetDecisionId() string {
@@ -991,6 +1319,13 @@ func (x *ApprovalDecision) GetSeenDigest() string {
 	return ""
 }
 
+func (x *ApprovalDecision) GetAnswer() *Answer {
+	if x != nil {
+		return x.Answer
+	}
+	return nil
+}
+
 // One entry on the enterprise's approver allowlist: an address, or a domain, that
 // this enterprise's agents may put approvals to despite not being members.
 type ApproverAllowlistEntry struct {
@@ -1007,7 +1342,7 @@ type ApproverAllowlistEntry struct {
 
 func (x *ApproverAllowlistEntry) Reset() {
 	*x = ApproverAllowlistEntry{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[4]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1019,7 +1354,7 @@ func (x *ApproverAllowlistEntry) String() string {
 func (*ApproverAllowlistEntry) ProtoMessage() {}
 
 func (x *ApproverAllowlistEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[4]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1032,7 +1367,7 @@ func (x *ApproverAllowlistEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApproverAllowlistEntry.ProtoReflect.Descriptor instead.
 func (*ApproverAllowlistEntry) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{4}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ApproverAllowlistEntry) GetEntryId() string {
@@ -1086,9 +1421,11 @@ type CreateApprovalRequest struct {
 	Payload *structpb.Struct `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`
 	// The humans to ask. Refused in full if any address is unaddressable.
 	Approvers []*ApproverSpec `protobuf:"bytes,6,rep,name=approvers,proto3" json:"approvers,omitempty"`
-	Quorum    Quorum          `protobuf:"varint,7,opt,name=quorum,proto3,enum=jennahapi.approval.v1.Quorum" json:"quorum,omitempty"` // required; an unrecognized rule is refused, not defaulted
+	// Required for an approval; an unrecognized rule is refused, not defaulted. A
+	// question may leave it unset, which selects QUORUM_FIRST_ANSWER.
+	Quorum Quorum `protobuf:"varint,7,opt,name=quorum,proto3,enum=jennahapi.approval.v1.Quorum" json:"quorum,omitempty"`
 	// Optional. When set it MUST equal the value derived from `quorum` (1 for
-	// ANY_ONE, len(approvers) for ALL); a mismatch is refused with a typed error
+	// ANY_ONE, len(approvers) for ALL, 1 for FIRST_ANSWER); a mismatch is refused with a typed error
 	// rather than silently corrected, so a caller that sets it is never quietly
 	// given a threshold it did not ask for. Leave it unset and the server derives
 	// it.
@@ -1109,13 +1446,21 @@ type CreateApprovalRequest struct {
 	// step. Ignored when `agent_id` is empty. Best-effort by construction: a memory
 	// failure never changes what a human decided.
 	RecordToMemory bool `protobuf:"varint,15,opt,name=record_to_memory,json=recordToMemory,proto3" json:"record_to_memory,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Unset means APPROVAL_KIND_APPROVAL. An unrecognized kind is refused, not
+	// defaulted. A question takes only `quorum` QUORUM_FIRST_ANSWER and
+	// `on_expire` ON_EXPIRE_EXPIRE; leaving either unset selects it, and any other
+	// value is refused.
+	Kind ApprovalKind `protobuf:"varint,16,opt,name=kind,proto3,enum=jennahapi.approval.v1.ApprovalKind" json:"kind,omitempty"`
+	// Required for kind QUESTION, refused on kind APPROVAL. Part of the content a
+	// `request_key` replay is compared against.
+	Question      *Question `protobuf:"bytes,17,opt,name=question,proto3" json:"question,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateApprovalRequest) Reset() {
 	*x = CreateApprovalRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[5]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1127,7 +1472,7 @@ func (x *CreateApprovalRequest) String() string {
 func (*CreateApprovalRequest) ProtoMessage() {}
 
 func (x *CreateApprovalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[5]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1140,7 +1485,7 @@ func (x *CreateApprovalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApprovalRequest.ProtoReflect.Descriptor instead.
 func (*CreateApprovalRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{5}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CreateApprovalRequest) GetRequestKey() string {
@@ -1248,6 +1593,20 @@ func (x *CreateApprovalRequest) GetRecordToMemory() bool {
 	return false
 }
 
+func (x *CreateApprovalRequest) GetKind() ApprovalKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ApprovalKind_APPROVAL_KIND_UNSPECIFIED
+}
+
+func (x *CreateApprovalRequest) GetQuestion() *Question {
+	if x != nil {
+		return x.Question
+	}
+	return nil
+}
+
 // Response message for the ApprovalService.CreateApproval rpc.
 type CreateApprovalResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
@@ -1261,7 +1620,7 @@ type CreateApprovalResponse struct {
 
 func (x *CreateApprovalResponse) Reset() {
 	*x = CreateApprovalResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[6]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1273,7 +1632,7 @@ func (x *CreateApprovalResponse) String() string {
 func (*CreateApprovalResponse) ProtoMessage() {}
 
 func (x *CreateApprovalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[6]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1645,7 @@ func (x *CreateApprovalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApprovalResponse.ProtoReflect.Descriptor instead.
 func (*CreateApprovalResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{6}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CreateApprovalResponse) GetApproval() *Approval {
@@ -1313,7 +1672,7 @@ type GetApprovalRequest struct {
 
 func (x *GetApprovalRequest) Reset() {
 	*x = GetApprovalRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[7]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1325,7 +1684,7 @@ func (x *GetApprovalRequest) String() string {
 func (*GetApprovalRequest) ProtoMessage() {}
 
 func (x *GetApprovalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[7]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1338,7 +1697,7 @@ func (x *GetApprovalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetApprovalRequest.ProtoReflect.Descriptor instead.
 func (*GetApprovalRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{7}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetApprovalRequest) GetApprovalId() string {
@@ -1360,7 +1719,7 @@ type GetApprovalResponse struct {
 
 func (x *GetApprovalResponse) Reset() {
 	*x = GetApprovalResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[8]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1372,7 +1731,7 @@ func (x *GetApprovalResponse) String() string {
 func (*GetApprovalResponse) ProtoMessage() {}
 
 func (x *GetApprovalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[8]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1385,7 +1744,7 @@ func (x *GetApprovalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetApprovalResponse.ProtoReflect.Descriptor instead.
 func (*GetApprovalResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{8}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetApprovalResponse) GetApproval() *Approval {
@@ -1423,7 +1782,7 @@ type ListApprovalsRequest struct {
 
 func (x *ListApprovalsRequest) Reset() {
 	*x = ListApprovalsRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[9]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1435,7 +1794,7 @@ func (x *ListApprovalsRequest) String() string {
 func (*ListApprovalsRequest) ProtoMessage() {}
 
 func (x *ListApprovalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[9]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1448,7 +1807,7 @@ func (x *ListApprovalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApprovalsRequest.ProtoReflect.Descriptor instead.
 func (*ListApprovalsRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{9}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListApprovalsRequest) GetPageSize() int32 {
@@ -1497,7 +1856,7 @@ type ListApprovalsResponse struct {
 
 func (x *ListApprovalsResponse) Reset() {
 	*x = ListApprovalsResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[10]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1509,7 +1868,7 @@ func (x *ListApprovalsResponse) String() string {
 func (*ListApprovalsResponse) ProtoMessage() {}
 
 func (x *ListApprovalsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[10]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1522,7 +1881,7 @@ func (x *ListApprovalsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApprovalsResponse.ProtoReflect.Descriptor instead.
 func (*ListApprovalsResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{10}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListApprovalsResponse) GetApprovals() []*Approval {
@@ -1549,7 +1908,7 @@ type CancelApprovalRequest struct {
 
 func (x *CancelApprovalRequest) Reset() {
 	*x = CancelApprovalRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[11]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1561,7 +1920,7 @@ func (x *CancelApprovalRequest) String() string {
 func (*CancelApprovalRequest) ProtoMessage() {}
 
 func (x *CancelApprovalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[11]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1574,7 +1933,7 @@ func (x *CancelApprovalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelApprovalRequest.ProtoReflect.Descriptor instead.
 func (*CancelApprovalRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{11}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CancelApprovalRequest) GetApprovalId() string {
@@ -1594,7 +1953,7 @@ type CancelApprovalResponse struct {
 
 func (x *CancelApprovalResponse) Reset() {
 	*x = CancelApprovalResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[12]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1606,7 +1965,7 @@ func (x *CancelApprovalResponse) String() string {
 func (*CancelApprovalResponse) ProtoMessage() {}
 
 func (x *CancelApprovalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[12]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1619,7 +1978,7 @@ func (x *CancelApprovalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelApprovalResponse.ProtoReflect.Descriptor instead.
 func (*CancelApprovalResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{12}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CancelApprovalResponse) GetApproval() *Approval {
@@ -1642,7 +2001,7 @@ type WaitApprovalRequest struct {
 
 func (x *WaitApprovalRequest) Reset() {
 	*x = WaitApprovalRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[13]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1654,7 +2013,7 @@ func (x *WaitApprovalRequest) String() string {
 func (*WaitApprovalRequest) ProtoMessage() {}
 
 func (x *WaitApprovalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[13]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1667,7 +2026,7 @@ func (x *WaitApprovalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitApprovalRequest.ProtoReflect.Descriptor instead.
 func (*WaitApprovalRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{13}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *WaitApprovalRequest) GetApprovalId() string {
@@ -1700,7 +2059,7 @@ type WaitApprovalResponse struct {
 
 func (x *WaitApprovalResponse) Reset() {
 	*x = WaitApprovalResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[14]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1712,7 +2071,7 @@ func (x *WaitApprovalResponse) String() string {
 func (*WaitApprovalResponse) ProtoMessage() {}
 
 func (x *WaitApprovalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[14]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,7 +2084,7 @@ func (x *WaitApprovalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WaitApprovalResponse.ProtoReflect.Descriptor instead.
 func (*WaitApprovalResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{14}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *WaitApprovalResponse) GetApproval() *Approval {
@@ -1755,7 +2114,7 @@ type ResendApprovalNotificationRequest struct {
 
 func (x *ResendApprovalNotificationRequest) Reset() {
 	*x = ResendApprovalNotificationRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[15]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1767,7 +2126,7 @@ func (x *ResendApprovalNotificationRequest) String() string {
 func (*ResendApprovalNotificationRequest) ProtoMessage() {}
 
 func (x *ResendApprovalNotificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[15]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1780,7 +2139,7 @@ func (x *ResendApprovalNotificationRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ResendApprovalNotificationRequest.ProtoReflect.Descriptor instead.
 func (*ResendApprovalNotificationRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{15}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ResendApprovalNotificationRequest) GetApprovalId() string {
@@ -1808,7 +2167,7 @@ type ResendApprovalNotificationResponse struct {
 
 func (x *ResendApprovalNotificationResponse) Reset() {
 	*x = ResendApprovalNotificationResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[16]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1820,7 +2179,7 @@ func (x *ResendApprovalNotificationResponse) String() string {
 func (*ResendApprovalNotificationResponse) ProtoMessage() {}
 
 func (x *ResendApprovalNotificationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[16]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1833,7 +2192,7 @@ func (x *ResendApprovalNotificationResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ResendApprovalNotificationResponse.ProtoReflect.Descriptor instead.
 func (*ResendApprovalNotificationResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{16}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ResendApprovalNotificationResponse) GetApprovers() []*Approver {
@@ -1857,7 +2216,7 @@ type DescribeApprovalByTokenRequest struct {
 
 func (x *DescribeApprovalByTokenRequest) Reset() {
 	*x = DescribeApprovalByTokenRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[17]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1869,7 +2228,7 @@ func (x *DescribeApprovalByTokenRequest) String() string {
 func (*DescribeApprovalByTokenRequest) ProtoMessage() {}
 
 func (x *DescribeApprovalByTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[17]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1882,7 +2241,7 @@ func (x *DescribeApprovalByTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeApprovalByTokenRequest.ProtoReflect.Descriptor instead.
 func (*DescribeApprovalByTokenRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{17}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DescribeApprovalByTokenRequest) GetToken() string {
@@ -1925,14 +2284,19 @@ type DescribeApprovalByTokenResponse struct {
 	// Digest of the content in THIS response. Echo it back as `seen_digest` when
 	// submitting a decision; it is recorded on the audit row as evidence of what
 	// the approver was shown.
-	RenderedDigest string `protobuf:"bytes,14,opt,name=rendered_digest,json=renderedDigest,proto3" json:"rendered_digest,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	RenderedDigest string       `protobuf:"bytes,14,opt,name=rendered_digest,json=renderedDigest,proto3" json:"rendered_digest,omitempty"`
+	Kind           ApprovalKind `protobuf:"varint,15,opt,name=kind,proto3,enum=jennahapi.approval.v1.ApprovalKind" json:"kind,omitempty"`
+	// What a question asks, covered by `rendered_digest`. Unset for kind APPROVAL.
+	Question *Question `protobuf:"bytes,16,opt,name=question,proto3" json:"question,omitempty"`
+	// The recorded answer, when `status` is ANSWERED.
+	Answer        *Answer `protobuf:"bytes,17,opt,name=answer,proto3" json:"answer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DescribeApprovalByTokenResponse) Reset() {
 	*x = DescribeApprovalByTokenResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[18]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1944,7 +2308,7 @@ func (x *DescribeApprovalByTokenResponse) String() string {
 func (*DescribeApprovalByTokenResponse) ProtoMessage() {}
 
 func (x *DescribeApprovalByTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[18]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1957,7 +2321,7 @@ func (x *DescribeApprovalByTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DescribeApprovalByTokenResponse.ProtoReflect.Descriptor instead.
 func (*DescribeApprovalByTokenResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{18}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DescribeApprovalByTokenResponse) GetApprovalId() string {
@@ -2058,6 +2422,27 @@ func (x *DescribeApprovalByTokenResponse) GetRenderedDigest() string {
 	return ""
 }
 
+func (x *DescribeApprovalByTokenResponse) GetKind() ApprovalKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ApprovalKind_APPROVAL_KIND_UNSPECIFIED
+}
+
+func (x *DescribeApprovalByTokenResponse) GetQuestion() *Question {
+	if x != nil {
+		return x.Question
+	}
+	return nil
+}
+
+func (x *DescribeApprovalByTokenResponse) GetAnswer() *Answer {
+	if x != nil {
+		return x.Answer
+	}
+	return nil
+}
+
 // Request message for the ApprovalService.SubmitApprovalDecision rpc.
 type SubmitApprovalDecisionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2072,14 +2457,17 @@ type SubmitApprovalDecisionRequest struct {
 	Comment    string        `protobuf:"bytes,4,opt,name=comment,proto3" json:"comment,omitempty"` // optional, recorded verbatim on the audit row
 	// The `rendered_digest` from the describe call that showed this approver the
 	// request. Recorded on the audit row so the trail shows what they were shown.
-	SeenDigest    string `protobuf:"bytes,5,opt,name=seen_digest,json=seenDigest,proto3" json:"seen_digest,omitempty"`
+	SeenDigest string `protobuf:"bytes,5,opt,name=seen_digest,json=seenDigest,proto3" json:"seen_digest,omitempty"`
+	// Required when `decision` is DECISION_VALUE_ANSWER, refused otherwise. An
+	// answer that does not fit the question is refused without spending the token.
+	Answer        *Answer `protobuf:"bytes,6,opt,name=answer,proto3" json:"answer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubmitApprovalDecisionRequest) Reset() {
 	*x = SubmitApprovalDecisionRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[19]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2091,7 +2479,7 @@ func (x *SubmitApprovalDecisionRequest) String() string {
 func (*SubmitApprovalDecisionRequest) ProtoMessage() {}
 
 func (x *SubmitApprovalDecisionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[19]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2104,7 +2492,7 @@ func (x *SubmitApprovalDecisionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitApprovalDecisionRequest.ProtoReflect.Descriptor instead.
 func (*SubmitApprovalDecisionRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{19}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SubmitApprovalDecisionRequest) GetToken() string {
@@ -2142,6 +2530,13 @@ func (x *SubmitApprovalDecisionRequest) GetSeenDigest() string {
 	return ""
 }
 
+func (x *SubmitApprovalDecisionRequest) GetAnswer() *Answer {
+	if x != nil {
+		return x.Answer
+	}
+	return nil
+}
+
 // Response message for the ApprovalService.SubmitApprovalDecision rpc.
 type SubmitApprovalDecisionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2160,7 +2555,7 @@ type SubmitApprovalDecisionResponse struct {
 
 func (x *SubmitApprovalDecisionResponse) Reset() {
 	*x = SubmitApprovalDecisionResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[20]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2172,7 +2567,7 @@ func (x *SubmitApprovalDecisionResponse) String() string {
 func (*SubmitApprovalDecisionResponse) ProtoMessage() {}
 
 func (x *SubmitApprovalDecisionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[20]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2185,7 +2580,7 @@ func (x *SubmitApprovalDecisionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitApprovalDecisionResponse.ProtoReflect.Descriptor instead.
 func (*SubmitApprovalDecisionResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{20}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SubmitApprovalDecisionResponse) GetStatus() ApprovalStatus {
@@ -2234,7 +2629,7 @@ type ListApproversRequest struct {
 
 func (x *ListApproversRequest) Reset() {
 	*x = ListApproversRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[21]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2246,7 +2641,7 @@ func (x *ListApproversRequest) String() string {
 func (*ListApproversRequest) ProtoMessage() {}
 
 func (x *ListApproversRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[21]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2654,7 @@ func (x *ListApproversRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApproversRequest.ProtoReflect.Descriptor instead.
 func (*ListApproversRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{21}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListApproversRequest) GetPageSize() int32 {
@@ -2290,7 +2685,7 @@ type ListApproversResponse struct {
 
 func (x *ListApproversResponse) Reset() {
 	*x = ListApproversResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[22]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2302,7 +2697,7 @@ func (x *ListApproversResponse) String() string {
 func (*ListApproversResponse) ProtoMessage() {}
 
 func (x *ListApproversResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[22]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2315,7 +2710,7 @@ func (x *ListApproversResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApproversResponse.ProtoReflect.Descriptor instead.
 func (*ListApproversResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{22}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListApproversResponse) GetEntries() []*ApproverAllowlistEntry {
@@ -2343,7 +2738,7 @@ type AddApproverRequest struct {
 
 func (x *AddApproverRequest) Reset() {
 	*x = AddApproverRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[23]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2355,7 +2750,7 @@ func (x *AddApproverRequest) String() string {
 func (*AddApproverRequest) ProtoMessage() {}
 
 func (x *AddApproverRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[23]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2368,7 +2763,7 @@ func (x *AddApproverRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddApproverRequest.ProtoReflect.Descriptor instead.
 func (*AddApproverRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{23}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *AddApproverRequest) GetKind() AllowlistKind {
@@ -2395,7 +2790,7 @@ type AddApproverResponse struct {
 
 func (x *AddApproverResponse) Reset() {
 	*x = AddApproverResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[24]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2407,7 +2802,7 @@ func (x *AddApproverResponse) String() string {
 func (*AddApproverResponse) ProtoMessage() {}
 
 func (x *AddApproverResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[24]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2420,7 +2815,7 @@ func (x *AddApproverResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddApproverResponse.ProtoReflect.Descriptor instead.
 func (*AddApproverResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{24}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *AddApproverResponse) GetEntry() *ApproverAllowlistEntry {
@@ -2440,7 +2835,7 @@ type RemoveApproverRequest struct {
 
 func (x *RemoveApproverRequest) Reset() {
 	*x = RemoveApproverRequest{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[25]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2452,7 +2847,7 @@ func (x *RemoveApproverRequest) String() string {
 func (*RemoveApproverRequest) ProtoMessage() {}
 
 func (x *RemoveApproverRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[25]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2465,7 +2860,7 @@ func (x *RemoveApproverRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveApproverRequest.ProtoReflect.Descriptor instead.
 func (*RemoveApproverRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{25}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RemoveApproverRequest) GetEntryId() string {
@@ -2484,7 +2879,7 @@ type RemoveApproverResponse struct {
 
 func (x *RemoveApproverResponse) Reset() {
 	*x = RemoveApproverResponse{}
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[26]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2496,7 +2891,7 @@ func (x *RemoveApproverResponse) String() string {
 func (*RemoveApproverResponse) ProtoMessage() {}
 
 func (x *RemoveApproverResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_approval_v1_approval_proto_msgTypes[26]
+	mi := &file_jennah_approval_v1_approval_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2509,14 +2904,31 @@ func (x *RemoveApproverResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveApproverResponse.ProtoReflect.Descriptor instead.
 func (*RemoveApproverResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{26}
+	return file_jennah_approval_v1_approval_proto_rawDescGZIP(), []int{29}
 }
 
 var File_jennah_approval_v1_approval_proto protoreflect.FileDescriptor
 
 const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\n" +
-	"!jennah/approval/v1/approval.proto\x12\x15jennahapi.approval.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x03\n" +
+	"!jennah/approval/v1/approval.proto\x12\x15jennahapi.approval.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"X\n" +
+	"\x0eQuestionChoice\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\"\x96\x01\n" +
+	"\bQuestion\x12?\n" +
+	"\achoices\x18\x01 \x03(\v2%.jennahapi.approval.v1.QuestionChoiceR\achoices\x12!\n" +
+	"\fmulti_select\x18\x02 \x01(\bR\vmultiSelect\x12&\n" +
+	"\x0fallow_free_text\x18\x03 \x01(\bR\rallowFreeText\"\xbe\x01\n" +
+	"\x06Answer\x12\x1d\n" +
+	"\n" +
+	"choice_ids\x18\x01 \x03(\tR\tchoiceIds\x12#\n" +
+	"\rchoice_labels\x18\x02 \x03(\tR\fchoiceLabels\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12\x1f\n" +
+	"\vapprover_id\x18\x04 \x01(\tR\n" +
+	"approverId\x12;\n" +
+	"\vanswered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"answeredAt\"\xc5\x03\n" +
 	"\bApprover\x12\x1f\n" +
 	"\vapprover_id\x18\x01 \x01(\tR\n" +
 	"approverId\x12\x14\n" +
@@ -2533,7 +2945,7 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	" \x01(\bR\adecided\"f\n" +
 	"\fApproverSpec\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12@\n" +
-	"\achannel\x18\x02 \x01(\x0e2&.jennahapi.approval.v1.ApproverChannelR\achannel\"\xc5\b\n" +
+	"\achannel\x18\x02 \x01(\x0e2&.jennahapi.approval.v1.ApproverChannelR\achannel\"\xf2\t\n" +
 	"\bApproval\x12#\n" +
 	"\renterprise_id\x18\x01 \x01(\tR\fenterpriseId\x12\x1f\n" +
 	"\vapproval_id\x18\x02 \x01(\tR\n" +
@@ -2563,7 +2975,10 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\rnotify_run_id\x18\x14 \x01(\tR\vnotifyRunId\x12,\n" +
 	"\x12notify_signal_name\x18\x15 \x01(\tR\x10notifySignalName\x12=\n" +
 	"\tapprovers\x18\x16 \x03(\v2\x1f.jennahapi.approval.v1.ApproverR\tapprovers\x12(\n" +
-	"\x10record_to_memory\x18\x17 \x01(\bR\x0erecordToMemory\"\x89\x03\n" +
+	"\x10record_to_memory\x18\x17 \x01(\bR\x0erecordToMemory\x127\n" +
+	"\x04kind\x18\x18 \x01(\x0e2#.jennahapi.approval.v1.ApprovalKindR\x04kind\x12;\n" +
+	"\bquestion\x18\x19 \x01(\v2\x1f.jennahapi.approval.v1.QuestionR\bquestion\x125\n" +
+	"\x06answer\x18\x1a \x01(\v2\x1d.jennahapi.approval.v1.AnswerR\x06answer\"\xc0\x03\n" +
 	"\x10ApprovalDecision\x12\x1f\n" +
 	"\vdecision_id\x18\x01 \x01(\tR\n" +
 	"decisionId\x12\x1f\n" +
@@ -2580,14 +2995,15 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"user_agent\x18\t \x01(\tR\tuserAgent\x12\x1f\n" +
 	"\vseen_digest\x18\n" +
 	" \x01(\tR\n" +
-	"seenDigest\"\xe7\x01\n" +
+	"seenDigest\x125\n" +
+	"\x06answer\x18\v \x01(\v2\x1d.jennahapi.approval.v1.AnswerR\x06answer\"\xe7\x01\n" +
 	"\x16ApproverAllowlistEntry\x12\x19\n" +
 	"\bentry_id\x18\x01 \x01(\tR\aentryId\x128\n" +
 	"\x04kind\x18\x02 \x01(\x0e2$.jennahapi.approval.v1.AllowlistKindR\x04kind\x12\x14\n" +
 	"\x05value\x18\x03 \x01(\tR\x05value\x12'\n" +
 	"\x10added_by_user_id\x18\x04 \x01(\tR\raddedByUserId\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xba\x05\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xb0\x06\n" +
 	"\x15CreateApprovalRequest\x12\x1f\n" +
 	"\vrequest_key\x18\x01 \x01(\tR\n" +
 	"requestKey\x12\x19\n" +
@@ -2606,7 +3022,9 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\ton_expire\x18\f \x01(\x0e2\x1f.jennahapi.approval.v1.OnExpireR\bonExpire\x12\"\n" +
 	"\rnotify_run_id\x18\r \x01(\tR\vnotifyRunId\x12,\n" +
 	"\x12notify_signal_name\x18\x0e \x01(\tR\x10notifySignalName\x12(\n" +
-	"\x10record_to_memory\x18\x0f \x01(\bR\x0erecordToMemory\"~\n" +
+	"\x10record_to_memory\x18\x0f \x01(\bR\x0erecordToMemory\x127\n" +
+	"\x04kind\x18\x10 \x01(\x0e2#.jennahapi.approval.v1.ApprovalKindR\x04kind\x12;\n" +
+	"\bquestion\x18\x11 \x01(\v2\x1f.jennahapi.approval.v1.QuestionR\bquestion\"~\n" +
 	"\x16CreateApprovalResponse\x12;\n" +
 	"\bapproval\x18\x01 \x01(\v2\x1f.jennahapi.approval.v1.ApprovalR\bapproval\x12'\n" +
 	"\x0falready_existed\x18\x02 \x01(\bR\x0ealreadyExisted\"5\n" +
@@ -2646,7 +3064,7 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\"ResendApprovalNotificationResponse\x12=\n" +
 	"\tapprovers\x18\x01 \x03(\v2\x1f.jennahapi.approval.v1.ApproverR\tapprovers\"6\n" +
 	"\x1eDescribeApprovalByTokenRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x93\x05\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\xc0\x06\n" +
 	"\x1fDescribeApprovalByTokenResponse\x12\x1f\n" +
 	"\vapproval_id\x18\x01 \x01(\tR\n" +
 	"approvalId\x12'\n" +
@@ -2665,7 +3083,10 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"decided_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\x12\x1c\n" +
 	"\tdecidable\x18\f \x01(\bR\tdecidable\x12B\n" +
 	"\x1drequire_authenticated_decider\x18\r \x01(\bR\x1brequireAuthenticatedDecider\x12'\n" +
-	"\x0frendered_digest\x18\x0e \x01(\tR\x0erenderedDigest\"\xd3\x01\n" +
+	"\x0frendered_digest\x18\x0e \x01(\tR\x0erenderedDigest\x127\n" +
+	"\x04kind\x18\x0f \x01(\x0e2#.jennahapi.approval.v1.ApprovalKindR\x04kind\x12;\n" +
+	"\bquestion\x18\x10 \x01(\v2\x1f.jennahapi.approval.v1.QuestionR\bquestion\x125\n" +
+	"\x06answer\x18\x11 \x01(\v2\x1d.jennahapi.approval.v1.AnswerR\x06answer\"\x8a\x02\n" +
 	"\x1dSubmitApprovalDecisionRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1f\n" +
 	"\vapproval_id\x18\x02 \x01(\tR\n" +
@@ -2673,7 +3094,8 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\bdecision\x18\x03 \x01(\x0e2$.jennahapi.approval.v1.DecisionValueR\bdecision\x12\x18\n" +
 	"\acomment\x18\x04 \x01(\tR\acomment\x12\x1f\n" +
 	"\vseen_digest\x18\x05 \x01(\tR\n" +
-	"seenDigest\"\xbd\x02\n" +
+	"seenDigest\x125\n" +
+	"\x06answer\x18\x06 \x01(\v2\x1d.jennahapi.approval.v1.AnswerR\x06answer\"\xbd\x02\n" +
 	"\x1eSubmitApprovalDecisionResponse\x12=\n" +
 	"\x06status\x18\x01 \x01(\x0e2%.jennahapi.approval.v1.ApprovalStatusR\x06status\x12-\n" +
 	"\x12required_approvals\x18\x02 \x01(\x05R\x11requiredApprovals\x12-\n" +
@@ -2695,19 +3117,25 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\x05entry\x18\x01 \x01(\v2-.jennahapi.approval.v1.ApproverAllowlistEntryR\x05entry\"2\n" +
 	"\x15RemoveApproverRequest\x12\x19\n" +
 	"\bentry_id\x18\x01 \x01(\tR\aentryId\"\x18\n" +
-	"\x16RemoveApproverResponse*D\n" +
+	"\x16RemoveApproverResponse*]\n" +
 	"\x06Quorum\x12\x16\n" +
 	"\x12QUORUM_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eQUORUM_ANY_ONE\x10\x01\x12\x0e\n" +
 	"\n" +
-	"QUORUM_ALL\x10\x02*\xc6\x01\n" +
+	"QUORUM_ALL\x10\x02\x12\x17\n" +
+	"\x13QUORUM_FIRST_ANSWER\x10\x03*e\n" +
+	"\fApprovalKind\x12\x1d\n" +
+	"\x19APPROVAL_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16APPROVAL_KIND_APPROVAL\x10\x01\x12\x1a\n" +
+	"\x16APPROVAL_KIND_QUESTION\x10\x02*\xe4\x01\n" +
 	"\x0eApprovalStatus\x12\x1f\n" +
 	"\x1bAPPROVAL_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17APPROVAL_STATUS_PENDING\x10\x01\x12\x1c\n" +
 	"\x18APPROVAL_STATUS_APPROVED\x10\x02\x12\x1c\n" +
 	"\x18APPROVAL_STATUS_REJECTED\x10\x03\x12\x1b\n" +
 	"\x17APPROVAL_STATUS_EXPIRED\x10\x04\x12\x1d\n" +
-	"\x19APPROVAL_STATUS_CANCELLED\x10\x05*O\n" +
+	"\x19APPROVAL_STATUS_CANCELLED\x10\x05\x12\x1c\n" +
+	"\x18APPROVAL_STATUS_ANSWERED\x10\x06*O\n" +
 	"\bOnExpire\x12\x19\n" +
 	"\x15ON_EXPIRE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eON_EXPIRE_DENY\x10\x01\x12\x14\n" +
@@ -2719,11 +3147,12 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"\x15DELIVERY_STATE_FAILED\x10\x03*O\n" +
 	"\x0fApproverChannel\x12 \n" +
 	"\x1cAPPROVER_CHANNEL_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16APPROVER_CHANNEL_EMAIL\x10\x01*f\n" +
+	"\x16APPROVER_CHANNEL_EMAIL\x10\x01*\x81\x01\n" +
 	"\rDecisionValue\x12\x1e\n" +
 	"\x1aDECISION_VALUE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16DECISION_VALUE_APPROVE\x10\x01\x12\x19\n" +
-	"\x15DECISION_VALUE_REJECT\x10\x02*d\n" +
+	"\x15DECISION_VALUE_REJECT\x10\x02\x12\x19\n" +
+	"\x15DECISION_VALUE_ANSWER\x10\x03*d\n" +
 	"\rAllowlistKind\x12\x1e\n" +
 	"\x1aALLOWLIST_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14ALLOWLIST_KIND_EMAIL\x10\x01\x12\x19\n" +
@@ -2753,113 +3182,129 @@ func file_jennah_approval_v1_approval_proto_rawDescGZIP() []byte {
 	return file_jennah_approval_v1_approval_proto_rawDescData
 }
 
-var file_jennah_approval_v1_approval_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_jennah_approval_v1_approval_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_jennah_approval_v1_approval_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
+var file_jennah_approval_v1_approval_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_jennah_approval_v1_approval_proto_goTypes = []any{
 	(Quorum)(0),                                // 0: jennahapi.approval.v1.Quorum
-	(ApprovalStatus)(0),                        // 1: jennahapi.approval.v1.ApprovalStatus
-	(OnExpire)(0),                              // 2: jennahapi.approval.v1.OnExpire
-	(DeliveryState)(0),                         // 3: jennahapi.approval.v1.DeliveryState
-	(ApproverChannel)(0),                       // 4: jennahapi.approval.v1.ApproverChannel
-	(DecisionValue)(0),                         // 5: jennahapi.approval.v1.DecisionValue
-	(AllowlistKind)(0),                         // 6: jennahapi.approval.v1.AllowlistKind
-	(*Approver)(nil),                           // 7: jennahapi.approval.v1.Approver
-	(*ApproverSpec)(nil),                       // 8: jennahapi.approval.v1.ApproverSpec
-	(*Approval)(nil),                           // 9: jennahapi.approval.v1.Approval
-	(*ApprovalDecision)(nil),                   // 10: jennahapi.approval.v1.ApprovalDecision
-	(*ApproverAllowlistEntry)(nil),             // 11: jennahapi.approval.v1.ApproverAllowlistEntry
-	(*CreateApprovalRequest)(nil),              // 12: jennahapi.approval.v1.CreateApprovalRequest
-	(*CreateApprovalResponse)(nil),             // 13: jennahapi.approval.v1.CreateApprovalResponse
-	(*GetApprovalRequest)(nil),                 // 14: jennahapi.approval.v1.GetApprovalRequest
-	(*GetApprovalResponse)(nil),                // 15: jennahapi.approval.v1.GetApprovalResponse
-	(*ListApprovalsRequest)(nil),               // 16: jennahapi.approval.v1.ListApprovalsRequest
-	(*ListApprovalsResponse)(nil),              // 17: jennahapi.approval.v1.ListApprovalsResponse
-	(*CancelApprovalRequest)(nil),              // 18: jennahapi.approval.v1.CancelApprovalRequest
-	(*CancelApprovalResponse)(nil),             // 19: jennahapi.approval.v1.CancelApprovalResponse
-	(*WaitApprovalRequest)(nil),                // 20: jennahapi.approval.v1.WaitApprovalRequest
-	(*WaitApprovalResponse)(nil),               // 21: jennahapi.approval.v1.WaitApprovalResponse
-	(*ResendApprovalNotificationRequest)(nil),  // 22: jennahapi.approval.v1.ResendApprovalNotificationRequest
-	(*ResendApprovalNotificationResponse)(nil), // 23: jennahapi.approval.v1.ResendApprovalNotificationResponse
-	(*DescribeApprovalByTokenRequest)(nil),     // 24: jennahapi.approval.v1.DescribeApprovalByTokenRequest
-	(*DescribeApprovalByTokenResponse)(nil),    // 25: jennahapi.approval.v1.DescribeApprovalByTokenResponse
-	(*SubmitApprovalDecisionRequest)(nil),      // 26: jennahapi.approval.v1.SubmitApprovalDecisionRequest
-	(*SubmitApprovalDecisionResponse)(nil),     // 27: jennahapi.approval.v1.SubmitApprovalDecisionResponse
-	(*ListApproversRequest)(nil),               // 28: jennahapi.approval.v1.ListApproversRequest
-	(*ListApproversResponse)(nil),              // 29: jennahapi.approval.v1.ListApproversResponse
-	(*AddApproverRequest)(nil),                 // 30: jennahapi.approval.v1.AddApproverRequest
-	(*AddApproverResponse)(nil),                // 31: jennahapi.approval.v1.AddApproverResponse
-	(*RemoveApproverRequest)(nil),              // 32: jennahapi.approval.v1.RemoveApproverRequest
-	(*RemoveApproverResponse)(nil),             // 33: jennahapi.approval.v1.RemoveApproverResponse
-	(*timestamppb.Timestamp)(nil),              // 34: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                    // 35: google.protobuf.Struct
+	(ApprovalKind)(0),                          // 1: jennahapi.approval.v1.ApprovalKind
+	(ApprovalStatus)(0),                        // 2: jennahapi.approval.v1.ApprovalStatus
+	(OnExpire)(0),                              // 3: jennahapi.approval.v1.OnExpire
+	(DeliveryState)(0),                         // 4: jennahapi.approval.v1.DeliveryState
+	(ApproverChannel)(0),                       // 5: jennahapi.approval.v1.ApproverChannel
+	(DecisionValue)(0),                         // 6: jennahapi.approval.v1.DecisionValue
+	(AllowlistKind)(0),                         // 7: jennahapi.approval.v1.AllowlistKind
+	(*QuestionChoice)(nil),                     // 8: jennahapi.approval.v1.QuestionChoice
+	(*Question)(nil),                           // 9: jennahapi.approval.v1.Question
+	(*Answer)(nil),                             // 10: jennahapi.approval.v1.Answer
+	(*Approver)(nil),                           // 11: jennahapi.approval.v1.Approver
+	(*ApproverSpec)(nil),                       // 12: jennahapi.approval.v1.ApproverSpec
+	(*Approval)(nil),                           // 13: jennahapi.approval.v1.Approval
+	(*ApprovalDecision)(nil),                   // 14: jennahapi.approval.v1.ApprovalDecision
+	(*ApproverAllowlistEntry)(nil),             // 15: jennahapi.approval.v1.ApproverAllowlistEntry
+	(*CreateApprovalRequest)(nil),              // 16: jennahapi.approval.v1.CreateApprovalRequest
+	(*CreateApprovalResponse)(nil),             // 17: jennahapi.approval.v1.CreateApprovalResponse
+	(*GetApprovalRequest)(nil),                 // 18: jennahapi.approval.v1.GetApprovalRequest
+	(*GetApprovalResponse)(nil),                // 19: jennahapi.approval.v1.GetApprovalResponse
+	(*ListApprovalsRequest)(nil),               // 20: jennahapi.approval.v1.ListApprovalsRequest
+	(*ListApprovalsResponse)(nil),              // 21: jennahapi.approval.v1.ListApprovalsResponse
+	(*CancelApprovalRequest)(nil),              // 22: jennahapi.approval.v1.CancelApprovalRequest
+	(*CancelApprovalResponse)(nil),             // 23: jennahapi.approval.v1.CancelApprovalResponse
+	(*WaitApprovalRequest)(nil),                // 24: jennahapi.approval.v1.WaitApprovalRequest
+	(*WaitApprovalResponse)(nil),               // 25: jennahapi.approval.v1.WaitApprovalResponse
+	(*ResendApprovalNotificationRequest)(nil),  // 26: jennahapi.approval.v1.ResendApprovalNotificationRequest
+	(*ResendApprovalNotificationResponse)(nil), // 27: jennahapi.approval.v1.ResendApprovalNotificationResponse
+	(*DescribeApprovalByTokenRequest)(nil),     // 28: jennahapi.approval.v1.DescribeApprovalByTokenRequest
+	(*DescribeApprovalByTokenResponse)(nil),    // 29: jennahapi.approval.v1.DescribeApprovalByTokenResponse
+	(*SubmitApprovalDecisionRequest)(nil),      // 30: jennahapi.approval.v1.SubmitApprovalDecisionRequest
+	(*SubmitApprovalDecisionResponse)(nil),     // 31: jennahapi.approval.v1.SubmitApprovalDecisionResponse
+	(*ListApproversRequest)(nil),               // 32: jennahapi.approval.v1.ListApproversRequest
+	(*ListApproversResponse)(nil),              // 33: jennahapi.approval.v1.ListApproversResponse
+	(*AddApproverRequest)(nil),                 // 34: jennahapi.approval.v1.AddApproverRequest
+	(*AddApproverResponse)(nil),                // 35: jennahapi.approval.v1.AddApproverResponse
+	(*RemoveApproverRequest)(nil),              // 36: jennahapi.approval.v1.RemoveApproverRequest
+	(*RemoveApproverResponse)(nil),             // 37: jennahapi.approval.v1.RemoveApproverResponse
+	(*timestamppb.Timestamp)(nil),              // 38: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                    // 39: google.protobuf.Struct
 }
 var file_jennah_approval_v1_approval_proto_depIdxs = []int32{
-	4,  // 0: jennahapi.approval.v1.Approver.channel:type_name -> jennahapi.approval.v1.ApproverChannel
-	3,  // 1: jennahapi.approval.v1.Approver.delivery_state:type_name -> jennahapi.approval.v1.DeliveryState
-	34, // 2: jennahapi.approval.v1.Approver.last_attempt_at:type_name -> google.protobuf.Timestamp
-	4,  // 3: jennahapi.approval.v1.ApproverSpec.channel:type_name -> jennahapi.approval.v1.ApproverChannel
-	35, // 4: jennahapi.approval.v1.Approval.payload:type_name -> google.protobuf.Struct
-	0,  // 5: jennahapi.approval.v1.Approval.quorum:type_name -> jennahapi.approval.v1.Quorum
-	1,  // 6: jennahapi.approval.v1.Approval.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	34, // 7: jennahapi.approval.v1.Approval.decided_at:type_name -> google.protobuf.Timestamp
-	34, // 8: jennahapi.approval.v1.Approval.created_at:type_name -> google.protobuf.Timestamp
-	34, // 9: jennahapi.approval.v1.Approval.expires_at:type_name -> google.protobuf.Timestamp
-	2,  // 10: jennahapi.approval.v1.Approval.on_expire:type_name -> jennahapi.approval.v1.OnExpire
-	7,  // 11: jennahapi.approval.v1.Approval.approvers:type_name -> jennahapi.approval.v1.Approver
-	5,  // 12: jennahapi.approval.v1.ApprovalDecision.decision:type_name -> jennahapi.approval.v1.DecisionValue
-	34, // 13: jennahapi.approval.v1.ApprovalDecision.decided_at:type_name -> google.protobuf.Timestamp
-	6,  // 14: jennahapi.approval.v1.ApproverAllowlistEntry.kind:type_name -> jennahapi.approval.v1.AllowlistKind
-	34, // 15: jennahapi.approval.v1.ApproverAllowlistEntry.created_at:type_name -> google.protobuf.Timestamp
-	35, // 16: jennahapi.approval.v1.CreateApprovalRequest.payload:type_name -> google.protobuf.Struct
-	8,  // 17: jennahapi.approval.v1.CreateApprovalRequest.approvers:type_name -> jennahapi.approval.v1.ApproverSpec
-	0,  // 18: jennahapi.approval.v1.CreateApprovalRequest.quorum:type_name -> jennahapi.approval.v1.Quorum
-	2,  // 19: jennahapi.approval.v1.CreateApprovalRequest.on_expire:type_name -> jennahapi.approval.v1.OnExpire
-	9,  // 20: jennahapi.approval.v1.CreateApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
-	9,  // 21: jennahapi.approval.v1.GetApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
-	10, // 22: jennahapi.approval.v1.GetApprovalResponse.decisions:type_name -> jennahapi.approval.v1.ApprovalDecision
-	1,  // 23: jennahapi.approval.v1.ListApprovalsRequest.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	9,  // 24: jennahapi.approval.v1.ListApprovalsResponse.approvals:type_name -> jennahapi.approval.v1.Approval
-	9,  // 25: jennahapi.approval.v1.CancelApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
-	9,  // 26: jennahapi.approval.v1.WaitApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
-	7,  // 27: jennahapi.approval.v1.ResendApprovalNotificationResponse.approvers:type_name -> jennahapi.approval.v1.Approver
-	35, // 28: jennahapi.approval.v1.DescribeApprovalByTokenResponse.payload:type_name -> google.protobuf.Struct
-	1,  // 29: jennahapi.approval.v1.DescribeApprovalByTokenResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	34, // 30: jennahapi.approval.v1.DescribeApprovalByTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
-	34, // 31: jennahapi.approval.v1.DescribeApprovalByTokenResponse.decided_at:type_name -> google.protobuf.Timestamp
-	5,  // 32: jennahapi.approval.v1.SubmitApprovalDecisionRequest.decision:type_name -> jennahapi.approval.v1.DecisionValue
-	1,  // 33: jennahapi.approval.v1.SubmitApprovalDecisionResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	34, // 34: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decided_at:type_name -> google.protobuf.Timestamp
-	10, // 35: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decision:type_name -> jennahapi.approval.v1.ApprovalDecision
-	11, // 36: jennahapi.approval.v1.ListApproversResponse.entries:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
-	6,  // 37: jennahapi.approval.v1.AddApproverRequest.kind:type_name -> jennahapi.approval.v1.AllowlistKind
-	11, // 38: jennahapi.approval.v1.AddApproverResponse.entry:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
-	12, // 39: jennahapi.approval.v1.ApprovalService.CreateApproval:input_type -> jennahapi.approval.v1.CreateApprovalRequest
-	14, // 40: jennahapi.approval.v1.ApprovalService.GetApproval:input_type -> jennahapi.approval.v1.GetApprovalRequest
-	16, // 41: jennahapi.approval.v1.ApprovalService.ListApprovals:input_type -> jennahapi.approval.v1.ListApprovalsRequest
-	18, // 42: jennahapi.approval.v1.ApprovalService.CancelApproval:input_type -> jennahapi.approval.v1.CancelApprovalRequest
-	20, // 43: jennahapi.approval.v1.ApprovalService.WaitApproval:input_type -> jennahapi.approval.v1.WaitApprovalRequest
-	22, // 44: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:input_type -> jennahapi.approval.v1.ResendApprovalNotificationRequest
-	24, // 45: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:input_type -> jennahapi.approval.v1.DescribeApprovalByTokenRequest
-	26, // 46: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:input_type -> jennahapi.approval.v1.SubmitApprovalDecisionRequest
-	28, // 47: jennahapi.approval.v1.ApprovalService.ListApprovers:input_type -> jennahapi.approval.v1.ListApproversRequest
-	30, // 48: jennahapi.approval.v1.ApprovalService.AddApprover:input_type -> jennahapi.approval.v1.AddApproverRequest
-	32, // 49: jennahapi.approval.v1.ApprovalService.RemoveApprover:input_type -> jennahapi.approval.v1.RemoveApproverRequest
-	13, // 50: jennahapi.approval.v1.ApprovalService.CreateApproval:output_type -> jennahapi.approval.v1.CreateApprovalResponse
-	15, // 51: jennahapi.approval.v1.ApprovalService.GetApproval:output_type -> jennahapi.approval.v1.GetApprovalResponse
-	17, // 52: jennahapi.approval.v1.ApprovalService.ListApprovals:output_type -> jennahapi.approval.v1.ListApprovalsResponse
-	19, // 53: jennahapi.approval.v1.ApprovalService.CancelApproval:output_type -> jennahapi.approval.v1.CancelApprovalResponse
-	21, // 54: jennahapi.approval.v1.ApprovalService.WaitApproval:output_type -> jennahapi.approval.v1.WaitApprovalResponse
-	23, // 55: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:output_type -> jennahapi.approval.v1.ResendApprovalNotificationResponse
-	25, // 56: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:output_type -> jennahapi.approval.v1.DescribeApprovalByTokenResponse
-	27, // 57: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:output_type -> jennahapi.approval.v1.SubmitApprovalDecisionResponse
-	29, // 58: jennahapi.approval.v1.ApprovalService.ListApprovers:output_type -> jennahapi.approval.v1.ListApproversResponse
-	31, // 59: jennahapi.approval.v1.ApprovalService.AddApprover:output_type -> jennahapi.approval.v1.AddApproverResponse
-	33, // 60: jennahapi.approval.v1.ApprovalService.RemoveApprover:output_type -> jennahapi.approval.v1.RemoveApproverResponse
-	50, // [50:61] is the sub-list for method output_type
-	39, // [39:50] is the sub-list for method input_type
-	39, // [39:39] is the sub-list for extension type_name
-	39, // [39:39] is the sub-list for extension extendee
-	0,  // [0:39] is the sub-list for field type_name
+	8,  // 0: jennahapi.approval.v1.Question.choices:type_name -> jennahapi.approval.v1.QuestionChoice
+	38, // 1: jennahapi.approval.v1.Answer.answered_at:type_name -> google.protobuf.Timestamp
+	5,  // 2: jennahapi.approval.v1.Approver.channel:type_name -> jennahapi.approval.v1.ApproverChannel
+	4,  // 3: jennahapi.approval.v1.Approver.delivery_state:type_name -> jennahapi.approval.v1.DeliveryState
+	38, // 4: jennahapi.approval.v1.Approver.last_attempt_at:type_name -> google.protobuf.Timestamp
+	5,  // 5: jennahapi.approval.v1.ApproverSpec.channel:type_name -> jennahapi.approval.v1.ApproverChannel
+	39, // 6: jennahapi.approval.v1.Approval.payload:type_name -> google.protobuf.Struct
+	0,  // 7: jennahapi.approval.v1.Approval.quorum:type_name -> jennahapi.approval.v1.Quorum
+	2,  // 8: jennahapi.approval.v1.Approval.status:type_name -> jennahapi.approval.v1.ApprovalStatus
+	38, // 9: jennahapi.approval.v1.Approval.decided_at:type_name -> google.protobuf.Timestamp
+	38, // 10: jennahapi.approval.v1.Approval.created_at:type_name -> google.protobuf.Timestamp
+	38, // 11: jennahapi.approval.v1.Approval.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 12: jennahapi.approval.v1.Approval.on_expire:type_name -> jennahapi.approval.v1.OnExpire
+	11, // 13: jennahapi.approval.v1.Approval.approvers:type_name -> jennahapi.approval.v1.Approver
+	1,  // 14: jennahapi.approval.v1.Approval.kind:type_name -> jennahapi.approval.v1.ApprovalKind
+	9,  // 15: jennahapi.approval.v1.Approval.question:type_name -> jennahapi.approval.v1.Question
+	10, // 16: jennahapi.approval.v1.Approval.answer:type_name -> jennahapi.approval.v1.Answer
+	6,  // 17: jennahapi.approval.v1.ApprovalDecision.decision:type_name -> jennahapi.approval.v1.DecisionValue
+	38, // 18: jennahapi.approval.v1.ApprovalDecision.decided_at:type_name -> google.protobuf.Timestamp
+	10, // 19: jennahapi.approval.v1.ApprovalDecision.answer:type_name -> jennahapi.approval.v1.Answer
+	7,  // 20: jennahapi.approval.v1.ApproverAllowlistEntry.kind:type_name -> jennahapi.approval.v1.AllowlistKind
+	38, // 21: jennahapi.approval.v1.ApproverAllowlistEntry.created_at:type_name -> google.protobuf.Timestamp
+	39, // 22: jennahapi.approval.v1.CreateApprovalRequest.payload:type_name -> google.protobuf.Struct
+	12, // 23: jennahapi.approval.v1.CreateApprovalRequest.approvers:type_name -> jennahapi.approval.v1.ApproverSpec
+	0,  // 24: jennahapi.approval.v1.CreateApprovalRequest.quorum:type_name -> jennahapi.approval.v1.Quorum
+	3,  // 25: jennahapi.approval.v1.CreateApprovalRequest.on_expire:type_name -> jennahapi.approval.v1.OnExpire
+	1,  // 26: jennahapi.approval.v1.CreateApprovalRequest.kind:type_name -> jennahapi.approval.v1.ApprovalKind
+	9,  // 27: jennahapi.approval.v1.CreateApprovalRequest.question:type_name -> jennahapi.approval.v1.Question
+	13, // 28: jennahapi.approval.v1.CreateApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
+	13, // 29: jennahapi.approval.v1.GetApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
+	14, // 30: jennahapi.approval.v1.GetApprovalResponse.decisions:type_name -> jennahapi.approval.v1.ApprovalDecision
+	2,  // 31: jennahapi.approval.v1.ListApprovalsRequest.status:type_name -> jennahapi.approval.v1.ApprovalStatus
+	13, // 32: jennahapi.approval.v1.ListApprovalsResponse.approvals:type_name -> jennahapi.approval.v1.Approval
+	13, // 33: jennahapi.approval.v1.CancelApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
+	13, // 34: jennahapi.approval.v1.WaitApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
+	11, // 35: jennahapi.approval.v1.ResendApprovalNotificationResponse.approvers:type_name -> jennahapi.approval.v1.Approver
+	39, // 36: jennahapi.approval.v1.DescribeApprovalByTokenResponse.payload:type_name -> google.protobuf.Struct
+	2,  // 37: jennahapi.approval.v1.DescribeApprovalByTokenResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
+	38, // 38: jennahapi.approval.v1.DescribeApprovalByTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	38, // 39: jennahapi.approval.v1.DescribeApprovalByTokenResponse.decided_at:type_name -> google.protobuf.Timestamp
+	1,  // 40: jennahapi.approval.v1.DescribeApprovalByTokenResponse.kind:type_name -> jennahapi.approval.v1.ApprovalKind
+	9,  // 41: jennahapi.approval.v1.DescribeApprovalByTokenResponse.question:type_name -> jennahapi.approval.v1.Question
+	10, // 42: jennahapi.approval.v1.DescribeApprovalByTokenResponse.answer:type_name -> jennahapi.approval.v1.Answer
+	6,  // 43: jennahapi.approval.v1.SubmitApprovalDecisionRequest.decision:type_name -> jennahapi.approval.v1.DecisionValue
+	10, // 44: jennahapi.approval.v1.SubmitApprovalDecisionRequest.answer:type_name -> jennahapi.approval.v1.Answer
+	2,  // 45: jennahapi.approval.v1.SubmitApprovalDecisionResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
+	38, // 46: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decided_at:type_name -> google.protobuf.Timestamp
+	14, // 47: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decision:type_name -> jennahapi.approval.v1.ApprovalDecision
+	15, // 48: jennahapi.approval.v1.ListApproversResponse.entries:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
+	7,  // 49: jennahapi.approval.v1.AddApproverRequest.kind:type_name -> jennahapi.approval.v1.AllowlistKind
+	15, // 50: jennahapi.approval.v1.AddApproverResponse.entry:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
+	16, // 51: jennahapi.approval.v1.ApprovalService.CreateApproval:input_type -> jennahapi.approval.v1.CreateApprovalRequest
+	18, // 52: jennahapi.approval.v1.ApprovalService.GetApproval:input_type -> jennahapi.approval.v1.GetApprovalRequest
+	20, // 53: jennahapi.approval.v1.ApprovalService.ListApprovals:input_type -> jennahapi.approval.v1.ListApprovalsRequest
+	22, // 54: jennahapi.approval.v1.ApprovalService.CancelApproval:input_type -> jennahapi.approval.v1.CancelApprovalRequest
+	24, // 55: jennahapi.approval.v1.ApprovalService.WaitApproval:input_type -> jennahapi.approval.v1.WaitApprovalRequest
+	26, // 56: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:input_type -> jennahapi.approval.v1.ResendApprovalNotificationRequest
+	28, // 57: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:input_type -> jennahapi.approval.v1.DescribeApprovalByTokenRequest
+	30, // 58: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:input_type -> jennahapi.approval.v1.SubmitApprovalDecisionRequest
+	32, // 59: jennahapi.approval.v1.ApprovalService.ListApprovers:input_type -> jennahapi.approval.v1.ListApproversRequest
+	34, // 60: jennahapi.approval.v1.ApprovalService.AddApprover:input_type -> jennahapi.approval.v1.AddApproverRequest
+	36, // 61: jennahapi.approval.v1.ApprovalService.RemoveApprover:input_type -> jennahapi.approval.v1.RemoveApproverRequest
+	17, // 62: jennahapi.approval.v1.ApprovalService.CreateApproval:output_type -> jennahapi.approval.v1.CreateApprovalResponse
+	19, // 63: jennahapi.approval.v1.ApprovalService.GetApproval:output_type -> jennahapi.approval.v1.GetApprovalResponse
+	21, // 64: jennahapi.approval.v1.ApprovalService.ListApprovals:output_type -> jennahapi.approval.v1.ListApprovalsResponse
+	23, // 65: jennahapi.approval.v1.ApprovalService.CancelApproval:output_type -> jennahapi.approval.v1.CancelApprovalResponse
+	25, // 66: jennahapi.approval.v1.ApprovalService.WaitApproval:output_type -> jennahapi.approval.v1.WaitApprovalResponse
+	27, // 67: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:output_type -> jennahapi.approval.v1.ResendApprovalNotificationResponse
+	29, // 68: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:output_type -> jennahapi.approval.v1.DescribeApprovalByTokenResponse
+	31, // 69: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:output_type -> jennahapi.approval.v1.SubmitApprovalDecisionResponse
+	33, // 70: jennahapi.approval.v1.ApprovalService.ListApprovers:output_type -> jennahapi.approval.v1.ListApproversResponse
+	35, // 71: jennahapi.approval.v1.ApprovalService.AddApprover:output_type -> jennahapi.approval.v1.AddApproverResponse
+	37, // 72: jennahapi.approval.v1.ApprovalService.RemoveApprover:output_type -> jennahapi.approval.v1.RemoveApproverResponse
+	62, // [62:73] is the sub-list for method output_type
+	51, // [51:62] is the sub-list for method input_type
+	51, // [51:51] is the sub-list for extension type_name
+	51, // [51:51] is the sub-list for extension extendee
+	0,  // [0:51] is the sub-list for field type_name
 }
 
 func init() { file_jennah_approval_v1_approval_proto_init() }
@@ -2872,8 +3317,8 @@ func file_jennah_approval_v1_approval_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_approval_v1_approval_proto_rawDesc), len(file_jennah_approval_v1_approval_proto_rawDesc)),
-			NumEnums:      7,
-			NumMessages:   27,
+			NumEnums:      8,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

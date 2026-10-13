@@ -89,8 +89,10 @@ type (
 	AddApproverRequest                 = approvalv1.AddApproverRequest
 	AddApproverResponse                = approvalv1.AddApproverResponse
 	AllowlistKind                      = approvalv1.AllowlistKind
+	Answer                             = approvalv1.Answer
 	Approval                           = approvalv1.Approval
 	ApprovalDecision                   = approvalv1.ApprovalDecision
+	ApprovalKind                       = approvalv1.ApprovalKind
 	ApprovalStatus                     = approvalv1.ApprovalStatus
 	Approver                           = approvalv1.Approver
 	ApproverAllowlistEntry             = approvalv1.ApproverAllowlistEntry
@@ -111,6 +113,8 @@ type (
 	ListApproversRequest               = approvalv1.ListApproversRequest
 	ListApproversResponse              = approvalv1.ListApproversResponse
 	OnExpire                           = approvalv1.OnExpire
+	Question                           = approvalv1.Question
+	QuestionChoice                     = approvalv1.QuestionChoice
 	Quorum                             = approvalv1.Quorum
 	RemoveApproverRequest              = approvalv1.RemoveApproverRequest
 	RemoveApproverResponse             = approvalv1.RemoveApproverResponse
@@ -127,6 +131,10 @@ const (
 	AllowlistKind_ALLOWLIST_KIND_DOMAIN          = approvalv1.AllowlistKind_ALLOWLIST_KIND_DOMAIN
 	AllowlistKind_ALLOWLIST_KIND_EMAIL           = approvalv1.AllowlistKind_ALLOWLIST_KIND_EMAIL
 	AllowlistKind_ALLOWLIST_KIND_UNSPECIFIED     = approvalv1.AllowlistKind_ALLOWLIST_KIND_UNSPECIFIED
+	ApprovalKind_APPROVAL_KIND_APPROVAL          = approvalv1.ApprovalKind_APPROVAL_KIND_APPROVAL
+	ApprovalKind_APPROVAL_KIND_QUESTION          = approvalv1.ApprovalKind_APPROVAL_KIND_QUESTION
+	ApprovalKind_APPROVAL_KIND_UNSPECIFIED       = approvalv1.ApprovalKind_APPROVAL_KIND_UNSPECIFIED
+	ApprovalStatus_APPROVAL_STATUS_ANSWERED      = approvalv1.ApprovalStatus_APPROVAL_STATUS_ANSWERED
 	ApprovalStatus_APPROVAL_STATUS_APPROVED      = approvalv1.ApprovalStatus_APPROVAL_STATUS_APPROVED
 	ApprovalStatus_APPROVAL_STATUS_CANCELLED     = approvalv1.ApprovalStatus_APPROVAL_STATUS_CANCELLED
 	ApprovalStatus_APPROVAL_STATUS_EXPIRED       = approvalv1.ApprovalStatus_APPROVAL_STATUS_EXPIRED
@@ -135,6 +143,7 @@ const (
 	ApprovalStatus_APPROVAL_STATUS_UNSPECIFIED   = approvalv1.ApprovalStatus_APPROVAL_STATUS_UNSPECIFIED
 	ApproverChannel_APPROVER_CHANNEL_EMAIL       = approvalv1.ApproverChannel_APPROVER_CHANNEL_EMAIL
 	ApproverChannel_APPROVER_CHANNEL_UNSPECIFIED = approvalv1.ApproverChannel_APPROVER_CHANNEL_UNSPECIFIED
+	DecisionValue_DECISION_VALUE_ANSWER          = approvalv1.DecisionValue_DECISION_VALUE_ANSWER
 	DecisionValue_DECISION_VALUE_APPROVE         = approvalv1.DecisionValue_DECISION_VALUE_APPROVE
 	DecisionValue_DECISION_VALUE_REJECT          = approvalv1.DecisionValue_DECISION_VALUE_REJECT
 	DecisionValue_DECISION_VALUE_UNSPECIFIED     = approvalv1.DecisionValue_DECISION_VALUE_UNSPECIFIED
@@ -147,6 +156,7 @@ const (
 	OnExpire_ON_EXPIRE_UNSPECIFIED               = approvalv1.OnExpire_ON_EXPIRE_UNSPECIFIED
 	Quorum_QUORUM_ALL                            = approvalv1.Quorum_QUORUM_ALL
 	Quorum_QUORUM_ANY_ONE                        = approvalv1.Quorum_QUORUM_ANY_ONE
+	Quorum_QUORUM_FIRST_ANSWER                   = approvalv1.Quorum_QUORUM_FIRST_ANSWER
 	Quorum_QUORUM_UNSPECIFIED                    = approvalv1.Quorum_QUORUM_UNSPECIFIED
 )
 
