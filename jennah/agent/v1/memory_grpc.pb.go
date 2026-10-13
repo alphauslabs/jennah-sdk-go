@@ -218,7 +218,9 @@ type MemoryServiceClient interface {
 	//
 	// For BEDROCK: the AWS principal to trust and the external ID the trust policy
 	// must require. For VERTEX: the email of the service account created for this
-	// enterprise, which the enterprise grants Vertex access to in its project.
+	// enterprise, which the enterprise grants Vertex access to in its project. For
+	// ANTHROPIC there is nothing to grant: the response carries only the provider,
+	// and an ANTHROPIC model can be set without calling this first.
 	//
 	// Idempotent: repeating it returns the same values, and they do not change
 	// while the enterprise exists. Requires a plan that includes a formation model
@@ -231,8 +233,9 @@ type MemoryServiceClient interface {
 	// identity, request shape and bounds a formation uses. If it fails, nothing is
 	// stored, any previous model stays in place, and the error is
 	// FAILED_PRECONDITION with an ErrorInfo whose `step` metadata says which step
-	// failed: `access` (the role could not be assumed, or the service account was
-	// refused), `model` (the model is not enabled, not found, or refused the
+	// failed: `access` (the role could not be assumed, the service account was
+	// refused, or the API key was rejected), `model` (the model is not enabled, not
+	// found, or refused the
 	// settings), or `answer` (the model answered but not with usable structured
 	// output). The provider's own message is included, since it describes the
 	// enterprise's own account.
@@ -593,7 +596,9 @@ type MemoryServiceServer interface {
 	//
 	// For BEDROCK: the AWS principal to trust and the external ID the trust policy
 	// must require. For VERTEX: the email of the service account created for this
-	// enterprise, which the enterprise grants Vertex access to in its project.
+	// enterprise, which the enterprise grants Vertex access to in its project. For
+	// ANTHROPIC there is nothing to grant: the response carries only the provider,
+	// and an ANTHROPIC model can be set without calling this first.
 	//
 	// Idempotent: repeating it returns the same values, and they do not change
 	// while the enterprise exists. Requires a plan that includes a formation model
@@ -606,8 +611,9 @@ type MemoryServiceServer interface {
 	// identity, request shape and bounds a formation uses. If it fails, nothing is
 	// stored, any previous model stays in place, and the error is
 	// FAILED_PRECONDITION with an ErrorInfo whose `step` metadata says which step
-	// failed: `access` (the role could not be assumed, or the service account was
-	// refused), `model` (the model is not enabled, not found, or refused the
+	// failed: `access` (the role could not be assumed, the service account was
+	// refused, or the API key was rejected), `model` (the model is not enabled, not
+	// found, or refused the
 	// settings), or `answer` (the model answered but not with usable structured
 	// output). The provider's own message is included, since it describes the
 	// enterprise's own account.
