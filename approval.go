@@ -70,12 +70,13 @@ const (
 	waitPollFloor = 250 * time.Millisecond
 )
 
-// WaitUntilDecided blocks until the approval is approved, rejected, cancelled or
-// expired, and returns it. It is the loop every caller of Wait would otherwise
-// write. A wait that reaches
-// the server's ceiling comes back as a SUCCESS carrying the still-pending approval
-// and TimedOut set, so code that treats a returned approval as a decision will act
-// on a pending one.
+// WaitUntilDecided blocks until the approval is terminal (approved, rejected,
+// answered, cancelled or expired) and returns it. For a question, an answered one
+// carries its Answer, so the result is the answer with no second read. It is the
+// loop every caller of Wait would otherwise write. A wait that reaches the
+// server's ceiling comes back as a SUCCESS carrying the still-pending approval and
+// TimedOut set, so code that treats a returned approval as a decision will act on
+// a pending one.
 //
 // Bound it with the context. If ctx has no deadline this waits indefinitely, which
 // is usually what an agent parked on a human decision wants. When the deadline
