@@ -760,10 +760,9 @@ type RowOperation struct {
 	// the platform always confines the operation to this dataset, and no predicate
 	// can omit or widen that. Ignored for INSERT and UPSERT.
 	//
-	// An UPDATE or DELETE with no predicates affects every row of the table
-	// WITHIN THE DATASET. That is permitted and bounded, but it is rarely
-	// what a caller means, so state the key explicitly unless a full-table
-	// operation is intended.
+	// An UPDATE or DELETE with no predicates is refused as an invalid argument,
+	// writing nothing, unless the operation sets `all_rows`: an empty list is far
+	// more often a predicate that was lost than a decision to change every row.
 	Where []*Predicate `protobuf:"bytes,4,rep,name=where,proto3" json:"where,omitempty"`
 	// A precondition on THIS operation's own effect. When set and not met, the
 	// WHOLE commit is refused and no row from any table in it is written: the
@@ -811,8 +810,17 @@ type RowOperation struct {
 	//   - AN UNREPRESENTABLE RESULT ABORTS THE WHOLE COMMIT with OUT_OF_RANGE.
 	//     Nothing wrapped or saturated is ever stored.
 	SetExpressions map[string]*ColumnExpression `protobuf:"bytes,6,rep,name=set_expressions,json=setExpressions,proto3" json:"set_expressions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set to true to apply an UPDATE or DELETE to every row of the table in this
+	// dataset. Required when `where` is empty, so that changing every row is
+	// always a stated intention rather than the effect of a missing predicate.
+	//
+	// Refused as an invalid argument when `where` names any predicate, since the
+	// two contradict each other, and on INSERT and UPSERT, which address one row
+	// by key. It can be combined with `expect`, for example to require that the
+	// table held exactly the rows the caller believes it did.
+	AllRows       bool `protobuf:"varint,7,opt,name=all_rows,json=allRows,proto3" json:"all_rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RowOperation) Reset() {
@@ -885,6 +893,13 @@ func (x *RowOperation) GetSetExpressions() map[string]*ColumnExpression {
 		return x.SetExpressions
 	}
 	return nil
+}
+
+func (x *RowOperation) GetAllRows() bool {
+	if x != nil {
+		return x.AllRows
+	}
+	return false
 }
 
 // A precondition on how many rows an operation affects.
@@ -2049,14 +2064,15 @@ const file_jennah_datastore_v1_data_proto_rawDesc = "" +
 	"\bOperator\x12\x18\n" +
 	"\x14OPERATOR_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fOPERATOR_ADD\x10\x01\x12\x15\n" +
-	"\x11OPERATOR_SUBTRACT\x10\x02\"\xd7\x03\n" +
+	"\x11OPERATOR_SUBTRACT\x10\x02\"\xf2\x03\n" +
 	"\fRowOperation\x12\x14\n" +
 	"\x05table\x18\x01 \x01(\tR\x05table\x129\n" +
 	"\x04type\x18\x02 \x01(\x0e2%.jennahapi.datastore.v1.OperationTypeR\x04type\x12-\n" +
 	"\x03row\x18\x03 \x01(\v2\x1b.jennahapi.datastore.v1.RowR\x03row\x127\n" +
 	"\x05where\x18\x04 \x03(\v2!.jennahapi.datastore.v1.PredicateR\x05where\x12>\n" +
 	"\x06expect\x18\x05 \x01(\v2&.jennahapi.datastore.v1.RowExpectationR\x06expect\x12a\n" +
-	"\x0fset_expressions\x18\x06 \x03(\v28.jennahapi.datastore.v1.RowOperation.SetExpressionsEntryR\x0esetExpressions\x1ak\n" +
+	"\x0fset_expressions\x18\x06 \x03(\v28.jennahapi.datastore.v1.RowOperation.SetExpressionsEntryR\x0esetExpressions\x12\x19\n" +
+	"\ball_rows\x18\a \x01(\bR\aallRows\x1ak\n" +
 	"\x13SetExpressionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12>\n" +
 	"\x05value\x18\x02 \x01(\v2(.jennahapi.datastore.v1.ColumnExpressionR\x05value:\x028\x01\"X\n" +
