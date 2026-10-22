@@ -739,9 +739,12 @@ type Approver struct {
 	Channel          ApproverChannel `protobuf:"varint,5,opt,name=channel,proto3,enum=jennahapi.approval.v1.ApproverChannel" json:"channel,omitempty"`
 	DeliveryState    DeliveryState   `protobuf:"varint,6,opt,name=delivery_state,json=deliveryState,proto3,enum=jennahapi.approval.v1.DeliveryState" json:"delivery_state,omitempty"`
 	DeliveryAttempts int32           `protobuf:"varint,7,opt,name=delivery_attempts,json=deliveryAttempts,proto3" json:"delivery_attempts,omitempty"`
-	// Provider-reported reason for the most recent failure, retained after a
-	// terminal FAILED so an operator can act on it. Empty while delivery is
-	// succeeding.
+	// Why the most recent attempt failed, in the platform's own words: the email
+	// could not be prepared, the mail provider refused this address, the
+	// platform's own sending was refused, or a temporary failure (retried
+	// automatically, then stopped after the attempt bound). Retained after a
+	// terminal FAILED so the reader can act on it. Empty while delivery is
+	// succeeding. Meant for people; branch on `delivery_state` instead.
 	LastDeliveryError string                 `protobuf:"bytes,8,opt,name=last_delivery_error,json=lastDeliveryError,proto3" json:"last_delivery_error,omitempty"`
 	LastAttemptAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_attempt_at,json=lastAttemptAt,proto3" json:"last_attempt_at,omitempty"`
 	// Set once this approver has recorded a decision. An approver whose token is
