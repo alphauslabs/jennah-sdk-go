@@ -103,6 +103,8 @@ func retryableCode(err error) bool {
 //   - FormMemory: safe exactly when the caller set FormationKey. Extraction is
 //     nondeterministic, so a blind replay forms a second, different set of memory;
 //     a replay under the same key returns the first call's receipt.
+//   - SubmitFormation: safe exactly when the caller set FormationKey, for the same
+//     reason; a replay under the same key returns the formation already accepted.
 //
 // Everything else returns false. The default is no replay, so a method added to
 // the API is safe until someone classifies it, rather than silently replayed.
@@ -118,6 +120,8 @@ func safeToReplay(method string, req any) bool {
 	case *approvalv1.CreateApprovalRequest:
 		return r.GetRequestKey() != ""
 	case *agentv1.FormMemoryRequest:
+		return r.GetFormationKey() != ""
+	case *agentv1.SubmitFormationRequest:
 		return r.GetFormationKey() != ""
 	}
 	return false
@@ -135,6 +139,7 @@ var replayableReads = map[string]bool{
 	agentv1.MemoryService_InspectMemory_FullMethodName:       true,
 	agentv1.MemoryService_GetMemoryVocabulary_FullMethodName: true,
 	agentv1.MemoryService_GetFormationModel_FullMethodName:   true,
+	agentv1.MemoryService_GetFormation_FullMethodName:        true,
 	agentv1.ScopeService_GetScope_FullMethodName:             true,
 	agentv1.ScopeService_ListScopes_FullMethodName:           true,
 
@@ -173,6 +178,7 @@ var conditionalReplay = map[string]bool{
 	datastorev1.DataService_CommitData_FullMethodName:        true,
 	approvalv1.ApprovalService_CreateApproval_FullMethodName: true,
 	agentv1.MemoryService_FormMemory_FullMethodName:          true,
+	agentv1.MemoryService_SubmitFormation_FullMethodName:     true,
 }
 
 // neverReplay contains methods excluded from automatic retries.
