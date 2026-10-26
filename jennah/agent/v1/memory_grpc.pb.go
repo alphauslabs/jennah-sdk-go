@@ -25,6 +25,8 @@ const (
 	MemoryService_SupersedeEdge_FullMethodName           = "/jennahapi.agent.v1.MemoryService/SupersedeEdge"
 	MemoryService_SupersedeChunk_FullMethodName          = "/jennahapi.agent.v1.MemoryService/SupersedeChunk"
 	MemoryService_FormMemory_FullMethodName              = "/jennahapi.agent.v1.MemoryService/FormMemory"
+	MemoryService_SubmitFormation_FullMethodName         = "/jennahapi.agent.v1.MemoryService/SubmitFormation"
+	MemoryService_GetFormation_FullMethodName            = "/jennahapi.agent.v1.MemoryService/GetFormation"
 	MemoryService_DeclareMemoryVocabulary_FullMethodName = "/jennahapi.agent.v1.MemoryService/DeclareMemoryVocabulary"
 	MemoryService_RemoveMemoryVocabulary_FullMethodName  = "/jennahapi.agent.v1.MemoryService/RemoveMemoryVocabulary"
 	MemoryService_GetMemoryVocabulary_FullMethodName     = "/jennahapi.agent.v1.MemoryService/GetMemoryVocabulary"
@@ -156,6 +158,42 @@ type MemoryServiceClient interface {
 	// resend would form a SECOND, DIFFERENT set of memory; a resend under the same
 	// key returns the first call's receipt without re-extracting.
 	FormMemory(ctx context.Context, in *FormMemoryRequest, opts ...grpc.CallOption) (*FormMemoryResponse, error)
+	// Submits a formation WITHOUT WAITING FOR IT. It takes what FormMemory takes,
+	// and returns as soon as the platform has recorded the formation: in
+	// milliseconds, before any model is called. The formation then runs to
+	// completion whether or not the caller is still connected, and is resumed by
+	// the platform if it is interrupted. GetFormation reports where it stands and,
+	// once it is done, carries the same receipt FormMemory would have returned.
+	//
+	// Use it where the caller cannot hold a request open for a formation's
+	// duration: a tool call a host will cancel, a job that exits, a function with
+	// a short timeout. A caller that wants the receipt inline keeps using
+	// FormMemory, which is unchanged.
+	//
+	// Everything FormMemory refuses on the request alone is refused HERE, before
+	// anything is accepted: an invalid or oversize conversation, a scope out of
+	// reach, an enterprise at its formation ceiling, a formation key reused with
+	// different content. What only running the formation can reveal (an
+	// unreachable formation model, a credential revoked before it ran) is reported
+	// by GetFormation as FAILED.
+	//
+	// The formation runs with the submitter's authority AS IT IS WHEN THE
+	// FORMATION RUNS, not as it was when it was submitted, so revoking a key stops
+	// the formations it submitted that have not yet written.
+	//
+	// Metered as FormMemory is. A formation the platform had to resume may have
+	// consumed units on the attempt that was interrupted, and those units are
+	// counted.
+	//
+	// Requires the same permission as FormMemory.
+	SubmitFormation(ctx context.Context, in *SubmitFormationRequest, opts ...grpc.CallOption) (*SubmitFormationResponse, error)
+	// Reads a submitted formation: waiting, running, finished with its receipt,
+	// or failed with its reason. It never waits for the formation to finish.
+	//
+	// Requires the same permission and reach as reading the workspace's memory.
+	// An id from another workspace, or from a workspace the caller cannot reach,
+	// is NOT_FOUND, so a refusal never confirms that the formation exists.
+	GetFormation(ctx context.Context, in *GetFormationRequest, opts ...grpc.CallOption) (*GetFormationResponse, error)
 	// Declares the memory vocabulary for the caller's active enterprise, or for one
 	// scope in it. External (gateway) RPC. Authenticated AND requires the
 	// "agent.vocabulary:manage" permission, which is management-class: a
@@ -327,6 +365,26 @@ func (c *memoryServiceClient) FormMemory(ctx context.Context, in *FormMemoryRequ
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(FormMemoryResponse)
 	err := c.cc.Invoke(ctx, MemoryService_FormMemory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) SubmitFormation(ctx context.Context, in *SubmitFormationRequest, opts ...grpc.CallOption) (*SubmitFormationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmitFormationResponse)
+	err := c.cc.Invoke(ctx, MemoryService_SubmitFormation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *memoryServiceClient) GetFormation(ctx context.Context, in *GetFormationRequest, opts ...grpc.CallOption) (*GetFormationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFormationResponse)
+	err := c.cc.Invoke(ctx, MemoryService_GetFormation_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -534,6 +592,42 @@ type MemoryServiceServer interface {
 	// resend would form a SECOND, DIFFERENT set of memory; a resend under the same
 	// key returns the first call's receipt without re-extracting.
 	FormMemory(context.Context, *FormMemoryRequest) (*FormMemoryResponse, error)
+	// Submits a formation WITHOUT WAITING FOR IT. It takes what FormMemory takes,
+	// and returns as soon as the platform has recorded the formation: in
+	// milliseconds, before any model is called. The formation then runs to
+	// completion whether or not the caller is still connected, and is resumed by
+	// the platform if it is interrupted. GetFormation reports where it stands and,
+	// once it is done, carries the same receipt FormMemory would have returned.
+	//
+	// Use it where the caller cannot hold a request open for a formation's
+	// duration: a tool call a host will cancel, a job that exits, a function with
+	// a short timeout. A caller that wants the receipt inline keeps using
+	// FormMemory, which is unchanged.
+	//
+	// Everything FormMemory refuses on the request alone is refused HERE, before
+	// anything is accepted: an invalid or oversize conversation, a scope out of
+	// reach, an enterprise at its formation ceiling, a formation key reused with
+	// different content. What only running the formation can reveal (an
+	// unreachable formation model, a credential revoked before it ran) is reported
+	// by GetFormation as FAILED.
+	//
+	// The formation runs with the submitter's authority AS IT IS WHEN THE
+	// FORMATION RUNS, not as it was when it was submitted, so revoking a key stops
+	// the formations it submitted that have not yet written.
+	//
+	// Metered as FormMemory is. A formation the platform had to resume may have
+	// consumed units on the attempt that was interrupted, and those units are
+	// counted.
+	//
+	// Requires the same permission as FormMemory.
+	SubmitFormation(context.Context, *SubmitFormationRequest) (*SubmitFormationResponse, error)
+	// Reads a submitted formation: waiting, running, finished with its receipt,
+	// or failed with its reason. It never waits for the formation to finish.
+	//
+	// Requires the same permission and reach as reading the workspace's memory.
+	// An id from another workspace, or from a workspace the caller cannot reach,
+	// is NOT_FOUND, so a refusal never confirms that the formation exists.
+	GetFormation(context.Context, *GetFormationRequest) (*GetFormationResponse, error)
 	// Declares the memory vocabulary for the caller's active enterprise, or for one
 	// scope in it. External (gateway) RPC. Authenticated AND requires the
 	// "agent.vocabulary:manage" permission, which is management-class: a
@@ -668,6 +762,12 @@ func (UnimplementedMemoryServiceServer) SupersedeChunk(context.Context, *Superse
 }
 func (UnimplementedMemoryServiceServer) FormMemory(context.Context, *FormMemoryRequest) (*FormMemoryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FormMemory not implemented")
+}
+func (UnimplementedMemoryServiceServer) SubmitFormation(context.Context, *SubmitFormationRequest) (*SubmitFormationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitFormation not implemented")
+}
+func (UnimplementedMemoryServiceServer) GetFormation(context.Context, *GetFormationRequest) (*GetFormationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFormation not implemented")
 }
 func (UnimplementedMemoryServiceServer) DeclareMemoryVocabulary(context.Context, *DeclareMemoryVocabularyRequest) (*DeclareMemoryVocabularyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeclareMemoryVocabulary not implemented")
@@ -818,6 +918,42 @@ func _MemoryService_FormMemory_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MemoryServiceServer).FormMemory(ctx, req.(*FormMemoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_SubmitFormation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitFormationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).SubmitFormation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_SubmitFormation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).SubmitFormation(ctx, req.(*SubmitFormationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MemoryService_GetFormation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFormationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MemoryServiceServer).GetFormation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MemoryService_GetFormation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MemoryServiceServer).GetFormation(ctx, req.(*GetFormationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -996,6 +1132,14 @@ var MemoryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FormMemory",
 			Handler:    _MemoryService_FormMemory_Handler,
+		},
+		{
+			MethodName: "SubmitFormation",
+			Handler:    _MemoryService_SubmitFormation_Handler,
+		},
+		{
+			MethodName: "GetFormation",
+			Handler:    _MemoryService_GetFormation_Handler,
 		},
 		{
 			MethodName: "DeclareMemoryVocabulary",

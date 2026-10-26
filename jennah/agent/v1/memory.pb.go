@@ -442,6 +442,69 @@ func (MemoryDecision) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{6}
 }
 
+// Where a submitted formation stands.
+type FormationState int32
+
+const (
+	FormationState_FORMATION_STATE_UNSPECIFIED FormationState = 0
+	// Recorded and waiting to start. A formation can return here from RUNNING
+	// when the platform resumes one that was interrupted.
+	FormationState_FORMATION_STATE_ACCEPTED FormationState = 1
+	// Extraction, recall, reconciliation or the write is under way.
+	FormationState_FORMATION_STATE_RUNNING FormationState = 2
+	// Done. `receipt` is set. A formation that stored nothing is FINISHED with a
+	// receipt carrying no commit timestamp, exactly as FormMemory would report it.
+	FormationState_FORMATION_STATE_FINISHED FormationState = 3
+	// Will not complete. `failure_reason` and `failure_message` say why, and the
+	// formation wrote no memory.
+	FormationState_FORMATION_STATE_FAILED FormationState = 4
+)
+
+// Enum value maps for FormationState.
+var (
+	FormationState_name = map[int32]string{
+		0: "FORMATION_STATE_UNSPECIFIED",
+		1: "FORMATION_STATE_ACCEPTED",
+		2: "FORMATION_STATE_RUNNING",
+		3: "FORMATION_STATE_FINISHED",
+		4: "FORMATION_STATE_FAILED",
+	}
+	FormationState_value = map[string]int32{
+		"FORMATION_STATE_UNSPECIFIED": 0,
+		"FORMATION_STATE_ACCEPTED":    1,
+		"FORMATION_STATE_RUNNING":     2,
+		"FORMATION_STATE_FINISHED":    3,
+		"FORMATION_STATE_FAILED":      4,
+	}
+)
+
+func (x FormationState) Enum() *FormationState {
+	p := new(FormationState)
+	*p = x
+	return p
+}
+
+func (x FormationState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FormationState) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_agent_v1_memory_proto_enumTypes[7].Descriptor()
+}
+
+func (FormationState) Type() protoreflect.EnumType {
+	return &file_jennah_agent_v1_memory_proto_enumTypes[7]
+}
+
+func (x FormationState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FormationState.Descriptor instead.
+func (FormationState) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{7}
+}
+
 // Where an enterprise's own formation model is served.
 type FormationModelProvider int32
 
@@ -483,11 +546,11 @@ func (x FormationModelProvider) String() string {
 }
 
 func (FormationModelProvider) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_agent_v1_memory_proto_enumTypes[7].Descriptor()
+	return file_jennah_agent_v1_memory_proto_enumTypes[8].Descriptor()
 }
 
 func (FormationModelProvider) Type() protoreflect.EnumType {
-	return &file_jennah_agent_v1_memory_proto_enumTypes[7]
+	return &file_jennah_agent_v1_memory_proto_enumTypes[8]
 }
 
 func (x FormationModelProvider) Number() protoreflect.EnumNumber {
@@ -496,7 +559,7 @@ func (x FormationModelProvider) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use FormationModelProvider.Descriptor instead.
 func (FormationModelProvider) EnumDescriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{7}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{8}
 }
 
 // Operator selects how `value` is compared against the item's stored value
@@ -557,11 +620,11 @@ func (x MetadataFilter_Operator) String() string {
 }
 
 func (MetadataFilter_Operator) Descriptor() protoreflect.EnumDescriptor {
-	return file_jennah_agent_v1_memory_proto_enumTypes[8].Descriptor()
+	return file_jennah_agent_v1_memory_proto_enumTypes[9].Descriptor()
 }
 
 func (MetadataFilter_Operator) Type() protoreflect.EnumType {
-	return &file_jennah_agent_v1_memory_proto_enumTypes[8]
+	return &file_jennah_agent_v1_memory_proto_enumTypes[9]
 }
 
 func (x MetadataFilter_Operator) Number() protoreflect.EnumNumber {
@@ -4731,6 +4794,351 @@ func (x *FormMemoryResponse) GetFormationUnits() int64 {
 	return 0
 }
 
+type SubmitFormationRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Route path parameter, never read from the body. Exactly as
+	// FormMemoryRequest.scope_id.
+	ScopeId string `protobuf:"bytes,1,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	// The conversation to form memory from, in order, with the same meaning and
+	// the same bounds as FormMemoryRequest.turns. An oversize submission is
+	// refused here, before anything is accepted.
+	Turns []*ConversationTurn `protobuf:"bytes,2,rep,name=turns,proto3" json:"turns,omitempty"`
+	// Optional key making the submission SAFELY RESENDABLE, scoped to the
+	// workspace. A resend under a key whose formation was already accepted
+	// returns THAT formation, whether it is still waiting, running or done, and
+	// starts nothing. A key reused with a different conversation is refused, as
+	// it is for FormMemory.
+	//
+	// The key space is shared with FormMemoryRequest.formation_key: a submission
+	// under a key a FormMemory call already completed returns a finished
+	// formation carrying that call's receipt.
+	FormationKey string `protobuf:"bytes,3,opt,name=formation_key,json=formationKey,proto3" json:"formation_key,omitempty"`
+	// When the conversation took place. Exactly as FormMemoryRequest.observed_at,
+	// and part of what makes two submissions identical for `formation_key`.
+	ObservedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitFormationRequest) Reset() {
+	*x = SubmitFormationRequest{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitFormationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitFormationRequest) ProtoMessage() {}
+
+func (x *SubmitFormationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitFormationRequest.ProtoReflect.Descriptor instead.
+func (*SubmitFormationRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *SubmitFormationRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
+func (x *SubmitFormationRequest) GetTurns() []*ConversationTurn {
+	if x != nil {
+		return x.Turns
+	}
+	return nil
+}
+
+func (x *SubmitFormationRequest) GetFormationKey() string {
+	if x != nil {
+		return x.FormationKey
+	}
+	return ""
+}
+
+func (x *SubmitFormationRequest) GetObservedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return nil
+}
+
+type SubmitFormationResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The accepted formation. A new submission is ACCEPTED; a resend under an
+	// existing key carries that formation's current state. As with FormMemory, a
+	// resend is not marked as one.
+	Formation     *Formation `protobuf:"bytes,1,opt,name=formation,proto3" json:"formation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubmitFormationResponse) Reset() {
+	*x = SubmitFormationResponse{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubmitFormationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubmitFormationResponse) ProtoMessage() {}
+
+func (x *SubmitFormationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubmitFormationResponse.ProtoReflect.Descriptor instead.
+func (*SubmitFormationResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *SubmitFormationResponse) GetFormation() *Formation {
+	if x != nil {
+		return x.Formation
+	}
+	return nil
+}
+
+type GetFormationRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Route path parameter: the workspace the formation was submitted to. A
+	// formation id is only meaningful inside its workspace, and an id read under
+	// any other workspace is answered as NOT_FOUND.
+	ScopeId string `protobuf:"bytes,1,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	// Route path parameter: the id SubmitFormation returned.
+	FormationId   string `protobuf:"bytes,2,opt,name=formation_id,json=formationId,proto3" json:"formation_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFormationRequest) Reset() {
+	*x = GetFormationRequest{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFormationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFormationRequest) ProtoMessage() {}
+
+func (x *GetFormationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFormationRequest.ProtoReflect.Descriptor instead.
+func (*GetFormationRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *GetFormationRequest) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
+func (x *GetFormationRequest) GetFormationId() string {
+	if x != nil {
+		return x.FormationId
+	}
+	return ""
+}
+
+type GetFormationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Formation     *Formation             `protobuf:"bytes,1,opt,name=formation,proto3" json:"formation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFormationResponse) Reset() {
+	*x = GetFormationResponse{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFormationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFormationResponse) ProtoMessage() {}
+
+func (x *GetFormationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFormationResponse.ProtoReflect.Descriptor instead.
+func (*GetFormationResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *GetFormationResponse) GetFormation() *Formation {
+	if x != nil {
+		return x.Formation
+	}
+	return nil
+}
+
+// A formation submitted through SubmitFormation.
+type Formation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Opaque, platform-assigned, unique within the workspace.
+	FormationId string `protobuf:"bytes,1,opt,name=formation_id,json=formationId,proto3" json:"formation_id,omitempty"`
+	// The workspace it reads and writes.
+	ScopeId string         `protobuf:"bytes,2,opt,name=scope_id,json=scopeId,proto3" json:"scope_id,omitempty"`
+	State   FormationState `protobuf:"varint,3,opt,name=state,proto3,enum=jennahapi.agent.v1.FormationState" json:"state,omitempty"`
+	// Set when FINISHED: the receipt FormMemory would have returned for the same
+	// conversation, including the units the formation consumed.
+	Receipt *FormMemoryResponse `protobuf:"bytes,4,opt,name=receipt,proto3" json:"receipt,omitempty"`
+	// Set when FAILED: a machine-readable reason, from the same vocabulary
+	// FormMemory's error details use (for example a revoked credential or a
+	// formation model that could not be reached), and a message in plain terms.
+	FailureReason  string `protobuf:"bytes,5,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
+	FailureMessage string `protobuf:"bytes,6,opt,name=failure_message,json=failureMessage,proto3" json:"failure_message,omitempty"`
+	// When the platform accepted the submission.
+	AcceptedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=accepted_at,json=acceptedAt,proto3" json:"accepted_at,omitempty"`
+	// When it became FINISHED or FAILED. Unset before that.
+	//
+	// A formation's record is kept for 7 days after this instant and then reads as
+	// NOT_FOUND. The memory it wrote, and the conversation it recorded, are not
+	// affected.
+	FinishedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=finished_at,json=finishedAt,proto3" json:"finished_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Formation) Reset() {
+	*x = Formation{}
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Formation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Formation) ProtoMessage() {}
+
+func (x *Formation) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Formation.ProtoReflect.Descriptor instead.
+func (*Formation) Descriptor() ([]byte, []int) {
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *Formation) GetFormationId() string {
+	if x != nil {
+		return x.FormationId
+	}
+	return ""
+}
+
+func (x *Formation) GetScopeId() string {
+	if x != nil {
+		return x.ScopeId
+	}
+	return ""
+}
+
+func (x *Formation) GetState() FormationState {
+	if x != nil {
+		return x.State
+	}
+	return FormationState_FORMATION_STATE_UNSPECIFIED
+}
+
+func (x *Formation) GetReceipt() *FormMemoryResponse {
+	if x != nil {
+		return x.Receipt
+	}
+	return nil
+}
+
+func (x *Formation) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
+	}
+	return ""
+}
+
+func (x *Formation) GetFailureMessage() string {
+	if x != nil {
+		return x.FailureMessage
+	}
+	return ""
+}
+
+func (x *Formation) GetAcceptedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AcceptedAt
+	}
+	return nil
+}
+
+func (x *Formation) GetFinishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.FinishedAt
+	}
+	return nil
+}
+
 // One entity class in a memory vocabulary: a kind of thing memory formation may
 // classify an entity as.
 //
@@ -4756,7 +5164,7 @@ type EntityClass struct {
 
 func (x *EntityClass) Reset() {
 	*x = EntityClass{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[43]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4768,7 +5176,7 @@ func (x *EntityClass) String() string {
 func (*EntityClass) ProtoMessage() {}
 
 func (x *EntityClass) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[43]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4781,7 +5189,7 @@ func (x *EntityClass) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EntityClass.ProtoReflect.Descriptor instead.
 func (*EntityClass) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{43}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *EntityClass) GetName() string {
@@ -4816,7 +5224,7 @@ type RelationSignature struct {
 
 func (x *RelationSignature) Reset() {
 	*x = RelationSignature{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[44]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4828,7 +5236,7 @@ func (x *RelationSignature) String() string {
 func (*RelationSignature) ProtoMessage() {}
 
 func (x *RelationSignature) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[44]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4841,7 +5249,7 @@ func (x *RelationSignature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelationSignature.ProtoReflect.Descriptor instead.
 func (*RelationSignature) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{44}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *RelationSignature) GetSourceClass() string {
@@ -4882,7 +5290,7 @@ type RelationType struct {
 
 func (x *RelationType) Reset() {
 	*x = RelationType{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[45]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4894,7 +5302,7 @@ func (x *RelationType) String() string {
 func (*RelationType) ProtoMessage() {}
 
 func (x *RelationType) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[45]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4907,7 +5315,7 @@ func (x *RelationType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelationType.ProtoReflect.Descriptor instead.
 func (*RelationType) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{45}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *RelationType) GetName() string {
@@ -4958,7 +5366,7 @@ type MemoryVocabulary struct {
 
 func (x *MemoryVocabulary) Reset() {
 	*x = MemoryVocabulary{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[46]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4970,7 +5378,7 @@ func (x *MemoryVocabulary) String() string {
 func (*MemoryVocabulary) ProtoMessage() {}
 
 func (x *MemoryVocabulary) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[46]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4983,7 +5391,7 @@ func (x *MemoryVocabulary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoryVocabulary.ProtoReflect.Descriptor instead.
 func (*MemoryVocabulary) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{46}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *MemoryVocabulary) GetEntityClasses() []*EntityClass {
@@ -5023,7 +5431,7 @@ type DeclareMemoryVocabularyRequest struct {
 
 func (x *DeclareMemoryVocabularyRequest) Reset() {
 	*x = DeclareMemoryVocabularyRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[47]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5035,7 +5443,7 @@ func (x *DeclareMemoryVocabularyRequest) String() string {
 func (*DeclareMemoryVocabularyRequest) ProtoMessage() {}
 
 func (x *DeclareMemoryVocabularyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[47]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5048,7 +5456,7 @@ func (x *DeclareMemoryVocabularyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclareMemoryVocabularyRequest.ProtoReflect.Descriptor instead.
 func (*DeclareMemoryVocabularyRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{47}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *DeclareMemoryVocabularyRequest) GetScopeId() string {
@@ -5077,7 +5485,7 @@ type DeclareMemoryVocabularyResponse struct {
 
 func (x *DeclareMemoryVocabularyResponse) Reset() {
 	*x = DeclareMemoryVocabularyResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[48]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5089,7 +5497,7 @@ func (x *DeclareMemoryVocabularyResponse) String() string {
 func (*DeclareMemoryVocabularyResponse) ProtoMessage() {}
 
 func (x *DeclareMemoryVocabularyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[48]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5102,7 +5510,7 @@ func (x *DeclareMemoryVocabularyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclareMemoryVocabularyResponse.ProtoReflect.Descriptor instead.
 func (*DeclareMemoryVocabularyResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{48}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *DeclareMemoryVocabularyResponse) GetVocabulary() *MemoryVocabulary {
@@ -5122,7 +5530,7 @@ type RemoveMemoryVocabularyRequest struct {
 
 func (x *RemoveMemoryVocabularyRequest) Reset() {
 	*x = RemoveMemoryVocabularyRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[49]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5134,7 +5542,7 @@ func (x *RemoveMemoryVocabularyRequest) String() string {
 func (*RemoveMemoryVocabularyRequest) ProtoMessage() {}
 
 func (x *RemoveMemoryVocabularyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[49]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5147,7 +5555,7 @@ func (x *RemoveMemoryVocabularyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemoryVocabularyRequest.ProtoReflect.Descriptor instead.
 func (*RemoveMemoryVocabularyRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{49}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *RemoveMemoryVocabularyRequest) GetScopeId() string {
@@ -5166,7 +5574,7 @@ type RemoveMemoryVocabularyResponse struct {
 
 func (x *RemoveMemoryVocabularyResponse) Reset() {
 	*x = RemoveMemoryVocabularyResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[50]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5178,7 +5586,7 @@ func (x *RemoveMemoryVocabularyResponse) String() string {
 func (*RemoveMemoryVocabularyResponse) ProtoMessage() {}
 
 func (x *RemoveMemoryVocabularyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[50]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5191,7 +5599,7 @@ func (x *RemoveMemoryVocabularyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemoryVocabularyResponse.ProtoReflect.Descriptor instead.
 func (*RemoveMemoryVocabularyResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{50}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{55}
 }
 
 // Request message for the MemoryService.GetMemoryVocabulary rpc.
@@ -5204,7 +5612,7 @@ type GetMemoryVocabularyRequest struct {
 
 func (x *GetMemoryVocabularyRequest) Reset() {
 	*x = GetMemoryVocabularyRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[51]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5216,7 +5624,7 @@ func (x *GetMemoryVocabularyRequest) String() string {
 func (*GetMemoryVocabularyRequest) ProtoMessage() {}
 
 func (x *GetMemoryVocabularyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[51]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5229,7 +5637,7 @@ func (x *GetMemoryVocabularyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMemoryVocabularyRequest.ProtoReflect.Descriptor instead.
 func (*GetMemoryVocabularyRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{51}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *GetMemoryVocabularyRequest) GetScopeId() string {
@@ -5274,7 +5682,7 @@ type GetMemoryVocabularyResponse struct {
 
 func (x *GetMemoryVocabularyResponse) Reset() {
 	*x = GetMemoryVocabularyResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[52]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5286,7 +5694,7 @@ func (x *GetMemoryVocabularyResponse) String() string {
 func (*GetMemoryVocabularyResponse) ProtoMessage() {}
 
 func (x *GetMemoryVocabularyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[52]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5299,7 +5707,7 @@ func (x *GetMemoryVocabularyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMemoryVocabularyResponse.ProtoReflect.Descriptor instead.
 func (*GetMemoryVocabularyResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{52}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *GetMemoryVocabularyResponse) GetDeclaration() *MemoryVocabulary {
@@ -5343,7 +5751,7 @@ type BedrockFormationModelSetup struct {
 
 func (x *BedrockFormationModelSetup) Reset() {
 	*x = BedrockFormationModelSetup{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[53]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5355,7 +5763,7 @@ func (x *BedrockFormationModelSetup) String() string {
 func (*BedrockFormationModelSetup) ProtoMessage() {}
 
 func (x *BedrockFormationModelSetup) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[53]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5368,7 +5776,7 @@ func (x *BedrockFormationModelSetup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BedrockFormationModelSetup.ProtoReflect.Descriptor instead.
 func (*BedrockFormationModelSetup) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{53}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *BedrockFormationModelSetup) GetPrincipalArn() string {
@@ -5418,7 +5826,7 @@ type VertexFormationModelSetup struct {
 
 func (x *VertexFormationModelSetup) Reset() {
 	*x = VertexFormationModelSetup{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[54]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5430,7 +5838,7 @@ func (x *VertexFormationModelSetup) String() string {
 func (*VertexFormationModelSetup) ProtoMessage() {}
 
 func (x *VertexFormationModelSetup) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[54]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5443,7 +5851,7 @@ func (x *VertexFormationModelSetup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VertexFormationModelSetup.ProtoReflect.Descriptor instead.
 func (*VertexFormationModelSetup) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{54}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *VertexFormationModelSetup) GetServiceAccountEmail() string {
@@ -5471,7 +5879,7 @@ type BedrockFormationModel struct {
 
 func (x *BedrockFormationModel) Reset() {
 	*x = BedrockFormationModel{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[55]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5483,7 +5891,7 @@ func (x *BedrockFormationModel) String() string {
 func (*BedrockFormationModel) ProtoMessage() {}
 
 func (x *BedrockFormationModel) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[55]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5496,7 +5904,7 @@ func (x *BedrockFormationModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BedrockFormationModel.ProtoReflect.Descriptor instead.
 func (*BedrockFormationModel) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{55}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *BedrockFormationModel) GetRoleArn() string {
@@ -5536,7 +5944,7 @@ type VertexFormationModel struct {
 
 func (x *VertexFormationModel) Reset() {
 	*x = VertexFormationModel{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[56]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5548,7 +5956,7 @@ func (x *VertexFormationModel) String() string {
 func (*VertexFormationModel) ProtoMessage() {}
 
 func (x *VertexFormationModel) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[56]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5561,7 +5969,7 @@ func (x *VertexFormationModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VertexFormationModel.ProtoReflect.Descriptor instead.
 func (*VertexFormationModel) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{56}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *VertexFormationModel) GetProject() string {
@@ -5607,7 +6015,7 @@ type AnthropicFormationModel struct {
 
 func (x *AnthropicFormationModel) Reset() {
 	*x = AnthropicFormationModel{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[57]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5619,7 +6027,7 @@ func (x *AnthropicFormationModel) String() string {
 func (*AnthropicFormationModel) ProtoMessage() {}
 
 func (x *AnthropicFormationModel) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[57]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5632,7 +6040,7 @@ func (x *AnthropicFormationModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnthropicFormationModel.ProtoReflect.Descriptor instead.
 func (*AnthropicFormationModel) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{57}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *AnthropicFormationModel) GetModel() string {
@@ -5689,7 +6097,7 @@ type FormationModel struct {
 
 func (x *FormationModel) Reset() {
 	*x = FormationModel{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[58]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5701,7 +6109,7 @@ func (x *FormationModel) String() string {
 func (*FormationModel) ProtoMessage() {}
 
 func (x *FormationModel) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[58]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5714,7 +6122,7 @@ func (x *FormationModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FormationModel.ProtoReflect.Descriptor instead.
 func (*FormationModel) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{58}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *FormationModel) GetProvider() FormationModelProvider {
@@ -5783,7 +6191,7 @@ type PrepareFormationModelRequest struct {
 
 func (x *PrepareFormationModelRequest) Reset() {
 	*x = PrepareFormationModelRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[59]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5795,7 +6203,7 @@ func (x *PrepareFormationModelRequest) String() string {
 func (*PrepareFormationModelRequest) ProtoMessage() {}
 
 func (x *PrepareFormationModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[59]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5808,7 +6216,7 @@ func (x *PrepareFormationModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareFormationModelRequest.ProtoReflect.Descriptor instead.
 func (*PrepareFormationModelRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{59}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *PrepareFormationModelRequest) GetProvider() FormationModelProvider {
@@ -5832,7 +6240,7 @@ type PrepareFormationModelResponse struct {
 
 func (x *PrepareFormationModelResponse) Reset() {
 	*x = PrepareFormationModelResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[60]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5844,7 +6252,7 @@ func (x *PrepareFormationModelResponse) String() string {
 func (*PrepareFormationModelResponse) ProtoMessage() {}
 
 func (x *PrepareFormationModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[60]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5857,7 +6265,7 @@ func (x *PrepareFormationModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareFormationModelResponse.ProtoReflect.Descriptor instead.
 func (*PrepareFormationModelResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{60}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *PrepareFormationModelResponse) GetProvider() FormationModelProvider {
@@ -5892,7 +6300,7 @@ type SetFormationModelRequest struct {
 
 func (x *SetFormationModelRequest) Reset() {
 	*x = SetFormationModelRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[61]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5904,7 +6312,7 @@ func (x *SetFormationModelRequest) String() string {
 func (*SetFormationModelRequest) ProtoMessage() {}
 
 func (x *SetFormationModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[61]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5917,7 +6325,7 @@ func (x *SetFormationModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetFormationModelRequest.ProtoReflect.Descriptor instead.
 func (*SetFormationModelRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{61}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *SetFormationModelRequest) GetModel() *FormationModel {
@@ -5938,7 +6346,7 @@ type SetFormationModelResponse struct {
 
 func (x *SetFormationModelResponse) Reset() {
 	*x = SetFormationModelResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[62]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5950,7 +6358,7 @@ func (x *SetFormationModelResponse) String() string {
 func (*SetFormationModelResponse) ProtoMessage() {}
 
 func (x *SetFormationModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[62]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5963,7 +6371,7 @@ func (x *SetFormationModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetFormationModelResponse.ProtoReflect.Descriptor instead.
 func (*SetFormationModelResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{62}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *SetFormationModelResponse) GetModel() *FormationModel {
@@ -5982,7 +6390,7 @@ type GetFormationModelRequest struct {
 
 func (x *GetFormationModelRequest) Reset() {
 	*x = GetFormationModelRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[63]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5994,7 +6402,7 @@ func (x *GetFormationModelRequest) String() string {
 func (*GetFormationModelRequest) ProtoMessage() {}
 
 func (x *GetFormationModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[63]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6007,7 +6415,7 @@ func (x *GetFormationModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFormationModelRequest.ProtoReflect.Descriptor instead.
 func (*GetFormationModelRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{63}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{68}
 }
 
 // Response message for the MemoryService.GetFormationModel rpc.
@@ -6026,7 +6434,7 @@ type GetFormationModelResponse struct {
 
 func (x *GetFormationModelResponse) Reset() {
 	*x = GetFormationModelResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[64]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6038,7 +6446,7 @@ func (x *GetFormationModelResponse) String() string {
 func (*GetFormationModelResponse) ProtoMessage() {}
 
 func (x *GetFormationModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[64]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6051,7 +6459,7 @@ func (x *GetFormationModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetFormationModelResponse.ProtoReflect.Descriptor instead.
 func (*GetFormationModelResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{64}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *GetFormationModelResponse) GetModel() *FormationModel {
@@ -6084,7 +6492,7 @@ type RemoveFormationModelRequest struct {
 
 func (x *RemoveFormationModelRequest) Reset() {
 	*x = RemoveFormationModelRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[65]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6096,7 +6504,7 @@ func (x *RemoveFormationModelRequest) String() string {
 func (*RemoveFormationModelRequest) ProtoMessage() {}
 
 func (x *RemoveFormationModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[65]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6109,7 +6517,7 @@ func (x *RemoveFormationModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveFormationModelRequest.ProtoReflect.Descriptor instead.
 func (*RemoveFormationModelRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{65}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{70}
 }
 
 // Response message for the MemoryService.RemoveFormationModel rpc.
@@ -6123,7 +6531,7 @@ type RemoveFormationModelResponse struct {
 
 func (x *RemoveFormationModelResponse) Reset() {
 	*x = RemoveFormationModelResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[66]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6135,7 +6543,7 @@ func (x *RemoveFormationModelResponse) String() string {
 func (*RemoveFormationModelResponse) ProtoMessage() {}
 
 func (x *RemoveFormationModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[66]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6148,7 +6556,7 @@ func (x *RemoveFormationModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveFormationModelResponse.ProtoReflect.Descriptor instead.
 func (*RemoveFormationModelResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{66}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *RemoveFormationModelResponse) GetRemoved() bool {
@@ -6167,7 +6575,7 @@ type CheckFormationModelRequest struct {
 
 func (x *CheckFormationModelRequest) Reset() {
 	*x = CheckFormationModelRequest{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[67]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6179,7 +6587,7 @@ func (x *CheckFormationModelRequest) String() string {
 func (*CheckFormationModelRequest) ProtoMessage() {}
 
 func (x *CheckFormationModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[67]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6192,7 +6600,7 @@ func (x *CheckFormationModelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckFormationModelRequest.ProtoReflect.Descriptor instead.
 func (*CheckFormationModelRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{67}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{72}
 }
 
 // Response message for the MemoryService.CheckFormationModel rpc.
@@ -6215,7 +6623,7 @@ type CheckFormationModelResponse struct {
 
 func (x *CheckFormationModelResponse) Reset() {
 	*x = CheckFormationModelResponse{}
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[68]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6227,7 +6635,7 @@ func (x *CheckFormationModelResponse) String() string {
 func (*CheckFormationModelResponse) ProtoMessage() {}
 
 func (x *CheckFormationModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_agent_v1_memory_proto_msgTypes[68]
+	mi := &file_jennah_agent_v1_memory_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6240,7 +6648,7 @@ func (x *CheckFormationModelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckFormationModelResponse.ProtoReflect.Descriptor instead.
 func (*CheckFormationModelResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{68}
+	return file_jennah_agent_v1_memory_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *CheckFormationModelResponse) GetOk() bool {
@@ -6587,7 +6995,31 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x12candidates_dropped\x18\v \x01(\x05R\x11candidatesDropped\x12\x19\n" +
 	"\bscope_id\x18\f \x01(\tR\ascopeId\x12\\\n" +
 	"\x15summarized_structures\x18\r \x03(\v2'.jennahapi.agent.v1.SummarizedStructureR\x14summarizedStructures\x12'\n" +
-	"\x0fformation_units\x18\x0e \x01(\x03R\x0eformationUnits\"C\n" +
+	"\x0fformation_units\x18\x0e \x01(\x03R\x0eformationUnits\"\xd1\x01\n" +
+	"\x16SubmitFormationRequest\x12\x19\n" +
+	"\bscope_id\x18\x01 \x01(\tR\ascopeId\x12:\n" +
+	"\x05turns\x18\x02 \x03(\v2$.jennahapi.agent.v1.ConversationTurnR\x05turns\x12#\n" +
+	"\rformation_key\x18\x03 \x01(\tR\fformationKey\x12;\n" +
+	"\vobserved_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"observedAt\"V\n" +
+	"\x17SubmitFormationResponse\x12;\n" +
+	"\tformation\x18\x01 \x01(\v2\x1d.jennahapi.agent.v1.FormationR\tformation\"S\n" +
+	"\x13GetFormationRequest\x12\x19\n" +
+	"\bscope_id\x18\x01 \x01(\tR\ascopeId\x12!\n" +
+	"\fformation_id\x18\x02 \x01(\tR\vformationId\"S\n" +
+	"\x14GetFormationResponse\x12;\n" +
+	"\tformation\x18\x01 \x01(\v2\x1d.jennahapi.agent.v1.FormationR\tformation\"\x8f\x03\n" +
+	"\tFormation\x12!\n" +
+	"\fformation_id\x18\x01 \x01(\tR\vformationId\x12\x19\n" +
+	"\bscope_id\x18\x02 \x01(\tR\ascopeId\x128\n" +
+	"\x05state\x18\x03 \x01(\x0e2\".jennahapi.agent.v1.FormationStateR\x05state\x12@\n" +
+	"\areceipt\x18\x04 \x01(\v2&.jennahapi.agent.v1.FormMemoryResponseR\areceipt\x12%\n" +
+	"\x0efailure_reason\x18\x05 \x01(\tR\rfailureReason\x12'\n" +
+	"\x0ffailure_message\x18\x06 \x01(\tR\x0efailureMessage\x12;\n" +
+	"\vaccepted_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"acceptedAt\x12;\n" +
+	"\vfinished_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"finishedAt\"C\n" +
 	"\vEntityClass\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"Y\n" +
@@ -6710,12 +7142,18 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\x13MEMORY_DECISION_NEW\x10\x01\x12\x1b\n" +
 	"\x17MEMORY_DECISION_REVISED\x10\x02\x12\x19\n" +
 	"\x15MEMORY_DECISION_KNOWN\x10\x03\x12\x1c\n" +
-	"\x18MEMORY_DECISION_REJECTED\x10\x04*\xb5\x01\n" +
+	"\x18MEMORY_DECISION_REJECTED\x10\x04*\xa6\x01\n" +
+	"\x0eFormationState\x12\x1f\n" +
+	"\x1bFORMATION_STATE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18FORMATION_STATE_ACCEPTED\x10\x01\x12\x1b\n" +
+	"\x17FORMATION_STATE_RUNNING\x10\x02\x12\x1c\n" +
+	"\x18FORMATION_STATE_FINISHED\x10\x03\x12\x1a\n" +
+	"\x16FORMATION_STATE_FAILED\x10\x04*\xb5\x01\n" +
 	"\x16FormationModelProvider\x12(\n" +
 	"$FORMATION_MODEL_PROVIDER_UNSPECIFIED\x10\x00\x12$\n" +
 	" FORMATION_MODEL_PROVIDER_BEDROCK\x10\x01\x12#\n" +
 	"\x1fFORMATION_MODEL_PROVIDER_VERTEX\x10\x02\x12&\n" +
-	"\"FORMATION_MODEL_PROVIDER_ANTHROPIC\x10\x032\xe2\x12\n" +
+	"\"FORMATION_MODEL_PROVIDER_ANTHROPIC\x10\x032\x99\x15\n" +
 	"\rMemoryService\x12\xbb\x01\n" +
 	"\fCommitMemory\x12'.jennahapi.agent.v1.CommitMemoryRequest\x1a(.jennahapi.agent.v1.CommitMemoryResponse\"X\x82\xd3\xe4\x93\x02R:\x01*Z(:\x01*\"#/v1/scopes/{scope_id}/memory:commit\"#/v1/agents/{scope_id}/memory:commit\x12\xb6\x01\n" +
 	"\vQueryMemory\x12&.jennahapi.agent.v1.QueryMemoryRequest\x1a'.jennahapi.agent.v1.QueryMemoryResponse\"V\x82\xd3\xe4\x93\x02P:\x01*Z':\x01*\"\"/v1/scopes/{scope_id}/memory:query\"\"/v1/agents/{scope_id}/memory:query\x12\xc0\x01\n" +
@@ -6723,7 +7161,9 @@ const file_jennah_agent_v1_memory_proto_rawDesc = "" +
 	"\rSupersedeEdge\x12(.jennahapi.agent.v1.SupersedeEdgeRequest\x1a).jennahapi.agent.v1.SupersedeEdgeResponse\"h\x82\xd3\xe4\x93\x02b:\x01*Z0:\x01*\"+/v1/scopes/{scope_id}/graph/edges:supersede\"+/v1/agents/{scope_id}/graph/edges:supersede\x12\xd7\x01\n" +
 	"\x0eSupersedeChunk\x12).jennahapi.agent.v1.SupersedeChunkRequest\x1a*.jennahapi.agent.v1.SupersedeChunkResponse\"n\x82\xd3\xe4\x93\x02h:\x01*Z3:\x01*\"./v1/scopes/{scope_id}/vectors/chunks:supersede\"./v1/agents/{scope_id}/vectors/chunks:supersede\x12\x89\x01\n" +
 	"\n" +
-	"FormMemory\x12%.jennahapi.agent.v1.FormMemoryRequest\x1a&.jennahapi.agent.v1.FormMemoryResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/agents/{scope_id}/memory:form\x12\xa4\x01\n" +
+	"FormMemory\x12%.jennahapi.agent.v1.FormMemoryRequest\x1a&.jennahapi.agent.v1.FormMemoryResponse\",\x82\xd3\xe4\x93\x02&:\x01*\"!/v1/agents/{scope_id}/memory:form\x12\x97\x01\n" +
+	"\x0fSubmitFormation\x12*.jennahapi.agent.v1.SubmitFormationRequest\x1a+.jennahapi.agent.v1.SubmitFormationResponse\"+\x82\xd3\xe4\x93\x02%:\x01*\" /v1/agents/{scope_id}/formations\x12\x9a\x01\n" +
+	"\fGetFormation\x12'.jennahapi.agent.v1.GetFormationRequest\x1a(.jennahapi.agent.v1.GetFormationResponse\"7\x82\xd3\xe4\x93\x021\x12//v1/agents/{scope_id}/formations/{formation_id}\x12\xa4\x01\n" +
 	"\x17DeclareMemoryVocabulary\x122.jennahapi.agent.v1.DeclareMemoryVocabularyRequest\x1a3.jennahapi.agent.v1.DeclareMemoryVocabularyResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\x1a\x15/v1/memory/vocabulary\x12\x9e\x01\n" +
 	"\x16RemoveMemoryVocabulary\x121.jennahapi.agent.v1.RemoveMemoryVocabularyRequest\x1a2.jennahapi.agent.v1.RemoveMemoryVocabularyResponse\"\x1d\x82\xd3\xe4\x93\x02\x17*\x15/v1/memory/vocabulary\x12\x95\x01\n" +
 	"\x13GetMemoryVocabulary\x12..jennahapi.agent.v1.GetMemoryVocabularyRequest\x1a/.jennahapi.agent.v1.GetMemoryVocabularyResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/v1/memory/vocabulary\x12\xa4\x01\n" +
@@ -6745,8 +7185,8 @@ func file_jennah_agent_v1_memory_proto_rawDescGZIP() []byte {
 	return file_jennah_agent_v1_memory_proto_rawDescData
 }
 
-var file_jennah_agent_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 9)
-var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
+var file_jennah_agent_v1_memory_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_jennah_agent_v1_memory_proto_msgTypes = make([]protoimpl.MessageInfo, 80)
 var file_jennah_agent_v1_memory_proto_goTypes = []any{
 	(FusionDirection)(0),                    // 0: jennahapi.agent.v1.FusionDirection
 	(RetrievalMode)(0),                      // 1: jennahapi.agent.v1.RetrievalMode
@@ -6755,234 +7195,252 @@ var file_jennah_agent_v1_memory_proto_goTypes = []any{
 	(TurnRole)(0),                           // 4: jennahapi.agent.v1.TurnRole
 	(CandidateKind)(0),                      // 5: jennahapi.agent.v1.CandidateKind
 	(MemoryDecision)(0),                     // 6: jennahapi.agent.v1.MemoryDecision
-	(FormationModelProvider)(0),             // 7: jennahapi.agent.v1.FormationModelProvider
-	(MetadataFilter_Operator)(0),            // 8: jennahapi.agent.v1.MetadataFilter.Operator
-	(*CommitMemoryRequest)(nil),             // 9: jennahapi.agent.v1.CommitMemoryRequest
-	(*ExecutionLogStep)(nil),                // 10: jennahapi.agent.v1.ExecutionLogStep
-	(*VectorChunk)(nil),                     // 11: jennahapi.agent.v1.VectorChunk
-	(*GraphWrite)(nil),                      // 12: jennahapi.agent.v1.GraphWrite
-	(*SupersessionWrite)(nil),               // 13: jennahapi.agent.v1.SupersessionWrite
-	(*EdgeSupersession)(nil),                // 14: jennahapi.agent.v1.EdgeSupersession
-	(*ChunkSupersession)(nil),               // 15: jennahapi.agent.v1.ChunkSupersession
-	(*GraphNode)(nil),                       // 16: jennahapi.agent.v1.GraphNode
-	(*GraphEdge)(nil),                       // 17: jennahapi.agent.v1.GraphEdge
-	(*CommitMemoryResponse)(nil),            // 18: jennahapi.agent.v1.CommitMemoryResponse
-	(*QueryMemoryRequest)(nil),              // 19: jennahapi.agent.v1.QueryMemoryRequest
-	(*SemanticQuery)(nil),                   // 20: jennahapi.agent.v1.SemanticQuery
-	(*MetadataFilter)(nil),                  // 21: jennahapi.agent.v1.MetadataFilter
-	(*GraphQuery)(nil),                      // 22: jennahapi.agent.v1.GraphQuery
-	(*GraphNodeMatch)(nil),                  // 23: jennahapi.agent.v1.GraphNodeMatch
-	(*GraphStep)(nil),                       // 24: jennahapi.agent.v1.GraphStep
-	(*PropertyFilter)(nil),                  // 25: jennahapi.agent.v1.PropertyFilter
-	(*LogQuery)(nil),                        // 26: jennahapi.agent.v1.LogQuery
-	(*QueryMemoryResponse)(nil),             // 27: jennahapi.agent.v1.QueryMemoryResponse
-	(*SemanticResult)(nil),                  // 28: jennahapi.agent.v1.SemanticResult
-	(*SemanticMatch)(nil),                   // 29: jennahapi.agent.v1.SemanticMatch
-	(*GraphResult)(nil),                     // 30: jennahapi.agent.v1.GraphResult
-	(*LogResult)(nil),                       // 31: jennahapi.agent.v1.LogResult
-	(*FusedResult)(nil),                     // 32: jennahapi.agent.v1.FusedResult
-	(*InspectMemoryRequest)(nil),            // 33: jennahapi.agent.v1.InspectMemoryRequest
-	(*InspectVectors)(nil),                  // 34: jennahapi.agent.v1.InspectVectors
-	(*InspectGraph)(nil),                    // 35: jennahapi.agent.v1.InspectGraph
-	(*InspectLog)(nil),                      // 36: jennahapi.agent.v1.InspectLog
-	(*InspectMemoryResponse)(nil),           // 37: jennahapi.agent.v1.InspectMemoryResponse
-	(*VectorInspectResult)(nil),             // 38: jennahapi.agent.v1.VectorInspectResult
-	(*VectorChunkInfo)(nil),                 // 39: jennahapi.agent.v1.VectorChunkInfo
-	(*GraphInspectResult)(nil),              // 40: jennahapi.agent.v1.GraphInspectResult
-	(*SupersedeEdgeRequest)(nil),            // 41: jennahapi.agent.v1.SupersedeEdgeRequest
-	(*SupersedeEdgeResponse)(nil),           // 42: jennahapi.agent.v1.SupersedeEdgeResponse
-	(*SupersedeChunkRequest)(nil),           // 43: jennahapi.agent.v1.SupersedeChunkRequest
-	(*SupersedeChunkResponse)(nil),          // 44: jennahapi.agent.v1.SupersedeChunkResponse
-	(*ToolTrace)(nil),                       // 45: jennahapi.agent.v1.ToolTrace
-	(*ConversationTurn)(nil),                // 46: jennahapi.agent.v1.ConversationTurn
-	(*FormMemoryRequest)(nil),               // 47: jennahapi.agent.v1.FormMemoryRequest
-	(*FormedCandidate)(nil),                 // 48: jennahapi.agent.v1.FormedCandidate
-	(*RedactionRecord)(nil),                 // 49: jennahapi.agent.v1.RedactionRecord
-	(*SummarizedStructure)(nil),             // 50: jennahapi.agent.v1.SummarizedStructure
-	(*FormMemoryResponse)(nil),              // 51: jennahapi.agent.v1.FormMemoryResponse
-	(*EntityClass)(nil),                     // 52: jennahapi.agent.v1.EntityClass
-	(*RelationSignature)(nil),               // 53: jennahapi.agent.v1.RelationSignature
-	(*RelationType)(nil),                    // 54: jennahapi.agent.v1.RelationType
-	(*MemoryVocabulary)(nil),                // 55: jennahapi.agent.v1.MemoryVocabulary
-	(*DeclareMemoryVocabularyRequest)(nil),  // 56: jennahapi.agent.v1.DeclareMemoryVocabularyRequest
-	(*DeclareMemoryVocabularyResponse)(nil), // 57: jennahapi.agent.v1.DeclareMemoryVocabularyResponse
-	(*RemoveMemoryVocabularyRequest)(nil),   // 58: jennahapi.agent.v1.RemoveMemoryVocabularyRequest
-	(*RemoveMemoryVocabularyResponse)(nil),  // 59: jennahapi.agent.v1.RemoveMemoryVocabularyResponse
-	(*GetMemoryVocabularyRequest)(nil),      // 60: jennahapi.agent.v1.GetMemoryVocabularyRequest
-	(*GetMemoryVocabularyResponse)(nil),     // 61: jennahapi.agent.v1.GetMemoryVocabularyResponse
-	(*BedrockFormationModelSetup)(nil),      // 62: jennahapi.agent.v1.BedrockFormationModelSetup
-	(*VertexFormationModelSetup)(nil),       // 63: jennahapi.agent.v1.VertexFormationModelSetup
-	(*BedrockFormationModel)(nil),           // 64: jennahapi.agent.v1.BedrockFormationModel
-	(*VertexFormationModel)(nil),            // 65: jennahapi.agent.v1.VertexFormationModel
-	(*AnthropicFormationModel)(nil),         // 66: jennahapi.agent.v1.AnthropicFormationModel
-	(*FormationModel)(nil),                  // 67: jennahapi.agent.v1.FormationModel
-	(*PrepareFormationModelRequest)(nil),    // 68: jennahapi.agent.v1.PrepareFormationModelRequest
-	(*PrepareFormationModelResponse)(nil),   // 69: jennahapi.agent.v1.PrepareFormationModelResponse
-	(*SetFormationModelRequest)(nil),        // 70: jennahapi.agent.v1.SetFormationModelRequest
-	(*SetFormationModelResponse)(nil),       // 71: jennahapi.agent.v1.SetFormationModelResponse
-	(*GetFormationModelRequest)(nil),        // 72: jennahapi.agent.v1.GetFormationModelRequest
-	(*GetFormationModelResponse)(nil),       // 73: jennahapi.agent.v1.GetFormationModelResponse
-	(*RemoveFormationModelRequest)(nil),     // 74: jennahapi.agent.v1.RemoveFormationModelRequest
-	(*RemoveFormationModelResponse)(nil),    // 75: jennahapi.agent.v1.RemoveFormationModelResponse
-	(*CheckFormationModelRequest)(nil),      // 76: jennahapi.agent.v1.CheckFormationModelRequest
-	(*CheckFormationModelResponse)(nil),     // 77: jennahapi.agent.v1.CheckFormationModelResponse
-	nil,                                     // 78: jennahapi.agent.v1.ExecutionLogStep.MetadataEntry
-	nil,                                     // 79: jennahapi.agent.v1.VectorChunk.MetadataEntry
-	nil,                                     // 80: jennahapi.agent.v1.GraphNode.MetadataEntry
-	nil,                                     // 81: jennahapi.agent.v1.GraphEdge.MetadataEntry
-	nil,                                     // 82: jennahapi.agent.v1.SemanticMatch.MetadataEntry
-	nil,                                     // 83: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
-	(*timestamppb.Timestamp)(nil),           // 84: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                 // 85: google.protobuf.Struct
-	(*structpb.Value)(nil),                  // 86: google.protobuf.Value
+	(FormationState)(0),                     // 7: jennahapi.agent.v1.FormationState
+	(FormationModelProvider)(0),             // 8: jennahapi.agent.v1.FormationModelProvider
+	(MetadataFilter_Operator)(0),            // 9: jennahapi.agent.v1.MetadataFilter.Operator
+	(*CommitMemoryRequest)(nil),             // 10: jennahapi.agent.v1.CommitMemoryRequest
+	(*ExecutionLogStep)(nil),                // 11: jennahapi.agent.v1.ExecutionLogStep
+	(*VectorChunk)(nil),                     // 12: jennahapi.agent.v1.VectorChunk
+	(*GraphWrite)(nil),                      // 13: jennahapi.agent.v1.GraphWrite
+	(*SupersessionWrite)(nil),               // 14: jennahapi.agent.v1.SupersessionWrite
+	(*EdgeSupersession)(nil),                // 15: jennahapi.agent.v1.EdgeSupersession
+	(*ChunkSupersession)(nil),               // 16: jennahapi.agent.v1.ChunkSupersession
+	(*GraphNode)(nil),                       // 17: jennahapi.agent.v1.GraphNode
+	(*GraphEdge)(nil),                       // 18: jennahapi.agent.v1.GraphEdge
+	(*CommitMemoryResponse)(nil),            // 19: jennahapi.agent.v1.CommitMemoryResponse
+	(*QueryMemoryRequest)(nil),              // 20: jennahapi.agent.v1.QueryMemoryRequest
+	(*SemanticQuery)(nil),                   // 21: jennahapi.agent.v1.SemanticQuery
+	(*MetadataFilter)(nil),                  // 22: jennahapi.agent.v1.MetadataFilter
+	(*GraphQuery)(nil),                      // 23: jennahapi.agent.v1.GraphQuery
+	(*GraphNodeMatch)(nil),                  // 24: jennahapi.agent.v1.GraphNodeMatch
+	(*GraphStep)(nil),                       // 25: jennahapi.agent.v1.GraphStep
+	(*PropertyFilter)(nil),                  // 26: jennahapi.agent.v1.PropertyFilter
+	(*LogQuery)(nil),                        // 27: jennahapi.agent.v1.LogQuery
+	(*QueryMemoryResponse)(nil),             // 28: jennahapi.agent.v1.QueryMemoryResponse
+	(*SemanticResult)(nil),                  // 29: jennahapi.agent.v1.SemanticResult
+	(*SemanticMatch)(nil),                   // 30: jennahapi.agent.v1.SemanticMatch
+	(*GraphResult)(nil),                     // 31: jennahapi.agent.v1.GraphResult
+	(*LogResult)(nil),                       // 32: jennahapi.agent.v1.LogResult
+	(*FusedResult)(nil),                     // 33: jennahapi.agent.v1.FusedResult
+	(*InspectMemoryRequest)(nil),            // 34: jennahapi.agent.v1.InspectMemoryRequest
+	(*InspectVectors)(nil),                  // 35: jennahapi.agent.v1.InspectVectors
+	(*InspectGraph)(nil),                    // 36: jennahapi.agent.v1.InspectGraph
+	(*InspectLog)(nil),                      // 37: jennahapi.agent.v1.InspectLog
+	(*InspectMemoryResponse)(nil),           // 38: jennahapi.agent.v1.InspectMemoryResponse
+	(*VectorInspectResult)(nil),             // 39: jennahapi.agent.v1.VectorInspectResult
+	(*VectorChunkInfo)(nil),                 // 40: jennahapi.agent.v1.VectorChunkInfo
+	(*GraphInspectResult)(nil),              // 41: jennahapi.agent.v1.GraphInspectResult
+	(*SupersedeEdgeRequest)(nil),            // 42: jennahapi.agent.v1.SupersedeEdgeRequest
+	(*SupersedeEdgeResponse)(nil),           // 43: jennahapi.agent.v1.SupersedeEdgeResponse
+	(*SupersedeChunkRequest)(nil),           // 44: jennahapi.agent.v1.SupersedeChunkRequest
+	(*SupersedeChunkResponse)(nil),          // 45: jennahapi.agent.v1.SupersedeChunkResponse
+	(*ToolTrace)(nil),                       // 46: jennahapi.agent.v1.ToolTrace
+	(*ConversationTurn)(nil),                // 47: jennahapi.agent.v1.ConversationTurn
+	(*FormMemoryRequest)(nil),               // 48: jennahapi.agent.v1.FormMemoryRequest
+	(*FormedCandidate)(nil),                 // 49: jennahapi.agent.v1.FormedCandidate
+	(*RedactionRecord)(nil),                 // 50: jennahapi.agent.v1.RedactionRecord
+	(*SummarizedStructure)(nil),             // 51: jennahapi.agent.v1.SummarizedStructure
+	(*FormMemoryResponse)(nil),              // 52: jennahapi.agent.v1.FormMemoryResponse
+	(*SubmitFormationRequest)(nil),          // 53: jennahapi.agent.v1.SubmitFormationRequest
+	(*SubmitFormationResponse)(nil),         // 54: jennahapi.agent.v1.SubmitFormationResponse
+	(*GetFormationRequest)(nil),             // 55: jennahapi.agent.v1.GetFormationRequest
+	(*GetFormationResponse)(nil),            // 56: jennahapi.agent.v1.GetFormationResponse
+	(*Formation)(nil),                       // 57: jennahapi.agent.v1.Formation
+	(*EntityClass)(nil),                     // 58: jennahapi.agent.v1.EntityClass
+	(*RelationSignature)(nil),               // 59: jennahapi.agent.v1.RelationSignature
+	(*RelationType)(nil),                    // 60: jennahapi.agent.v1.RelationType
+	(*MemoryVocabulary)(nil),                // 61: jennahapi.agent.v1.MemoryVocabulary
+	(*DeclareMemoryVocabularyRequest)(nil),  // 62: jennahapi.agent.v1.DeclareMemoryVocabularyRequest
+	(*DeclareMemoryVocabularyResponse)(nil), // 63: jennahapi.agent.v1.DeclareMemoryVocabularyResponse
+	(*RemoveMemoryVocabularyRequest)(nil),   // 64: jennahapi.agent.v1.RemoveMemoryVocabularyRequest
+	(*RemoveMemoryVocabularyResponse)(nil),  // 65: jennahapi.agent.v1.RemoveMemoryVocabularyResponse
+	(*GetMemoryVocabularyRequest)(nil),      // 66: jennahapi.agent.v1.GetMemoryVocabularyRequest
+	(*GetMemoryVocabularyResponse)(nil),     // 67: jennahapi.agent.v1.GetMemoryVocabularyResponse
+	(*BedrockFormationModelSetup)(nil),      // 68: jennahapi.agent.v1.BedrockFormationModelSetup
+	(*VertexFormationModelSetup)(nil),       // 69: jennahapi.agent.v1.VertexFormationModelSetup
+	(*BedrockFormationModel)(nil),           // 70: jennahapi.agent.v1.BedrockFormationModel
+	(*VertexFormationModel)(nil),            // 71: jennahapi.agent.v1.VertexFormationModel
+	(*AnthropicFormationModel)(nil),         // 72: jennahapi.agent.v1.AnthropicFormationModel
+	(*FormationModel)(nil),                  // 73: jennahapi.agent.v1.FormationModel
+	(*PrepareFormationModelRequest)(nil),    // 74: jennahapi.agent.v1.PrepareFormationModelRequest
+	(*PrepareFormationModelResponse)(nil),   // 75: jennahapi.agent.v1.PrepareFormationModelResponse
+	(*SetFormationModelRequest)(nil),        // 76: jennahapi.agent.v1.SetFormationModelRequest
+	(*SetFormationModelResponse)(nil),       // 77: jennahapi.agent.v1.SetFormationModelResponse
+	(*GetFormationModelRequest)(nil),        // 78: jennahapi.agent.v1.GetFormationModelRequest
+	(*GetFormationModelResponse)(nil),       // 79: jennahapi.agent.v1.GetFormationModelResponse
+	(*RemoveFormationModelRequest)(nil),     // 80: jennahapi.agent.v1.RemoveFormationModelRequest
+	(*RemoveFormationModelResponse)(nil),    // 81: jennahapi.agent.v1.RemoveFormationModelResponse
+	(*CheckFormationModelRequest)(nil),      // 82: jennahapi.agent.v1.CheckFormationModelRequest
+	(*CheckFormationModelResponse)(nil),     // 83: jennahapi.agent.v1.CheckFormationModelResponse
+	nil,                                     // 84: jennahapi.agent.v1.ExecutionLogStep.MetadataEntry
+	nil,                                     // 85: jennahapi.agent.v1.VectorChunk.MetadataEntry
+	nil,                                     // 86: jennahapi.agent.v1.GraphNode.MetadataEntry
+	nil,                                     // 87: jennahapi.agent.v1.GraphEdge.MetadataEntry
+	nil,                                     // 88: jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	nil,                                     // 89: jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	(*timestamppb.Timestamp)(nil),           // 90: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                 // 91: google.protobuf.Struct
+	(*structpb.Value)(nil),                  // 92: google.protobuf.Value
 }
 var file_jennah_agent_v1_memory_proto_depIdxs = []int32{
-	10,  // 0: jennahapi.agent.v1.CommitMemoryRequest.log:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	11,  // 1: jennahapi.agent.v1.CommitMemoryRequest.vectors:type_name -> jennahapi.agent.v1.VectorChunk
-	12,  // 2: jennahapi.agent.v1.CommitMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphWrite
-	13,  // 3: jennahapi.agent.v1.CommitMemoryRequest.supersessions:type_name -> jennahapi.agent.v1.SupersessionWrite
-	84,  // 4: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
-	78,  // 5: jennahapi.agent.v1.ExecutionLogStep.metadata:type_name -> jennahapi.agent.v1.ExecutionLogStep.MetadataEntry
-	79,  // 6: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
-	84,  // 7: jennahapi.agent.v1.VectorChunk.valid_at:type_name -> google.protobuf.Timestamp
-	84,  // 8: jennahapi.agent.v1.VectorChunk.invalid_at:type_name -> google.protobuf.Timestamp
-	16,  // 9: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	17,  // 10: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	14,  // 11: jennahapi.agent.v1.SupersessionWrite.edges:type_name -> jennahapi.agent.v1.EdgeSupersession
-	15,  // 12: jennahapi.agent.v1.SupersessionWrite.chunks:type_name -> jennahapi.agent.v1.ChunkSupersession
-	17,  // 13: jennahapi.agent.v1.EdgeSupersession.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
-	11,  // 14: jennahapi.agent.v1.ChunkSupersession.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
-	85,  // 15: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
-	84,  // 16: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
-	80,  // 17: jennahapi.agent.v1.GraphNode.metadata:type_name -> jennahapi.agent.v1.GraphNode.MetadataEntry
-	85,  // 18: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
-	84,  // 19: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
-	84,  // 20: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
-	84,  // 21: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
-	81,  // 22: jennahapi.agent.v1.GraphEdge.metadata:type_name -> jennahapi.agent.v1.GraphEdge.MetadataEntry
-	84,  // 23: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	20,  // 24: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
-	22,  // 25: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
-	26,  // 26: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
+	11,  // 0: jennahapi.agent.v1.CommitMemoryRequest.log:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	12,  // 1: jennahapi.agent.v1.CommitMemoryRequest.vectors:type_name -> jennahapi.agent.v1.VectorChunk
+	13,  // 2: jennahapi.agent.v1.CommitMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphWrite
+	14,  // 3: jennahapi.agent.v1.CommitMemoryRequest.supersessions:type_name -> jennahapi.agent.v1.SupersessionWrite
+	90,  // 4: jennahapi.agent.v1.ExecutionLogStep.timestamp:type_name -> google.protobuf.Timestamp
+	84,  // 5: jennahapi.agent.v1.ExecutionLogStep.metadata:type_name -> jennahapi.agent.v1.ExecutionLogStep.MetadataEntry
+	85,  // 6: jennahapi.agent.v1.VectorChunk.metadata:type_name -> jennahapi.agent.v1.VectorChunk.MetadataEntry
+	90,  // 7: jennahapi.agent.v1.VectorChunk.valid_at:type_name -> google.protobuf.Timestamp
+	90,  // 8: jennahapi.agent.v1.VectorChunk.invalid_at:type_name -> google.protobuf.Timestamp
+	17,  // 9: jennahapi.agent.v1.GraphWrite.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	18,  // 10: jennahapi.agent.v1.GraphWrite.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	15,  // 11: jennahapi.agent.v1.SupersessionWrite.edges:type_name -> jennahapi.agent.v1.EdgeSupersession
+	16,  // 12: jennahapi.agent.v1.SupersessionWrite.chunks:type_name -> jennahapi.agent.v1.ChunkSupersession
+	18,  // 13: jennahapi.agent.v1.EdgeSupersession.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
+	12,  // 14: jennahapi.agent.v1.ChunkSupersession.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
+	91,  // 15: jennahapi.agent.v1.GraphNode.properties:type_name -> google.protobuf.Struct
+	90,  // 16: jennahapi.agent.v1.GraphNode.updated_at:type_name -> google.protobuf.Timestamp
+	86,  // 17: jennahapi.agent.v1.GraphNode.metadata:type_name -> jennahapi.agent.v1.GraphNode.MetadataEntry
+	91,  // 18: jennahapi.agent.v1.GraphEdge.properties:type_name -> google.protobuf.Struct
+	90,  // 19: jennahapi.agent.v1.GraphEdge.updated_at:type_name -> google.protobuf.Timestamp
+	90,  // 20: jennahapi.agent.v1.GraphEdge.valid_at:type_name -> google.protobuf.Timestamp
+	90,  // 21: jennahapi.agent.v1.GraphEdge.invalid_at:type_name -> google.protobuf.Timestamp
+	87,  // 22: jennahapi.agent.v1.GraphEdge.metadata:type_name -> jennahapi.agent.v1.GraphEdge.MetadataEntry
+	90,  // 23: jennahapi.agent.v1.CommitMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	21,  // 24: jennahapi.agent.v1.QueryMemoryRequest.semantic:type_name -> jennahapi.agent.v1.SemanticQuery
+	23,  // 25: jennahapi.agent.v1.QueryMemoryRequest.graph:type_name -> jennahapi.agent.v1.GraphQuery
+	27,  // 26: jennahapi.agent.v1.QueryMemoryRequest.log:type_name -> jennahapi.agent.v1.LogQuery
 	0,   // 27: jennahapi.agent.v1.QueryMemoryRequest.fusion_direction:type_name -> jennahapi.agent.v1.FusionDirection
-	84,  // 28: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	21,  // 29: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
-	84,  // 30: jennahapi.agent.v1.SemanticQuery.as_of_valid:type_name -> google.protobuf.Timestamp
-	84,  // 31: jennahapi.agent.v1.SemanticQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	90,  // 28: jennahapi.agent.v1.QueryMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	22,  // 29: jennahapi.agent.v1.SemanticQuery.filters:type_name -> jennahapi.agent.v1.MetadataFilter
+	90,  // 30: jennahapi.agent.v1.SemanticQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	90,  // 31: jennahapi.agent.v1.SemanticQuery.as_of_tx:type_name -> google.protobuf.Timestamp
 	1,   // 32: jennahapi.agent.v1.SemanticQuery.retrieval_mode:type_name -> jennahapi.agent.v1.RetrievalMode
-	8,   // 33: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
-	23,  // 34: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	24,  // 35: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
-	84,  // 36: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
-	84,  // 37: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
-	25,  // 38: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
-	21,  // 39: jennahapi.agent.v1.GraphNodeMatch.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
+	9,   // 33: jennahapi.agent.v1.MetadataFilter.operator:type_name -> jennahapi.agent.v1.MetadataFilter.Operator
+	24,  // 34: jennahapi.agent.v1.GraphQuery.start:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	25,  // 35: jennahapi.agent.v1.GraphQuery.steps:type_name -> jennahapi.agent.v1.GraphStep
+	90,  // 36: jennahapi.agent.v1.GraphQuery.as_of_valid:type_name -> google.protobuf.Timestamp
+	90,  // 37: jennahapi.agent.v1.GraphQuery.as_of_tx:type_name -> google.protobuf.Timestamp
+	26,  // 38: jennahapi.agent.v1.GraphNodeMatch.filters:type_name -> jennahapi.agent.v1.PropertyFilter
+	22,  // 39: jennahapi.agent.v1.GraphNodeMatch.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
 	3,   // 40: jennahapi.agent.v1.GraphStep.direction:type_name -> jennahapi.agent.v1.GraphDirection
-	23,  // 41: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
-	21,  // 42: jennahapi.agent.v1.GraphStep.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
-	86,  // 43: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
-	84,  // 44: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
-	21,  // 45: jennahapi.agent.v1.LogQuery.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
-	28,  // 46: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
-	30,  // 47: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
-	31,  // 48: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	32,  // 49: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
-	84,  // 50: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	29,  // 51: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
-	82,  // 52: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
+	24,  // 41: jennahapi.agent.v1.GraphStep.node:type_name -> jennahapi.agent.v1.GraphNodeMatch
+	22,  // 42: jennahapi.agent.v1.GraphStep.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
+	92,  // 43: jennahapi.agent.v1.PropertyFilter.value:type_name -> google.protobuf.Value
+	90,  // 44: jennahapi.agent.v1.LogQuery.since:type_name -> google.protobuf.Timestamp
+	22,  // 45: jennahapi.agent.v1.LogQuery.metadata:type_name -> jennahapi.agent.v1.MetadataFilter
+	29,  // 46: jennahapi.agent.v1.QueryMemoryResponse.semantic:type_name -> jennahapi.agent.v1.SemanticResult
+	31,  // 47: jennahapi.agent.v1.QueryMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphResult
+	32,  // 48: jennahapi.agent.v1.QueryMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	33,  // 49: jennahapi.agent.v1.QueryMemoryResponse.fused:type_name -> jennahapi.agent.v1.FusedResult
+	90,  // 50: jennahapi.agent.v1.QueryMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	30,  // 51: jennahapi.agent.v1.SemanticResult.matches:type_name -> jennahapi.agent.v1.SemanticMatch
+	88,  // 52: jennahapi.agent.v1.SemanticMatch.metadata:type_name -> jennahapi.agent.v1.SemanticMatch.MetadataEntry
 	2,   // 53: jennahapi.agent.v1.SemanticMatch.channels:type_name -> jennahapi.agent.v1.RetrievalChannel
-	84,  // 54: jennahapi.agent.v1.SemanticMatch.valid_at:type_name -> google.protobuf.Timestamp
-	84,  // 55: jennahapi.agent.v1.SemanticMatch.invalid_at:type_name -> google.protobuf.Timestamp
-	85,  // 56: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
-	10,  // 57: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
-	85,  // 58: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
-	34,  // 59: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
-	35,  // 60: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
-	36,  // 61: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
-	84,  // 62: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
-	84,  // 63: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
-	38,  // 64: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
-	40,  // 65: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
-	31,  // 66: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
-	84,  // 67: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
-	39,  // 68: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
-	84,  // 69: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
-	83,  // 70: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
-	84,  // 71: jennahapi.agent.v1.VectorChunkInfo.valid_at:type_name -> google.protobuf.Timestamp
-	84,  // 72: jennahapi.agent.v1.VectorChunkInfo.invalid_at:type_name -> google.protobuf.Timestamp
-	84,  // 73: jennahapi.agent.v1.VectorChunkInfo.asserted_at:type_name -> google.protobuf.Timestamp
-	84,  // 74: jennahapi.agent.v1.VectorChunkInfo.expired_at:type_name -> google.protobuf.Timestamp
-	16,  // 75: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
-	17,  // 76: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
-	17,  // 77: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
-	84,  // 78: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	11,  // 79: jennahapi.agent.v1.SupersedeChunkRequest.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
-	84,  // 80: jennahapi.agent.v1.SupersedeChunkResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	90,  // 54: jennahapi.agent.v1.SemanticMatch.valid_at:type_name -> google.protobuf.Timestamp
+	90,  // 55: jennahapi.agent.v1.SemanticMatch.invalid_at:type_name -> google.protobuf.Timestamp
+	91,  // 56: jennahapi.agent.v1.GraphResult.rows:type_name -> google.protobuf.Struct
+	11,  // 57: jennahapi.agent.v1.LogResult.steps:type_name -> jennahapi.agent.v1.ExecutionLogStep
+	91,  // 58: jennahapi.agent.v1.FusedResult.items:type_name -> google.protobuf.Struct
+	35,  // 59: jennahapi.agent.v1.InspectMemoryRequest.vectors:type_name -> jennahapi.agent.v1.InspectVectors
+	36,  // 60: jennahapi.agent.v1.InspectMemoryRequest.graph:type_name -> jennahapi.agent.v1.InspectGraph
+	37,  // 61: jennahapi.agent.v1.InspectMemoryRequest.log:type_name -> jennahapi.agent.v1.InspectLog
+	90,  // 62: jennahapi.agent.v1.InspectMemoryRequest.as_of:type_name -> google.protobuf.Timestamp
+	90,  // 63: jennahapi.agent.v1.InspectLog.since:type_name -> google.protobuf.Timestamp
+	39,  // 64: jennahapi.agent.v1.InspectMemoryResponse.vectors:type_name -> jennahapi.agent.v1.VectorInspectResult
+	41,  // 65: jennahapi.agent.v1.InspectMemoryResponse.graph:type_name -> jennahapi.agent.v1.GraphInspectResult
+	32,  // 66: jennahapi.agent.v1.InspectMemoryResponse.log:type_name -> jennahapi.agent.v1.LogResult
+	90,  // 67: jennahapi.agent.v1.InspectMemoryResponse.read_timestamp:type_name -> google.protobuf.Timestamp
+	40,  // 68: jennahapi.agent.v1.VectorInspectResult.chunks:type_name -> jennahapi.agent.v1.VectorChunkInfo
+	90,  // 69: jennahapi.agent.v1.VectorChunkInfo.updated_at:type_name -> google.protobuf.Timestamp
+	89,  // 70: jennahapi.agent.v1.VectorChunkInfo.metadata:type_name -> jennahapi.agent.v1.VectorChunkInfo.MetadataEntry
+	90,  // 71: jennahapi.agent.v1.VectorChunkInfo.valid_at:type_name -> google.protobuf.Timestamp
+	90,  // 72: jennahapi.agent.v1.VectorChunkInfo.invalid_at:type_name -> google.protobuf.Timestamp
+	90,  // 73: jennahapi.agent.v1.VectorChunkInfo.asserted_at:type_name -> google.protobuf.Timestamp
+	90,  // 74: jennahapi.agent.v1.VectorChunkInfo.expired_at:type_name -> google.protobuf.Timestamp
+	17,  // 75: jennahapi.agent.v1.GraphInspectResult.nodes:type_name -> jennahapi.agent.v1.GraphNode
+	18,  // 76: jennahapi.agent.v1.GraphInspectResult.edges:type_name -> jennahapi.agent.v1.GraphEdge
+	18,  // 77: jennahapi.agent.v1.SupersedeEdgeRequest.new_edge:type_name -> jennahapi.agent.v1.GraphEdge
+	90,  // 78: jennahapi.agent.v1.SupersedeEdgeResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	12,  // 79: jennahapi.agent.v1.SupersedeChunkRequest.new_chunk:type_name -> jennahapi.agent.v1.VectorChunk
+	90,  // 80: jennahapi.agent.v1.SupersedeChunkResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
 	4,   // 81: jennahapi.agent.v1.ConversationTurn.role:type_name -> jennahapi.agent.v1.TurnRole
-	45,  // 82: jennahapi.agent.v1.ConversationTurn.tools:type_name -> jennahapi.agent.v1.ToolTrace
-	46,  // 83: jennahapi.agent.v1.FormMemoryRequest.turns:type_name -> jennahapi.agent.v1.ConversationTurn
-	84,  // 84: jennahapi.agent.v1.FormMemoryRequest.observed_at:type_name -> google.protobuf.Timestamp
+	46,  // 82: jennahapi.agent.v1.ConversationTurn.tools:type_name -> jennahapi.agent.v1.ToolTrace
+	47,  // 83: jennahapi.agent.v1.FormMemoryRequest.turns:type_name -> jennahapi.agent.v1.ConversationTurn
+	90,  // 84: jennahapi.agent.v1.FormMemoryRequest.observed_at:type_name -> google.protobuf.Timestamp
 	5,   // 85: jennahapi.agent.v1.FormedCandidate.kind:type_name -> jennahapi.agent.v1.CandidateKind
 	6,   // 86: jennahapi.agent.v1.FormedCandidate.decision:type_name -> jennahapi.agent.v1.MemoryDecision
-	84,  // 87: jennahapi.agent.v1.FormMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
-	48,  // 88: jennahapi.agent.v1.FormMemoryResponse.candidates:type_name -> jennahapi.agent.v1.FormedCandidate
-	49,  // 89: jennahapi.agent.v1.FormMemoryResponse.redactions:type_name -> jennahapi.agent.v1.RedactionRecord
-	50,  // 90: jennahapi.agent.v1.FormMemoryResponse.summarized_structures:type_name -> jennahapi.agent.v1.SummarizedStructure
-	53,  // 91: jennahapi.agent.v1.RelationType.signatures:type_name -> jennahapi.agent.v1.RelationSignature
-	52,  // 92: jennahapi.agent.v1.MemoryVocabulary.entity_classes:type_name -> jennahapi.agent.v1.EntityClass
-	54,  // 93: jennahapi.agent.v1.MemoryVocabulary.relation_types:type_name -> jennahapi.agent.v1.RelationType
-	55,  // 94: jennahapi.agent.v1.DeclareMemoryVocabularyRequest.vocabulary:type_name -> jennahapi.agent.v1.MemoryVocabulary
-	55,  // 95: jennahapi.agent.v1.DeclareMemoryVocabularyResponse.vocabulary:type_name -> jennahapi.agent.v1.MemoryVocabulary
-	55,  // 96: jennahapi.agent.v1.GetMemoryVocabularyResponse.declaration:type_name -> jennahapi.agent.v1.MemoryVocabulary
-	55,  // 97: jennahapi.agent.v1.GetMemoryVocabularyResponse.resolved:type_name -> jennahapi.agent.v1.MemoryVocabulary
-	7,   // 98: jennahapi.agent.v1.FormationModel.provider:type_name -> jennahapi.agent.v1.FormationModelProvider
-	64,  // 99: jennahapi.agent.v1.FormationModel.bedrock:type_name -> jennahapi.agent.v1.BedrockFormationModel
-	65,  // 100: jennahapi.agent.v1.FormationModel.vertex:type_name -> jennahapi.agent.v1.VertexFormationModel
-	66,  // 101: jennahapi.agent.v1.FormationModel.anthropic:type_name -> jennahapi.agent.v1.AnthropicFormationModel
-	84,  // 102: jennahapi.agent.v1.FormationModel.update_time:type_name -> google.protobuf.Timestamp
-	7,   // 103: jennahapi.agent.v1.PrepareFormationModelRequest.provider:type_name -> jennahapi.agent.v1.FormationModelProvider
-	7,   // 104: jennahapi.agent.v1.PrepareFormationModelResponse.provider:type_name -> jennahapi.agent.v1.FormationModelProvider
-	62,  // 105: jennahapi.agent.v1.PrepareFormationModelResponse.bedrock:type_name -> jennahapi.agent.v1.BedrockFormationModelSetup
-	63,  // 106: jennahapi.agent.v1.PrepareFormationModelResponse.vertex:type_name -> jennahapi.agent.v1.VertexFormationModelSetup
-	67,  // 107: jennahapi.agent.v1.SetFormationModelRequest.model:type_name -> jennahapi.agent.v1.FormationModel
-	67,  // 108: jennahapi.agent.v1.SetFormationModelResponse.model:type_name -> jennahapi.agent.v1.FormationModel
-	67,  // 109: jennahapi.agent.v1.GetFormationModelResponse.model:type_name -> jennahapi.agent.v1.FormationModel
-	62,  // 110: jennahapi.agent.v1.GetFormationModelResponse.bedrock_setup:type_name -> jennahapi.agent.v1.BedrockFormationModelSetup
-	63,  // 111: jennahapi.agent.v1.GetFormationModelResponse.vertex_setup:type_name -> jennahapi.agent.v1.VertexFormationModelSetup
-	67,  // 112: jennahapi.agent.v1.CheckFormationModelResponse.model:type_name -> jennahapi.agent.v1.FormationModel
-	9,   // 113: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
-	19,  // 114: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
-	33,  // 115: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
-	41,  // 116: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
-	43,  // 117: jennahapi.agent.v1.MemoryService.SupersedeChunk:input_type -> jennahapi.agent.v1.SupersedeChunkRequest
-	47,  // 118: jennahapi.agent.v1.MemoryService.FormMemory:input_type -> jennahapi.agent.v1.FormMemoryRequest
-	56,  // 119: jennahapi.agent.v1.MemoryService.DeclareMemoryVocabulary:input_type -> jennahapi.agent.v1.DeclareMemoryVocabularyRequest
-	58,  // 120: jennahapi.agent.v1.MemoryService.RemoveMemoryVocabulary:input_type -> jennahapi.agent.v1.RemoveMemoryVocabularyRequest
-	60,  // 121: jennahapi.agent.v1.MemoryService.GetMemoryVocabulary:input_type -> jennahapi.agent.v1.GetMemoryVocabularyRequest
-	68,  // 122: jennahapi.agent.v1.MemoryService.PrepareFormationModel:input_type -> jennahapi.agent.v1.PrepareFormationModelRequest
-	70,  // 123: jennahapi.agent.v1.MemoryService.SetFormationModel:input_type -> jennahapi.agent.v1.SetFormationModelRequest
-	72,  // 124: jennahapi.agent.v1.MemoryService.GetFormationModel:input_type -> jennahapi.agent.v1.GetFormationModelRequest
-	74,  // 125: jennahapi.agent.v1.MemoryService.RemoveFormationModel:input_type -> jennahapi.agent.v1.RemoveFormationModelRequest
-	76,  // 126: jennahapi.agent.v1.MemoryService.CheckFormationModel:input_type -> jennahapi.agent.v1.CheckFormationModelRequest
-	18,  // 127: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
-	27,  // 128: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
-	37,  // 129: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
-	42,  // 130: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
-	44,  // 131: jennahapi.agent.v1.MemoryService.SupersedeChunk:output_type -> jennahapi.agent.v1.SupersedeChunkResponse
-	51,  // 132: jennahapi.agent.v1.MemoryService.FormMemory:output_type -> jennahapi.agent.v1.FormMemoryResponse
-	57,  // 133: jennahapi.agent.v1.MemoryService.DeclareMemoryVocabulary:output_type -> jennahapi.agent.v1.DeclareMemoryVocabularyResponse
-	59,  // 134: jennahapi.agent.v1.MemoryService.RemoveMemoryVocabulary:output_type -> jennahapi.agent.v1.RemoveMemoryVocabularyResponse
-	61,  // 135: jennahapi.agent.v1.MemoryService.GetMemoryVocabulary:output_type -> jennahapi.agent.v1.GetMemoryVocabularyResponse
-	69,  // 136: jennahapi.agent.v1.MemoryService.PrepareFormationModel:output_type -> jennahapi.agent.v1.PrepareFormationModelResponse
-	71,  // 137: jennahapi.agent.v1.MemoryService.SetFormationModel:output_type -> jennahapi.agent.v1.SetFormationModelResponse
-	73,  // 138: jennahapi.agent.v1.MemoryService.GetFormationModel:output_type -> jennahapi.agent.v1.GetFormationModelResponse
-	75,  // 139: jennahapi.agent.v1.MemoryService.RemoveFormationModel:output_type -> jennahapi.agent.v1.RemoveFormationModelResponse
-	77,  // 140: jennahapi.agent.v1.MemoryService.CheckFormationModel:output_type -> jennahapi.agent.v1.CheckFormationModelResponse
-	127, // [127:141] is the sub-list for method output_type
-	113, // [113:127] is the sub-list for method input_type
-	113, // [113:113] is the sub-list for extension type_name
-	113, // [113:113] is the sub-list for extension extendee
-	0,   // [0:113] is the sub-list for field type_name
+	90,  // 87: jennahapi.agent.v1.FormMemoryResponse.commit_timestamp:type_name -> google.protobuf.Timestamp
+	49,  // 88: jennahapi.agent.v1.FormMemoryResponse.candidates:type_name -> jennahapi.agent.v1.FormedCandidate
+	50,  // 89: jennahapi.agent.v1.FormMemoryResponse.redactions:type_name -> jennahapi.agent.v1.RedactionRecord
+	51,  // 90: jennahapi.agent.v1.FormMemoryResponse.summarized_structures:type_name -> jennahapi.agent.v1.SummarizedStructure
+	47,  // 91: jennahapi.agent.v1.SubmitFormationRequest.turns:type_name -> jennahapi.agent.v1.ConversationTurn
+	90,  // 92: jennahapi.agent.v1.SubmitFormationRequest.observed_at:type_name -> google.protobuf.Timestamp
+	57,  // 93: jennahapi.agent.v1.SubmitFormationResponse.formation:type_name -> jennahapi.agent.v1.Formation
+	57,  // 94: jennahapi.agent.v1.GetFormationResponse.formation:type_name -> jennahapi.agent.v1.Formation
+	7,   // 95: jennahapi.agent.v1.Formation.state:type_name -> jennahapi.agent.v1.FormationState
+	52,  // 96: jennahapi.agent.v1.Formation.receipt:type_name -> jennahapi.agent.v1.FormMemoryResponse
+	90,  // 97: jennahapi.agent.v1.Formation.accepted_at:type_name -> google.protobuf.Timestamp
+	90,  // 98: jennahapi.agent.v1.Formation.finished_at:type_name -> google.protobuf.Timestamp
+	59,  // 99: jennahapi.agent.v1.RelationType.signatures:type_name -> jennahapi.agent.v1.RelationSignature
+	58,  // 100: jennahapi.agent.v1.MemoryVocabulary.entity_classes:type_name -> jennahapi.agent.v1.EntityClass
+	60,  // 101: jennahapi.agent.v1.MemoryVocabulary.relation_types:type_name -> jennahapi.agent.v1.RelationType
+	61,  // 102: jennahapi.agent.v1.DeclareMemoryVocabularyRequest.vocabulary:type_name -> jennahapi.agent.v1.MemoryVocabulary
+	61,  // 103: jennahapi.agent.v1.DeclareMemoryVocabularyResponse.vocabulary:type_name -> jennahapi.agent.v1.MemoryVocabulary
+	61,  // 104: jennahapi.agent.v1.GetMemoryVocabularyResponse.declaration:type_name -> jennahapi.agent.v1.MemoryVocabulary
+	61,  // 105: jennahapi.agent.v1.GetMemoryVocabularyResponse.resolved:type_name -> jennahapi.agent.v1.MemoryVocabulary
+	8,   // 106: jennahapi.agent.v1.FormationModel.provider:type_name -> jennahapi.agent.v1.FormationModelProvider
+	70,  // 107: jennahapi.agent.v1.FormationModel.bedrock:type_name -> jennahapi.agent.v1.BedrockFormationModel
+	71,  // 108: jennahapi.agent.v1.FormationModel.vertex:type_name -> jennahapi.agent.v1.VertexFormationModel
+	72,  // 109: jennahapi.agent.v1.FormationModel.anthropic:type_name -> jennahapi.agent.v1.AnthropicFormationModel
+	90,  // 110: jennahapi.agent.v1.FormationModel.update_time:type_name -> google.protobuf.Timestamp
+	8,   // 111: jennahapi.agent.v1.PrepareFormationModelRequest.provider:type_name -> jennahapi.agent.v1.FormationModelProvider
+	8,   // 112: jennahapi.agent.v1.PrepareFormationModelResponse.provider:type_name -> jennahapi.agent.v1.FormationModelProvider
+	68,  // 113: jennahapi.agent.v1.PrepareFormationModelResponse.bedrock:type_name -> jennahapi.agent.v1.BedrockFormationModelSetup
+	69,  // 114: jennahapi.agent.v1.PrepareFormationModelResponse.vertex:type_name -> jennahapi.agent.v1.VertexFormationModelSetup
+	73,  // 115: jennahapi.agent.v1.SetFormationModelRequest.model:type_name -> jennahapi.agent.v1.FormationModel
+	73,  // 116: jennahapi.agent.v1.SetFormationModelResponse.model:type_name -> jennahapi.agent.v1.FormationModel
+	73,  // 117: jennahapi.agent.v1.GetFormationModelResponse.model:type_name -> jennahapi.agent.v1.FormationModel
+	68,  // 118: jennahapi.agent.v1.GetFormationModelResponse.bedrock_setup:type_name -> jennahapi.agent.v1.BedrockFormationModelSetup
+	69,  // 119: jennahapi.agent.v1.GetFormationModelResponse.vertex_setup:type_name -> jennahapi.agent.v1.VertexFormationModelSetup
+	73,  // 120: jennahapi.agent.v1.CheckFormationModelResponse.model:type_name -> jennahapi.agent.v1.FormationModel
+	10,  // 121: jennahapi.agent.v1.MemoryService.CommitMemory:input_type -> jennahapi.agent.v1.CommitMemoryRequest
+	20,  // 122: jennahapi.agent.v1.MemoryService.QueryMemory:input_type -> jennahapi.agent.v1.QueryMemoryRequest
+	34,  // 123: jennahapi.agent.v1.MemoryService.InspectMemory:input_type -> jennahapi.agent.v1.InspectMemoryRequest
+	42,  // 124: jennahapi.agent.v1.MemoryService.SupersedeEdge:input_type -> jennahapi.agent.v1.SupersedeEdgeRequest
+	44,  // 125: jennahapi.agent.v1.MemoryService.SupersedeChunk:input_type -> jennahapi.agent.v1.SupersedeChunkRequest
+	48,  // 126: jennahapi.agent.v1.MemoryService.FormMemory:input_type -> jennahapi.agent.v1.FormMemoryRequest
+	53,  // 127: jennahapi.agent.v1.MemoryService.SubmitFormation:input_type -> jennahapi.agent.v1.SubmitFormationRequest
+	55,  // 128: jennahapi.agent.v1.MemoryService.GetFormation:input_type -> jennahapi.agent.v1.GetFormationRequest
+	62,  // 129: jennahapi.agent.v1.MemoryService.DeclareMemoryVocabulary:input_type -> jennahapi.agent.v1.DeclareMemoryVocabularyRequest
+	64,  // 130: jennahapi.agent.v1.MemoryService.RemoveMemoryVocabulary:input_type -> jennahapi.agent.v1.RemoveMemoryVocabularyRequest
+	66,  // 131: jennahapi.agent.v1.MemoryService.GetMemoryVocabulary:input_type -> jennahapi.agent.v1.GetMemoryVocabularyRequest
+	74,  // 132: jennahapi.agent.v1.MemoryService.PrepareFormationModel:input_type -> jennahapi.agent.v1.PrepareFormationModelRequest
+	76,  // 133: jennahapi.agent.v1.MemoryService.SetFormationModel:input_type -> jennahapi.agent.v1.SetFormationModelRequest
+	78,  // 134: jennahapi.agent.v1.MemoryService.GetFormationModel:input_type -> jennahapi.agent.v1.GetFormationModelRequest
+	80,  // 135: jennahapi.agent.v1.MemoryService.RemoveFormationModel:input_type -> jennahapi.agent.v1.RemoveFormationModelRequest
+	82,  // 136: jennahapi.agent.v1.MemoryService.CheckFormationModel:input_type -> jennahapi.agent.v1.CheckFormationModelRequest
+	19,  // 137: jennahapi.agent.v1.MemoryService.CommitMemory:output_type -> jennahapi.agent.v1.CommitMemoryResponse
+	28,  // 138: jennahapi.agent.v1.MemoryService.QueryMemory:output_type -> jennahapi.agent.v1.QueryMemoryResponse
+	38,  // 139: jennahapi.agent.v1.MemoryService.InspectMemory:output_type -> jennahapi.agent.v1.InspectMemoryResponse
+	43,  // 140: jennahapi.agent.v1.MemoryService.SupersedeEdge:output_type -> jennahapi.agent.v1.SupersedeEdgeResponse
+	45,  // 141: jennahapi.agent.v1.MemoryService.SupersedeChunk:output_type -> jennahapi.agent.v1.SupersedeChunkResponse
+	52,  // 142: jennahapi.agent.v1.MemoryService.FormMemory:output_type -> jennahapi.agent.v1.FormMemoryResponse
+	54,  // 143: jennahapi.agent.v1.MemoryService.SubmitFormation:output_type -> jennahapi.agent.v1.SubmitFormationResponse
+	56,  // 144: jennahapi.agent.v1.MemoryService.GetFormation:output_type -> jennahapi.agent.v1.GetFormationResponse
+	63,  // 145: jennahapi.agent.v1.MemoryService.DeclareMemoryVocabulary:output_type -> jennahapi.agent.v1.DeclareMemoryVocabularyResponse
+	65,  // 146: jennahapi.agent.v1.MemoryService.RemoveMemoryVocabulary:output_type -> jennahapi.agent.v1.RemoveMemoryVocabularyResponse
+	67,  // 147: jennahapi.agent.v1.MemoryService.GetMemoryVocabulary:output_type -> jennahapi.agent.v1.GetMemoryVocabularyResponse
+	75,  // 148: jennahapi.agent.v1.MemoryService.PrepareFormationModel:output_type -> jennahapi.agent.v1.PrepareFormationModelResponse
+	77,  // 149: jennahapi.agent.v1.MemoryService.SetFormationModel:output_type -> jennahapi.agent.v1.SetFormationModelResponse
+	79,  // 150: jennahapi.agent.v1.MemoryService.GetFormationModel:output_type -> jennahapi.agent.v1.GetFormationModelResponse
+	81,  // 151: jennahapi.agent.v1.MemoryService.RemoveFormationModel:output_type -> jennahapi.agent.v1.RemoveFormationModelResponse
+	83,  // 152: jennahapi.agent.v1.MemoryService.CheckFormationModel:output_type -> jennahapi.agent.v1.CheckFormationModelResponse
+	137, // [137:153] is the sub-list for method output_type
+	121, // [121:137] is the sub-list for method input_type
+	121, // [121:121] is the sub-list for extension type_name
+	121, // [121:121] is the sub-list for extension extendee
+	0,   // [0:121] is the sub-list for field type_name
 }
 
 func init() { file_jennah_agent_v1_memory_proto_init() }
@@ -6996,8 +7454,8 @@ func file_jennah_agent_v1_memory_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_agent_v1_memory_proto_rawDesc), len(file_jennah_agent_v1_memory_proto_rawDesc)),
-			NumEnums:      9,
-			NumMessages:   75,
+			NumEnums:      10,
+			NumMessages:   80,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
