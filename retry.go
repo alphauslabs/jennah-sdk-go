@@ -245,6 +245,11 @@ var neverReplay = map[string]bool{
 	authv1.AuthService_CreateApiKey_FullMethodName:     true,
 	authv1.AuthService_RevokeApiKey_FullMethodName:     true,
 
+	// Ripple sign-in. A replayed wrong-password attempt counts toward Ripple's
+	// account lockout, and a replayed email-code request sends another email.
+	authv1.AuthService_RipplePasswordLogin_FullMethodName:    true,
+	authv1.AuthService_RequestRippleEmailCode_FullMethodName: true,
+
 	// Membership, role and enterprise administration.
 	authv1.AuthService_InviteMember_FullMethodName:     true,
 	authv1.AuthService_RevokeInvitation_FullMethodName: true,
