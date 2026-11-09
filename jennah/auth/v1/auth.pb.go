@@ -31,6 +31,8 @@ const (
 	Provider_PROVIDER_UNSPECIFIED Provider = 0
 	Provider_PROVIDER_GOOGLE      Provider = 1
 	Provider_PROVIDER_GITHUB      Provider = 2
+	// Ripple (Alphaus) username/password, relayed by RipplePasswordLogin.
+	Provider_PROVIDER_RIPPLE Provider = 3
 )
 
 // Enum value maps for Provider.
@@ -39,11 +41,13 @@ var (
 		0: "PROVIDER_UNSPECIFIED",
 		1: "PROVIDER_GOOGLE",
 		2: "PROVIDER_GITHUB",
+		3: "PROVIDER_RIPPLE",
 	}
 	Provider_value = map[string]int32{
 		"PROVIDER_UNSPECIFIED": 0,
 		"PROVIDER_GOOGLE":      1,
 		"PROVIDER_GITHUB":      2,
+		"PROVIDER_RIPPLE":      3,
 	}
 )
 
@@ -349,6 +353,58 @@ func (x PollDeviceLoginResponse_Status) Number() protoreflect.EnumNumber {
 // Deprecated: Use PollDeviceLoginResponse_Status.Descriptor instead.
 func (PollDeviceLoginResponse_Status) EnumDescriptor() ([]byte, []int) {
 	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{14, 0}
+}
+
+// Second factor Ripple requires before it will sign the user in.
+type RipplePasswordLoginResponse_Challenge int32
+
+const (
+	RipplePasswordLoginResponse_CHALLENGE_UNSPECIFIED RipplePasswordLoginResponse_Challenge = 0
+	// Resubmit with mfa_code from the user's authenticator app.
+	RipplePasswordLoginResponse_CHALLENGE_AUTHENTICATOR RipplePasswordLoginResponse_Challenge = 1
+	// Resubmit with email_code; RequestRippleEmailCode sends it.
+	RipplePasswordLoginResponse_CHALLENGE_EMAIL RipplePasswordLoginResponse_Challenge = 2
+)
+
+// Enum value maps for RipplePasswordLoginResponse_Challenge.
+var (
+	RipplePasswordLoginResponse_Challenge_name = map[int32]string{
+		0: "CHALLENGE_UNSPECIFIED",
+		1: "CHALLENGE_AUTHENTICATOR",
+		2: "CHALLENGE_EMAIL",
+	}
+	RipplePasswordLoginResponse_Challenge_value = map[string]int32{
+		"CHALLENGE_UNSPECIFIED":   0,
+		"CHALLENGE_AUTHENTICATOR": 1,
+		"CHALLENGE_EMAIL":         2,
+	}
+)
+
+func (x RipplePasswordLoginResponse_Challenge) Enum() *RipplePasswordLoginResponse_Challenge {
+	p := new(RipplePasswordLoginResponse_Challenge)
+	*p = x
+	return p
+}
+
+func (x RipplePasswordLoginResponse_Challenge) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (RipplePasswordLoginResponse_Challenge) Descriptor() protoreflect.EnumDescriptor {
+	return file_jennah_auth_v1_auth_proto_enumTypes[6].Descriptor()
+}
+
+func (RipplePasswordLoginResponse_Challenge) Type() protoreflect.EnumType {
+	return &file_jennah_auth_v1_auth_proto_enumTypes[6]
+}
+
+func (x RipplePasswordLoginResponse_Challenge) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use RipplePasswordLoginResponse_Challenge.Descriptor instead.
+func (RipplePasswordLoginResponse_Challenge) EnumDescriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{20, 0}
 }
 
 // One of the caller's enterprise memberships, surfaced in Identity so a
@@ -1574,6 +1630,300 @@ func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{18}
 }
 
+// Request message for the AuthService.RipplePasswordLogin rpc.
+//
+// password, mfa_code, and email_code are secrets: the backend never logs or
+// stores them.
+type RipplePasswordLoginRequest struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Username string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"` // Ripple username (the root user's email, or a sub-user name)
+	Password string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	// Authenticator-app code (or a Ripple recovery code), sent only after a
+	// CHALLENGE_AUTHENTICATOR response.
+	MfaCode string `protobuf:"bytes,3,opt,name=mfa_code,json=mfaCode,proto3" json:"mfa_code,omitempty"`
+	// Emailed one-time code, sent only after a CHALLENGE_EMAIL response.
+	EmailCode string `protobuf:"bytes,4,opt,name=email_code,json=emailCode,proto3" json:"email_code,omitempty"`
+	// UNSPECIFIED or FRAGMENT: tokens in this response (CLI). CODE: a single-use
+	// code redeemable via ExchangeCode instead (confidential client / BFF).
+	ResponseMode ResponseMode `protobuf:"varint,5,opt,name=response_mode,json=responseMode,proto3,enum=jennahapi.auth.v1.ResponseMode" json:"response_mode,omitempty"`
+	// End-user address as seen by the proxy, for per-address throttling and for
+	// Ripple's own per-address limit. Best effort: a direct gRPC caller sets it.
+	ClientIp      string `protobuf:"bytes,6,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RipplePasswordLoginRequest) Reset() {
+	*x = RipplePasswordLoginRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RipplePasswordLoginRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RipplePasswordLoginRequest) ProtoMessage() {}
+
+func (x *RipplePasswordLoginRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RipplePasswordLoginRequest.ProtoReflect.Descriptor instead.
+func (*RipplePasswordLoginRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RipplePasswordLoginRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginRequest) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginRequest) GetMfaCode() string {
+	if x != nil {
+		return x.MfaCode
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginRequest) GetEmailCode() string {
+	if x != nil {
+		return x.EmailCode
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginRequest) GetResponseMode() ResponseMode {
+	if x != nil {
+		return x.ResponseMode
+	}
+	return ResponseMode_RESPONSE_MODE_UNSPECIFIED
+}
+
+func (x *RipplePasswordLoginRequest) GetClientIp() string {
+	if x != nil {
+		return x.ClientIp
+	}
+	return ""
+}
+
+// Response message for the AuthService.RipplePasswordLogin rpc.
+//
+// Exactly one outcome is populated: a challenge (no tokens, no code), a code
+// (CODE mode), or tokens. Failures are gRPC errors: UNAUTHENTICATED for wrong
+// credentials (an ErrorInfo detail with reason RIPPLE_LOCK_WARNING carries
+// metadata "attempts_left" when Ripple warns of a lock), PERMISSION_DENIED with
+// ErrorInfo reason RIPPLE_ACCOUNT_LOCKED, RIPPLE_ORG_NOT_ACTIVATED, or
+// NO_ENTERPRISE_ACCESS, RESOURCE_EXHAUSTED when jennah's throttle refuses the
+// attempt, and UNAVAILABLE when Ripple cannot be reached.
+type RipplePasswordLoginResponse struct {
+	state         protoimpl.MessageState                `protogen:"open.v1"`
+	Challenge     RipplePasswordLoginResponse_Challenge `protobuf:"varint,1,opt,name=challenge,proto3,enum=jennahapi.auth.v1.RipplePasswordLoginResponse_Challenge" json:"challenge,omitempty"`
+	AccessToken   string                                `protobuf:"bytes,2,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`                                         // token mode only: jennah JWT (~1h)
+	RefreshToken  string                                `protobuf:"bytes,3,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`                                      // token mode only: opaque, revocable, at most ~24h for Ripple sessions
+	ExpiresIn     int64                                 `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`                                              // access-token TTL, seconds
+	Identity      *Identity                             `protobuf:"bytes,5,opt,name=identity,proto3" json:"identity,omitempty"`                                                                  // set on success (token or code mode)
+	IsNewUser     bool                                  `protobuf:"varint,6,opt,name=is_new_user,json=isNewUser,proto3" json:"is_new_user,omitempty"`                                            // true when this sign-in created the jennah user
+	Code          string                                `protobuf:"bytes,7,opt,name=code,proto3" json:"code,omitempty"`                                                                          // CODE mode only: single-use code for ExchangeCode
+	ResponseMode  ResponseMode                          `protobuf:"varint,8,opt,name=response_mode,json=responseMode,proto3,enum=jennahapi.auth.v1.ResponseMode" json:"response_mode,omitempty"` // resolved delivery mode on success
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RipplePasswordLoginResponse) Reset() {
+	*x = RipplePasswordLoginResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RipplePasswordLoginResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RipplePasswordLoginResponse) ProtoMessage() {}
+
+func (x *RipplePasswordLoginResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RipplePasswordLoginResponse.ProtoReflect.Descriptor instead.
+func (*RipplePasswordLoginResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *RipplePasswordLoginResponse) GetChallenge() RipplePasswordLoginResponse_Challenge {
+	if x != nil {
+		return x.Challenge
+	}
+	return RipplePasswordLoginResponse_CHALLENGE_UNSPECIFIED
+}
+
+func (x *RipplePasswordLoginResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginResponse) GetExpiresIn() int64 {
+	if x != nil {
+		return x.ExpiresIn
+	}
+	return 0
+}
+
+func (x *RipplePasswordLoginResponse) GetIdentity() *Identity {
+	if x != nil {
+		return x.Identity
+	}
+	return nil
+}
+
+func (x *RipplePasswordLoginResponse) GetIsNewUser() bool {
+	if x != nil {
+		return x.IsNewUser
+	}
+	return false
+}
+
+func (x *RipplePasswordLoginResponse) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *RipplePasswordLoginResponse) GetResponseMode() ResponseMode {
+	if x != nil {
+		return x.ResponseMode
+	}
+	return ResponseMode_RESPONSE_MODE_UNSPECIFIED
+}
+
+// Request message for the AuthService.RequestRippleEmailCode rpc.
+type RequestRippleEmailCodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Username      string                 `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	ClientIp      string                 `protobuf:"bytes,2,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"` // as in RipplePasswordLoginRequest
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestRippleEmailCodeRequest) Reset() {
+	*x = RequestRippleEmailCodeRequest{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestRippleEmailCodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestRippleEmailCodeRequest) ProtoMessage() {}
+
+func (x *RequestRippleEmailCodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestRippleEmailCodeRequest.ProtoReflect.Descriptor instead.
+func (*RequestRippleEmailCodeRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *RequestRippleEmailCodeRequest) GetUsername() string {
+	if x != nil {
+		return x.Username
+	}
+	return ""
+}
+
+func (x *RequestRippleEmailCodeRequest) GetClientIp() string {
+	if x != nil {
+		return x.ClientIp
+	}
+	return ""
+}
+
+// Response message for the AuthService.RequestRippleEmailCode rpc.
+type RequestRippleEmailCodeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestRippleEmailCodeResponse) Reset() {
+	*x = RequestRippleEmailCodeResponse{}
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestRippleEmailCodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestRippleEmailCodeResponse) ProtoMessage() {}
+
+func (x *RequestRippleEmailCodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestRippleEmailCodeResponse.ProtoReflect.Descriptor instead.
+func (*RequestRippleEmailCodeResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{22}
+}
+
 // Non-secret metadata for a single API key. The raw secret is NEVER carried
 // here: it is returned only once, in CreateApiKeyResponse. `last4` is a
 // non-secret display fragment (the last 4 characters) for identifying a key in
@@ -1637,7 +1987,7 @@ type ApiKey struct {
 
 func (x *ApiKey) Reset() {
 	*x = ApiKey{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[19]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1649,7 +1999,7 @@ func (x *ApiKey) String() string {
 func (*ApiKey) ProtoMessage() {}
 
 func (x *ApiKey) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[19]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1662,7 +2012,7 @@ func (x *ApiKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApiKey.ProtoReflect.Descriptor instead.
 func (*ApiKey) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{19}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ApiKey) GetKeyId() string {
@@ -1808,7 +2158,7 @@ type CreateApiKeyRequest struct {
 
 func (x *CreateApiKeyRequest) Reset() {
 	*x = CreateApiKeyRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[20]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1820,7 +2170,7 @@ func (x *CreateApiKeyRequest) String() string {
 func (*CreateApiKeyRequest) ProtoMessage() {}
 
 func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[20]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1833,7 +2183,7 @@ func (x *CreateApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*CreateApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{20}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CreateApiKeyRequest) GetLabel() string {
@@ -1893,7 +2243,7 @@ type CreateApiKeyResponse struct {
 
 func (x *CreateApiKeyResponse) Reset() {
 	*x = CreateApiKeyResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[21]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1905,7 +2255,7 @@ func (x *CreateApiKeyResponse) String() string {
 func (*CreateApiKeyResponse) ProtoMessage() {}
 
 func (x *CreateApiKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[21]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1918,7 +2268,7 @@ func (x *CreateApiKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateApiKeyResponse.ProtoReflect.Descriptor instead.
 func (*CreateApiKeyResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{21}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CreateApiKeyResponse) GetSecret() string {
@@ -1946,7 +2296,7 @@ type ListApiKeysRequest struct {
 
 func (x *ListApiKeysRequest) Reset() {
 	*x = ListApiKeysRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[22]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1958,7 +2308,7 @@ func (x *ListApiKeysRequest) String() string {
 func (*ListApiKeysRequest) ProtoMessage() {}
 
 func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[22]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1971,7 +2321,7 @@ func (x *ListApiKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApiKeysRequest.ProtoReflect.Descriptor instead.
 func (*ListApiKeysRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{22}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ListApiKeysRequest) GetPageSize() int32 {
@@ -1999,7 +2349,7 @@ type ListApiKeysResponse struct {
 
 func (x *ListApiKeysResponse) Reset() {
 	*x = ListApiKeysResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[23]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2011,7 +2361,7 @@ func (x *ListApiKeysResponse) String() string {
 func (*ListApiKeysResponse) ProtoMessage() {}
 
 func (x *ListApiKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[23]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2024,7 +2374,7 @@ func (x *ListApiKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListApiKeysResponse.ProtoReflect.Descriptor instead.
 func (*ListApiKeysResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{23}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListApiKeysResponse) GetKeys() []*ApiKey {
@@ -2051,7 +2401,7 @@ type RevokeApiKeyRequest struct {
 
 func (x *RevokeApiKeyRequest) Reset() {
 	*x = RevokeApiKeyRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[24]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2063,7 +2413,7 @@ func (x *RevokeApiKeyRequest) String() string {
 func (*RevokeApiKeyRequest) ProtoMessage() {}
 
 func (x *RevokeApiKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[24]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2076,7 +2426,7 @@ func (x *RevokeApiKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeApiKeyRequest.ProtoReflect.Descriptor instead.
 func (*RevokeApiKeyRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{24}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RevokeApiKeyRequest) GetKeyId() string {
@@ -2096,7 +2446,7 @@ type RevokeApiKeyResponse struct {
 
 func (x *RevokeApiKeyResponse) Reset() {
 	*x = RevokeApiKeyResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[25]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2108,7 +2458,7 @@ func (x *RevokeApiKeyResponse) String() string {
 func (*RevokeApiKeyResponse) ProtoMessage() {}
 
 func (x *RevokeApiKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[25]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2121,7 +2471,7 @@ func (x *RevokeApiKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeApiKeyResponse.ProtoReflect.Descriptor instead.
 func (*RevokeApiKeyResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{25}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *RevokeApiKeyResponse) GetRevokedAt() *timestamppb.Timestamp {
@@ -2152,7 +2502,7 @@ type Invitation struct {
 
 func (x *Invitation) Reset() {
 	*x = Invitation{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[26]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2164,7 +2514,7 @@ func (x *Invitation) String() string {
 func (*Invitation) ProtoMessage() {}
 
 func (x *Invitation) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[26]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2177,7 +2527,7 @@ func (x *Invitation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Invitation.ProtoReflect.Descriptor instead.
 func (*Invitation) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{26}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Invitation) GetInvitationId() string {
@@ -2255,7 +2605,7 @@ type Member struct {
 
 func (x *Member) Reset() {
 	*x = Member{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[27]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2267,7 +2617,7 @@ func (x *Member) String() string {
 func (*Member) ProtoMessage() {}
 
 func (x *Member) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[27]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2280,7 +2630,7 @@ func (x *Member) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Member.ProtoReflect.Descriptor instead.
 func (*Member) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{27}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Member) GetUserId() string {
@@ -2329,7 +2679,7 @@ type InviteMemberRequest struct {
 
 func (x *InviteMemberRequest) Reset() {
 	*x = InviteMemberRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[28]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2341,7 +2691,7 @@ func (x *InviteMemberRequest) String() string {
 func (*InviteMemberRequest) ProtoMessage() {}
 
 func (x *InviteMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[28]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2354,7 +2704,7 @@ func (x *InviteMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteMemberRequest.ProtoReflect.Descriptor instead.
 func (*InviteMemberRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{28}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *InviteMemberRequest) GetEmail() string {
@@ -2386,7 +2736,7 @@ type InviteMemberResponse struct {
 
 func (x *InviteMemberResponse) Reset() {
 	*x = InviteMemberResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[29]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2398,7 +2748,7 @@ func (x *InviteMemberResponse) String() string {
 func (*InviteMemberResponse) ProtoMessage() {}
 
 func (x *InviteMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[29]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2411,7 +2761,7 @@ func (x *InviteMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InviteMemberResponse.ProtoReflect.Descriptor instead.
 func (*InviteMemberResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{29}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *InviteMemberResponse) GetToken() string {
@@ -2439,7 +2789,7 @@ type ListInvitationsRequest struct {
 
 func (x *ListInvitationsRequest) Reset() {
 	*x = ListInvitationsRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[30]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2451,7 +2801,7 @@ func (x *ListInvitationsRequest) String() string {
 func (*ListInvitationsRequest) ProtoMessage() {}
 
 func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[30]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2464,7 +2814,7 @@ func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsRequest.ProtoReflect.Descriptor instead.
 func (*ListInvitationsRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{30}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListInvitationsRequest) GetPageSize() int32 {
@@ -2492,7 +2842,7 @@ type ListInvitationsResponse struct {
 
 func (x *ListInvitationsResponse) Reset() {
 	*x = ListInvitationsResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[31]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2504,7 +2854,7 @@ func (x *ListInvitationsResponse) String() string {
 func (*ListInvitationsResponse) ProtoMessage() {}
 
 func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[31]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2517,7 +2867,7 @@ func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInvitationsResponse.ProtoReflect.Descriptor instead.
 func (*ListInvitationsResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{31}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListInvitationsResponse) GetInvitations() []*Invitation {
@@ -2544,7 +2894,7 @@ type RevokeInvitationRequest struct {
 
 func (x *RevokeInvitationRequest) Reset() {
 	*x = RevokeInvitationRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[32]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2556,7 +2906,7 @@ func (x *RevokeInvitationRequest) String() string {
 func (*RevokeInvitationRequest) ProtoMessage() {}
 
 func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[32]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2569,7 +2919,7 @@ func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationRequest.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{32}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *RevokeInvitationRequest) GetInvitationId() string {
@@ -2588,7 +2938,7 @@ type RevokeInvitationResponse struct {
 
 func (x *RevokeInvitationResponse) Reset() {
 	*x = RevokeInvitationResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[33]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2600,7 +2950,7 @@ func (x *RevokeInvitationResponse) String() string {
 func (*RevokeInvitationResponse) ProtoMessage() {}
 
 func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[33]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2613,7 +2963,7 @@ func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInvitationResponse.ProtoReflect.Descriptor instead.
 func (*RevokeInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{33}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{37}
 }
 
 // Request message for the AuthService.AcceptInvitation rpc.
@@ -2626,7 +2976,7 @@ type AcceptInvitationRequest struct {
 
 func (x *AcceptInvitationRequest) Reset() {
 	*x = AcceptInvitationRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[34]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2638,7 +2988,7 @@ func (x *AcceptInvitationRequest) String() string {
 func (*AcceptInvitationRequest) ProtoMessage() {}
 
 func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[34]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2651,7 +3001,7 @@ func (x *AcceptInvitationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationRequest.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{34}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *AcceptInvitationRequest) GetToken() string {
@@ -2677,7 +3027,7 @@ type AcceptInvitationResponse struct {
 
 func (x *AcceptInvitationResponse) Reset() {
 	*x = AcceptInvitationResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[35]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2689,7 +3039,7 @@ func (x *AcceptInvitationResponse) String() string {
 func (*AcceptInvitationResponse) ProtoMessage() {}
 
 func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[35]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2702,7 +3052,7 @@ func (x *AcceptInvitationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInvitationResponse.ProtoReflect.Descriptor instead.
 func (*AcceptInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{35}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *AcceptInvitationResponse) GetEnterpriseId() string {
@@ -2737,7 +3087,7 @@ type ListMembersRequest struct {
 
 func (x *ListMembersRequest) Reset() {
 	*x = ListMembersRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[36]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2749,7 +3099,7 @@ func (x *ListMembersRequest) String() string {
 func (*ListMembersRequest) ProtoMessage() {}
 
 func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[36]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2762,7 +3112,7 @@ func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListMembersRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{36}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ListMembersRequest) GetPageSize() int32 {
@@ -2790,7 +3140,7 @@ type ListMembersResponse struct {
 
 func (x *ListMembersResponse) Reset() {
 	*x = ListMembersResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[37]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2802,7 +3152,7 @@ func (x *ListMembersResponse) String() string {
 func (*ListMembersResponse) ProtoMessage() {}
 
 func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[37]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2815,7 +3165,7 @@ func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListMembersResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{37}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ListMembersResponse) GetMembers() []*Member {
@@ -2851,7 +3201,7 @@ type ChangeMemberRoleRequest struct {
 
 func (x *ChangeMemberRoleRequest) Reset() {
 	*x = ChangeMemberRoleRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[38]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2863,7 +3213,7 @@ func (x *ChangeMemberRoleRequest) String() string {
 func (*ChangeMemberRoleRequest) ProtoMessage() {}
 
 func (x *ChangeMemberRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[38]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2876,7 +3226,7 @@ func (x *ChangeMemberRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeMemberRoleRequest.ProtoReflect.Descriptor instead.
 func (*ChangeMemberRoleRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{38}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ChangeMemberRoleRequest) GetUserId() string {
@@ -2910,7 +3260,7 @@ type ChangeMemberRoleResponse struct {
 
 func (x *ChangeMemberRoleResponse) Reset() {
 	*x = ChangeMemberRoleResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[39]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2922,7 +3272,7 @@ func (x *ChangeMemberRoleResponse) String() string {
 func (*ChangeMemberRoleResponse) ProtoMessage() {}
 
 func (x *ChangeMemberRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[39]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2935,7 +3285,7 @@ func (x *ChangeMemberRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChangeMemberRoleResponse.ProtoReflect.Descriptor instead.
 func (*ChangeMemberRoleResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{39}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ChangeMemberRoleResponse) GetMember() *Member {
@@ -2955,7 +3305,7 @@ type RemoveMemberRequest struct {
 
 func (x *RemoveMemberRequest) Reset() {
 	*x = RemoveMemberRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[40]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2967,7 +3317,7 @@ func (x *RemoveMemberRequest) String() string {
 func (*RemoveMemberRequest) ProtoMessage() {}
 
 func (x *RemoveMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[40]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2980,7 +3330,7 @@ func (x *RemoveMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemberRequest.ProtoReflect.Descriptor instead.
 func (*RemoveMemberRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{40}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *RemoveMemberRequest) GetUserId() string {
@@ -2999,7 +3349,7 @@ type RemoveMemberResponse struct {
 
 func (x *RemoveMemberResponse) Reset() {
 	*x = RemoveMemberResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[41]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3011,7 +3361,7 @@ func (x *RemoveMemberResponse) String() string {
 func (*RemoveMemberResponse) ProtoMessage() {}
 
 func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[41]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3024,7 +3374,7 @@ func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemberResponse.ProtoReflect.Descriptor instead.
 func (*RemoveMemberResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{41}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{45}
 }
 
 // Request message for the AuthService.TransferRoot rpc.
@@ -3043,7 +3393,7 @@ type TransferRootRequest struct {
 
 func (x *TransferRootRequest) Reset() {
 	*x = TransferRootRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[42]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3055,7 +3405,7 @@ func (x *TransferRootRequest) String() string {
 func (*TransferRootRequest) ProtoMessage() {}
 
 func (x *TransferRootRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[42]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3068,7 +3418,7 @@ func (x *TransferRootRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferRootRequest.ProtoReflect.Descriptor instead.
 func (*TransferRootRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{42}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *TransferRootRequest) GetNewRootUserId() string {
@@ -3093,7 +3443,7 @@ type TransferRootResponse struct {
 
 func (x *TransferRootResponse) Reset() {
 	*x = TransferRootResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[43]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3105,7 +3455,7 @@ func (x *TransferRootResponse) String() string {
 func (*TransferRootResponse) ProtoMessage() {}
 
 func (x *TransferRootResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[43]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3118,7 +3468,7 @@ func (x *TransferRootResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferRootResponse.ProtoReflect.Descriptor instead.
 func (*TransferRootResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{43}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *TransferRootResponse) GetNewRoot() *Member {
@@ -3148,7 +3498,7 @@ type Enterprise struct {
 
 func (x *Enterprise) Reset() {
 	*x = Enterprise{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[44]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3160,7 +3510,7 @@ func (x *Enterprise) String() string {
 func (*Enterprise) ProtoMessage() {}
 
 func (x *Enterprise) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[44]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3173,7 +3523,7 @@ func (x *Enterprise) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Enterprise.ProtoReflect.Descriptor instead.
 func (*Enterprise) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{44}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *Enterprise) GetEnterpriseId() string {
@@ -3201,7 +3551,7 @@ type UpdateEnterpriseRequest struct {
 
 func (x *UpdateEnterpriseRequest) Reset() {
 	*x = UpdateEnterpriseRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[45]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3213,7 +3563,7 @@ func (x *UpdateEnterpriseRequest) String() string {
 func (*UpdateEnterpriseRequest) ProtoMessage() {}
 
 func (x *UpdateEnterpriseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[45]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3226,7 +3576,7 @@ func (x *UpdateEnterpriseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEnterpriseRequest.ProtoReflect.Descriptor instead.
 func (*UpdateEnterpriseRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{45}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *UpdateEnterpriseRequest) GetName() string {
@@ -3246,7 +3596,7 @@ type UpdateEnterpriseResponse struct {
 
 func (x *UpdateEnterpriseResponse) Reset() {
 	*x = UpdateEnterpriseResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[46]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3258,7 +3608,7 @@ func (x *UpdateEnterpriseResponse) String() string {
 func (*UpdateEnterpriseResponse) ProtoMessage() {}
 
 func (x *UpdateEnterpriseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[46]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3271,7 +3621,7 @@ func (x *UpdateEnterpriseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateEnterpriseResponse.ProtoReflect.Descriptor instead.
 func (*UpdateEnterpriseResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{46}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *UpdateEnterpriseResponse) GetEnterprise() *Enterprise {
@@ -3299,7 +3649,7 @@ type Permission struct {
 
 func (x *Permission) Reset() {
 	*x = Permission{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[47]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3311,7 +3661,7 @@ func (x *Permission) String() string {
 func (*Permission) ProtoMessage() {}
 
 func (x *Permission) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[47]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3324,7 +3674,7 @@ func (x *Permission) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Permission.ProtoReflect.Descriptor instead.
 func (*Permission) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{47}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *Permission) GetId() string {
@@ -3399,7 +3749,7 @@ type CustomRole struct {
 
 func (x *CustomRole) Reset() {
 	*x = CustomRole{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[48]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3411,7 +3761,7 @@ func (x *CustomRole) String() string {
 func (*CustomRole) ProtoMessage() {}
 
 func (x *CustomRole) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[48]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3424,7 +3774,7 @@ func (x *CustomRole) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CustomRole.ProtoReflect.Descriptor instead.
 func (*CustomRole) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{48}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CustomRole) GetRoleId() string {
@@ -3504,7 +3854,7 @@ type AgentSelectorList struct {
 
 func (x *AgentSelectorList) Reset() {
 	*x = AgentSelectorList{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[49]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3516,7 +3866,7 @@ func (x *AgentSelectorList) String() string {
 func (*AgentSelectorList) ProtoMessage() {}
 
 func (x *AgentSelectorList) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[49]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3529,7 +3879,7 @@ func (x *AgentSelectorList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentSelectorList.ProtoReflect.Descriptor instead.
 func (*AgentSelectorList) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{49}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AgentSelectorList) GetSelectors() []string {
@@ -3553,7 +3903,7 @@ type DatasetSelectorList struct {
 
 func (x *DatasetSelectorList) Reset() {
 	*x = DatasetSelectorList{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[50]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3565,7 +3915,7 @@ func (x *DatasetSelectorList) String() string {
 func (*DatasetSelectorList) ProtoMessage() {}
 
 func (x *DatasetSelectorList) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[50]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3578,7 +3928,7 @@ func (x *DatasetSelectorList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DatasetSelectorList.ProtoReflect.Descriptor instead.
 func (*DatasetSelectorList) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{50}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *DatasetSelectorList) GetSelectors() []string {
@@ -3600,7 +3950,7 @@ type SubjectSelectorList struct {
 
 func (x *SubjectSelectorList) Reset() {
 	*x = SubjectSelectorList{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[51]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3612,7 +3962,7 @@ func (x *SubjectSelectorList) String() string {
 func (*SubjectSelectorList) ProtoMessage() {}
 
 func (x *SubjectSelectorList) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[51]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3625,7 +3975,7 @@ func (x *SubjectSelectorList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubjectSelectorList.ProtoReflect.Descriptor instead.
 func (*SubjectSelectorList) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{51}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *SubjectSelectorList) GetSelectors() []string {
@@ -3644,7 +3994,7 @@ type ListPermissionsRequest struct {
 
 func (x *ListPermissionsRequest) Reset() {
 	*x = ListPermissionsRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[52]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3656,7 +4006,7 @@ func (x *ListPermissionsRequest) String() string {
 func (*ListPermissionsRequest) ProtoMessage() {}
 
 func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[52]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3669,7 +4019,7 @@ func (x *ListPermissionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPermissionsRequest.ProtoReflect.Descriptor instead.
 func (*ListPermissionsRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{52}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{56}
 }
 
 // Response message for the AuthService.ListPermissions rpc.
@@ -3682,7 +4032,7 @@ type ListPermissionsResponse struct {
 
 func (x *ListPermissionsResponse) Reset() {
 	*x = ListPermissionsResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[53]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3694,7 +4044,7 @@ func (x *ListPermissionsResponse) String() string {
 func (*ListPermissionsResponse) ProtoMessage() {}
 
 func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[53]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3707,7 +4057,7 @@ func (x *ListPermissionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPermissionsResponse.ProtoReflect.Descriptor instead.
 func (*ListPermissionsResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{53}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListPermissionsResponse) GetPermissions() []*Permission {
@@ -3756,7 +4106,7 @@ type CreateRoleRequest struct {
 
 func (x *CreateRoleRequest) Reset() {
 	*x = CreateRoleRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[54]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3768,7 +4118,7 @@ func (x *CreateRoleRequest) String() string {
 func (*CreateRoleRequest) ProtoMessage() {}
 
 func (x *CreateRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[54]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3781,7 +4131,7 @@ func (x *CreateRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoleRequest.ProtoReflect.Descriptor instead.
 func (*CreateRoleRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{54}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *CreateRoleRequest) GetName() string {
@@ -3829,7 +4179,7 @@ type CreateRoleResponse struct {
 
 func (x *CreateRoleResponse) Reset() {
 	*x = CreateRoleResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[55]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3841,7 +4191,7 @@ func (x *CreateRoleResponse) String() string {
 func (*CreateRoleResponse) ProtoMessage() {}
 
 func (x *CreateRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[55]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3854,7 +4204,7 @@ func (x *CreateRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateRoleResponse.ProtoReflect.Descriptor instead.
 func (*CreateRoleResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{55}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *CreateRoleResponse) GetRole() *CustomRole {
@@ -3875,7 +4225,7 @@ type ListRolesRequest struct {
 
 func (x *ListRolesRequest) Reset() {
 	*x = ListRolesRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[56]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3887,7 +4237,7 @@ func (x *ListRolesRequest) String() string {
 func (*ListRolesRequest) ProtoMessage() {}
 
 func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[56]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3900,7 +4250,7 @@ func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesRequest.ProtoReflect.Descriptor instead.
 func (*ListRolesRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{56}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ListRolesRequest) GetPageSize() int32 {
@@ -3928,7 +4278,7 @@ type ListRolesResponse struct {
 
 func (x *ListRolesResponse) Reset() {
 	*x = ListRolesResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[57]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3940,7 +4290,7 @@ func (x *ListRolesResponse) String() string {
 func (*ListRolesResponse) ProtoMessage() {}
 
 func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[57]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3953,7 +4303,7 @@ func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesResponse.ProtoReflect.Descriptor instead.
 func (*ListRolesResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{57}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ListRolesResponse) GetRoles() []*CustomRole {
@@ -3980,7 +4330,7 @@ type GetRoleRequest struct {
 
 func (x *GetRoleRequest) Reset() {
 	*x = GetRoleRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[58]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3992,7 +4342,7 @@ func (x *GetRoleRequest) String() string {
 func (*GetRoleRequest) ProtoMessage() {}
 
 func (x *GetRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[58]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4005,7 +4355,7 @@ func (x *GetRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRoleRequest.ProtoReflect.Descriptor instead.
 func (*GetRoleRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{58}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *GetRoleRequest) GetRoleId() string {
@@ -4025,7 +4375,7 @@ type GetRoleResponse struct {
 
 func (x *GetRoleResponse) Reset() {
 	*x = GetRoleResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[59]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4037,7 +4387,7 @@ func (x *GetRoleResponse) String() string {
 func (*GetRoleResponse) ProtoMessage() {}
 
 func (x *GetRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[59]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4050,7 +4400,7 @@ func (x *GetRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRoleResponse.ProtoReflect.Descriptor instead.
 func (*GetRoleResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{59}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *GetRoleResponse) GetRole() *CustomRole {
@@ -4127,7 +4477,7 @@ type UpdateRoleRequest struct {
 
 func (x *UpdateRoleRequest) Reset() {
 	*x = UpdateRoleRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[60]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4139,7 +4489,7 @@ func (x *UpdateRoleRequest) String() string {
 func (*UpdateRoleRequest) ProtoMessage() {}
 
 func (x *UpdateRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[60]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4152,7 +4502,7 @@ func (x *UpdateRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRoleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRoleRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{60}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *UpdateRoleRequest) GetRoleId() string {
@@ -4214,7 +4564,7 @@ type UpdateRoleResponse struct {
 
 func (x *UpdateRoleResponse) Reset() {
 	*x = UpdateRoleResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[61]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4226,7 +4576,7 @@ func (x *UpdateRoleResponse) String() string {
 func (*UpdateRoleResponse) ProtoMessage() {}
 
 func (x *UpdateRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[61]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4239,7 +4589,7 @@ func (x *UpdateRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRoleResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRoleResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{61}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *UpdateRoleResponse) GetRole() *CustomRole {
@@ -4259,7 +4609,7 @@ type DeleteRoleRequest struct {
 
 func (x *DeleteRoleRequest) Reset() {
 	*x = DeleteRoleRequest{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[62]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4271,7 +4621,7 @@ func (x *DeleteRoleRequest) String() string {
 func (*DeleteRoleRequest) ProtoMessage() {}
 
 func (x *DeleteRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[62]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4284,7 +4634,7 @@ func (x *DeleteRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoleRequest.ProtoReflect.Descriptor instead.
 func (*DeleteRoleRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{62}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *DeleteRoleRequest) GetRoleId() string {
@@ -4303,7 +4653,7 @@ type DeleteRoleResponse struct {
 
 func (x *DeleteRoleResponse) Reset() {
 	*x = DeleteRoleResponse{}
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[63]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4315,7 +4665,7 @@ func (x *DeleteRoleResponse) String() string {
 func (*DeleteRoleResponse) ProtoMessage() {}
 
 func (x *DeleteRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_auth_v1_auth_proto_msgTypes[63]
+	mi := &file_jennah_auth_v1_auth_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4328,7 +4678,7 @@ func (x *DeleteRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteRoleResponse.ProtoReflect.Descriptor instead.
 func (*DeleteRoleResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{63}
+	return file_jennah_auth_v1_auth_proto_rawDescGZIP(), []int{67}
 }
 
 var File_jennah_auth_v1_auth_proto protoreflect.FileDescriptor
@@ -4431,7 +4781,33 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"expires_in\x18\x03 \x01(\x03R\texpiresIn\"4\n" +
 	"\rLogoutRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
-	"\x0eLogoutResponse\"\xa7\x04\n" +
+	"\x0eLogoutResponse\"\xf1\x01\n" +
+	"\x1aRipplePasswordLoginRequest\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x19\n" +
+	"\bmfa_code\x18\x03 \x01(\tR\amfaCode\x12\x1d\n" +
+	"\n" +
+	"email_code\x18\x04 \x01(\tR\temailCode\x12D\n" +
+	"\rresponse_mode\x18\x05 \x01(\x0e2\x1f.jennahapi.auth.v1.ResponseModeR\fresponseMode\x12\x1b\n" +
+	"\tclient_ip\x18\x06 \x01(\tR\bclientIp\"\xe9\x03\n" +
+	"\x1bRipplePasswordLoginResponse\x12V\n" +
+	"\tchallenge\x18\x01 \x01(\x0e28.jennahapi.auth.v1.RipplePasswordLoginResponse.ChallengeR\tchallenge\x12!\n" +
+	"\faccess_token\x18\x02 \x01(\tR\vaccessToken\x12#\n" +
+	"\rrefresh_token\x18\x03 \x01(\tR\frefreshToken\x12\x1d\n" +
+	"\n" +
+	"expires_in\x18\x04 \x01(\x03R\texpiresIn\x127\n" +
+	"\bidentity\x18\x05 \x01(\v2\x1b.jennahapi.auth.v1.IdentityR\bidentity\x12\x1e\n" +
+	"\vis_new_user\x18\x06 \x01(\bR\tisNewUser\x12\x12\n" +
+	"\x04code\x18\a \x01(\tR\x04code\x12D\n" +
+	"\rresponse_mode\x18\b \x01(\x0e2\x1f.jennahapi.auth.v1.ResponseModeR\fresponseMode\"X\n" +
+	"\tChallenge\x12\x19\n" +
+	"\x15CHALLENGE_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17CHALLENGE_AUTHENTICATOR\x10\x01\x12\x13\n" +
+	"\x0fCHALLENGE_EMAIL\x10\x02\"X\n" +
+	"\x1dRequestRippleEmailCodeRequest\x12\x1a\n" +
+	"\busername\x18\x01 \x01(\tR\busername\x12\x1b\n" +
+	"\tclient_ip\x18\x02 \x01(\tR\bclientIp\" \n" +
+	"\x1eRequestRippleEmailCodeResponse\"\xa7\x04\n" +
 	"\x06ApiKey\x12\x15\n" +
 	"\x06key_id\x18\x01 \x01(\tR\x05keyId\x12#\n" +
 	"\renterprise_id\x18\x02 \x01(\tR\fenterpriseId\x12\x14\n" +
@@ -4609,11 +4985,12 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x04role\x18\x01 \x01(\v2\x1d.jennahapi.auth.v1.CustomRoleR\x04role\",\n" +
 	"\x11DeleteRoleRequest\x12\x17\n" +
 	"\arole_id\x18\x01 \x01(\tR\x06roleId\"\x14\n" +
-	"\x12DeleteRoleResponse*N\n" +
+	"\x12DeleteRoleResponse*c\n" +
 	"\bProvider\x12\x18\n" +
 	"\x14PROVIDER_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fPROVIDER_GOOGLE\x10\x01\x12\x13\n" +
-	"\x0fPROVIDER_GITHUB\x10\x02*S\n" +
+	"\x0fPROVIDER_GITHUB\x10\x02\x12\x13\n" +
+	"\x0fPROVIDER_RIPPLE\x10\x03*S\n" +
 	"\n" +
 	"ClientType\x12\x1b\n" +
 	"\x17CLIENT_TYPE_UNSPECIFIED\x10\x00\x12\x13\n" +
@@ -4633,7 +5010,7 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x1dINVITATION_STATUS_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19INVITATION_STATUS_PENDING\x10\x01\x12\x1e\n" +
 	"\x1aINVITATION_STATUS_ACCEPTED\x10\x02\x12\x1d\n" +
-	"\x19INVITATION_STATUS_REVOKED\x10\x032\x8b\x18\n" +
+	"\x19INVITATION_STATUS_REVOKED\x10\x032\x80\x1a\n" +
 	"\vAuthService\x12a\n" +
 	"\x06WhoAmI\x12 .jennahapi.auth.v1.WhoAmIRequest\x1a!.jennahapi.auth.v1.WhoAmIResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
 	"/v1/whoami\x12Y\n" +
@@ -4644,7 +5021,9 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x10StartDeviceLogin\x12*.jennahapi.auth.v1.StartDeviceLoginRequest\x1a+.jennahapi.auth.v1.StartDeviceLoginResponse\x12h\n" +
 	"\x0fPollDeviceLogin\x12).jennahapi.auth.v1.PollDeviceLoginRequest\x1a*.jennahapi.auth.v1.PollDeviceLoginResponse\x12_\n" +
 	"\fRefreshToken\x12&.jennahapi.auth.v1.RefreshTokenRequest\x1a'.jennahapi.auth.v1.RefreshTokenResponse\x12M\n" +
-	"\x06Logout\x12 .jennahapi.auth.v1.LogoutRequest\x1a!.jennahapi.auth.v1.LogoutResponse\x12w\n" +
+	"\x06Logout\x12 .jennahapi.auth.v1.LogoutRequest\x1a!.jennahapi.auth.v1.LogoutResponse\x12t\n" +
+	"\x13RipplePasswordLogin\x12-.jennahapi.auth.v1.RipplePasswordLoginRequest\x1a..jennahapi.auth.v1.RipplePasswordLoginResponse\x12}\n" +
+	"\x16RequestRippleEmailCode\x120.jennahapi.auth.v1.RequestRippleEmailCodeRequest\x1a1.jennahapi.auth.v1.RequestRippleEmailCodeResponse\x12w\n" +
 	"\fCreateApiKey\x12&.jennahapi.auth.v1.CreateApiKeyRequest\x1a'.jennahapi.auth.v1.CreateApiKeyResponse\"\x16\x82\xd3\xe4\x93\x02\x10:\x01*\"\v/v1/apikeys\x12q\n" +
 	"\vListApiKeys\x12%.jennahapi.auth.v1.ListApiKeysRequest\x1a&.jennahapi.auth.v1.ListApiKeysResponse\"\x13\x82\xd3\xe4\x93\x02\r\x12\v/v1/apikeys\x12\x84\x01\n" +
 	"\fRevokeApiKey\x12&.jennahapi.auth.v1.RevokeApiKeyRequest\x1a'.jennahapi.auth.v1.RevokeApiKeyResponse\"#\x82\xd3\xe4\x93\x02\x1d\"\x1b/v1/apikeys/{key_id}:revoke\x12{\n" +
@@ -4688,8 +5067,8 @@ func file_jennah_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_jennah_auth_v1_auth_proto_rawDescData
 }
 
-var file_jennah_auth_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 64)
+var file_jennah_auth_v1_auth_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_jennah_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 68)
 var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(Provider)(0),                       // 0: jennahapi.auth.v1.Provider
 	(ClientType)(0),                     // 1: jennahapi.auth.v1.ClientType
@@ -4697,180 +5076,193 @@ var file_jennah_auth_v1_auth_proto_goTypes = []any{
 	(Role)(0),                           // 3: jennahapi.auth.v1.Role
 	(InvitationStatus)(0),               // 4: jennahapi.auth.v1.InvitationStatus
 	(PollDeviceLoginResponse_Status)(0), // 5: jennahapi.auth.v1.PollDeviceLoginResponse.Status
-	(*Membership)(nil),                  // 6: jennahapi.auth.v1.Membership
-	(*Identity)(nil),                    // 7: jennahapi.auth.v1.Identity
-	(*Entitlement)(nil),                 // 8: jennahapi.auth.v1.Entitlement
-	(*WhoAmIRequest)(nil),               // 9: jennahapi.auth.v1.WhoAmIRequest
-	(*WhoAmIResponse)(nil),              // 10: jennahapi.auth.v1.WhoAmIResponse
-	(*StartLoginRequest)(nil),           // 11: jennahapi.auth.v1.StartLoginRequest
-	(*StartLoginResponse)(nil),          // 12: jennahapi.auth.v1.StartLoginResponse
-	(*CompleteLoginRequest)(nil),        // 13: jennahapi.auth.v1.CompleteLoginRequest
-	(*CompleteLoginResponse)(nil),       // 14: jennahapi.auth.v1.CompleteLoginResponse
-	(*ExchangeCodeRequest)(nil),         // 15: jennahapi.auth.v1.ExchangeCodeRequest
-	(*ExchangeCodeResponse)(nil),        // 16: jennahapi.auth.v1.ExchangeCodeResponse
-	(*StartDeviceLoginRequest)(nil),     // 17: jennahapi.auth.v1.StartDeviceLoginRequest
-	(*StartDeviceLoginResponse)(nil),    // 18: jennahapi.auth.v1.StartDeviceLoginResponse
-	(*PollDeviceLoginRequest)(nil),      // 19: jennahapi.auth.v1.PollDeviceLoginRequest
-	(*PollDeviceLoginResponse)(nil),     // 20: jennahapi.auth.v1.PollDeviceLoginResponse
-	(*RefreshTokenRequest)(nil),         // 21: jennahapi.auth.v1.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),        // 22: jennahapi.auth.v1.RefreshTokenResponse
-	(*LogoutRequest)(nil),               // 23: jennahapi.auth.v1.LogoutRequest
-	(*LogoutResponse)(nil),              // 24: jennahapi.auth.v1.LogoutResponse
-	(*ApiKey)(nil),                      // 25: jennahapi.auth.v1.ApiKey
-	(*CreateApiKeyRequest)(nil),         // 26: jennahapi.auth.v1.CreateApiKeyRequest
-	(*CreateApiKeyResponse)(nil),        // 27: jennahapi.auth.v1.CreateApiKeyResponse
-	(*ListApiKeysRequest)(nil),          // 28: jennahapi.auth.v1.ListApiKeysRequest
-	(*ListApiKeysResponse)(nil),         // 29: jennahapi.auth.v1.ListApiKeysResponse
-	(*RevokeApiKeyRequest)(nil),         // 30: jennahapi.auth.v1.RevokeApiKeyRequest
-	(*RevokeApiKeyResponse)(nil),        // 31: jennahapi.auth.v1.RevokeApiKeyResponse
-	(*Invitation)(nil),                  // 32: jennahapi.auth.v1.Invitation
-	(*Member)(nil),                      // 33: jennahapi.auth.v1.Member
-	(*InviteMemberRequest)(nil),         // 34: jennahapi.auth.v1.InviteMemberRequest
-	(*InviteMemberResponse)(nil),        // 35: jennahapi.auth.v1.InviteMemberResponse
-	(*ListInvitationsRequest)(nil),      // 36: jennahapi.auth.v1.ListInvitationsRequest
-	(*ListInvitationsResponse)(nil),     // 37: jennahapi.auth.v1.ListInvitationsResponse
-	(*RevokeInvitationRequest)(nil),     // 38: jennahapi.auth.v1.RevokeInvitationRequest
-	(*RevokeInvitationResponse)(nil),    // 39: jennahapi.auth.v1.RevokeInvitationResponse
-	(*AcceptInvitationRequest)(nil),     // 40: jennahapi.auth.v1.AcceptInvitationRequest
-	(*AcceptInvitationResponse)(nil),    // 41: jennahapi.auth.v1.AcceptInvitationResponse
-	(*ListMembersRequest)(nil),          // 42: jennahapi.auth.v1.ListMembersRequest
-	(*ListMembersResponse)(nil),         // 43: jennahapi.auth.v1.ListMembersResponse
-	(*ChangeMemberRoleRequest)(nil),     // 44: jennahapi.auth.v1.ChangeMemberRoleRequest
-	(*ChangeMemberRoleResponse)(nil),    // 45: jennahapi.auth.v1.ChangeMemberRoleResponse
-	(*RemoveMemberRequest)(nil),         // 46: jennahapi.auth.v1.RemoveMemberRequest
-	(*RemoveMemberResponse)(nil),        // 47: jennahapi.auth.v1.RemoveMemberResponse
-	(*TransferRootRequest)(nil),         // 48: jennahapi.auth.v1.TransferRootRequest
-	(*TransferRootResponse)(nil),        // 49: jennahapi.auth.v1.TransferRootResponse
-	(*Enterprise)(nil),                  // 50: jennahapi.auth.v1.Enterprise
-	(*UpdateEnterpriseRequest)(nil),     // 51: jennahapi.auth.v1.UpdateEnterpriseRequest
-	(*UpdateEnterpriseResponse)(nil),    // 52: jennahapi.auth.v1.UpdateEnterpriseResponse
-	(*Permission)(nil),                  // 53: jennahapi.auth.v1.Permission
-	(*CustomRole)(nil),                  // 54: jennahapi.auth.v1.CustomRole
-	(*AgentSelectorList)(nil),           // 55: jennahapi.auth.v1.AgentSelectorList
-	(*DatasetSelectorList)(nil),         // 56: jennahapi.auth.v1.DatasetSelectorList
-	(*SubjectSelectorList)(nil),         // 57: jennahapi.auth.v1.SubjectSelectorList
-	(*ListPermissionsRequest)(nil),      // 58: jennahapi.auth.v1.ListPermissionsRequest
-	(*ListPermissionsResponse)(nil),     // 59: jennahapi.auth.v1.ListPermissionsResponse
-	(*CreateRoleRequest)(nil),           // 60: jennahapi.auth.v1.CreateRoleRequest
-	(*CreateRoleResponse)(nil),          // 61: jennahapi.auth.v1.CreateRoleResponse
-	(*ListRolesRequest)(nil),            // 62: jennahapi.auth.v1.ListRolesRequest
-	(*ListRolesResponse)(nil),           // 63: jennahapi.auth.v1.ListRolesResponse
-	(*GetRoleRequest)(nil),              // 64: jennahapi.auth.v1.GetRoleRequest
-	(*GetRoleResponse)(nil),             // 65: jennahapi.auth.v1.GetRoleResponse
-	(*UpdateRoleRequest)(nil),           // 66: jennahapi.auth.v1.UpdateRoleRequest
-	(*UpdateRoleResponse)(nil),          // 67: jennahapi.auth.v1.UpdateRoleResponse
-	(*DeleteRoleRequest)(nil),           // 68: jennahapi.auth.v1.DeleteRoleRequest
-	(*DeleteRoleResponse)(nil),          // 69: jennahapi.auth.v1.DeleteRoleResponse
-	(*timestamppb.Timestamp)(nil),       // 70: google.protobuf.Timestamp
+	(RipplePasswordLoginResponse_Challenge)(0), // 6: jennahapi.auth.v1.RipplePasswordLoginResponse.Challenge
+	(*Membership)(nil),                         // 7: jennahapi.auth.v1.Membership
+	(*Identity)(nil),                           // 8: jennahapi.auth.v1.Identity
+	(*Entitlement)(nil),                        // 9: jennahapi.auth.v1.Entitlement
+	(*WhoAmIRequest)(nil),                      // 10: jennahapi.auth.v1.WhoAmIRequest
+	(*WhoAmIResponse)(nil),                     // 11: jennahapi.auth.v1.WhoAmIResponse
+	(*StartLoginRequest)(nil),                  // 12: jennahapi.auth.v1.StartLoginRequest
+	(*StartLoginResponse)(nil),                 // 13: jennahapi.auth.v1.StartLoginResponse
+	(*CompleteLoginRequest)(nil),               // 14: jennahapi.auth.v1.CompleteLoginRequest
+	(*CompleteLoginResponse)(nil),              // 15: jennahapi.auth.v1.CompleteLoginResponse
+	(*ExchangeCodeRequest)(nil),                // 16: jennahapi.auth.v1.ExchangeCodeRequest
+	(*ExchangeCodeResponse)(nil),               // 17: jennahapi.auth.v1.ExchangeCodeResponse
+	(*StartDeviceLoginRequest)(nil),            // 18: jennahapi.auth.v1.StartDeviceLoginRequest
+	(*StartDeviceLoginResponse)(nil),           // 19: jennahapi.auth.v1.StartDeviceLoginResponse
+	(*PollDeviceLoginRequest)(nil),             // 20: jennahapi.auth.v1.PollDeviceLoginRequest
+	(*PollDeviceLoginResponse)(nil),            // 21: jennahapi.auth.v1.PollDeviceLoginResponse
+	(*RefreshTokenRequest)(nil),                // 22: jennahapi.auth.v1.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),               // 23: jennahapi.auth.v1.RefreshTokenResponse
+	(*LogoutRequest)(nil),                      // 24: jennahapi.auth.v1.LogoutRequest
+	(*LogoutResponse)(nil),                     // 25: jennahapi.auth.v1.LogoutResponse
+	(*RipplePasswordLoginRequest)(nil),         // 26: jennahapi.auth.v1.RipplePasswordLoginRequest
+	(*RipplePasswordLoginResponse)(nil),        // 27: jennahapi.auth.v1.RipplePasswordLoginResponse
+	(*RequestRippleEmailCodeRequest)(nil),      // 28: jennahapi.auth.v1.RequestRippleEmailCodeRequest
+	(*RequestRippleEmailCodeResponse)(nil),     // 29: jennahapi.auth.v1.RequestRippleEmailCodeResponse
+	(*ApiKey)(nil),                             // 30: jennahapi.auth.v1.ApiKey
+	(*CreateApiKeyRequest)(nil),                // 31: jennahapi.auth.v1.CreateApiKeyRequest
+	(*CreateApiKeyResponse)(nil),               // 32: jennahapi.auth.v1.CreateApiKeyResponse
+	(*ListApiKeysRequest)(nil),                 // 33: jennahapi.auth.v1.ListApiKeysRequest
+	(*ListApiKeysResponse)(nil),                // 34: jennahapi.auth.v1.ListApiKeysResponse
+	(*RevokeApiKeyRequest)(nil),                // 35: jennahapi.auth.v1.RevokeApiKeyRequest
+	(*RevokeApiKeyResponse)(nil),               // 36: jennahapi.auth.v1.RevokeApiKeyResponse
+	(*Invitation)(nil),                         // 37: jennahapi.auth.v1.Invitation
+	(*Member)(nil),                             // 38: jennahapi.auth.v1.Member
+	(*InviteMemberRequest)(nil),                // 39: jennahapi.auth.v1.InviteMemberRequest
+	(*InviteMemberResponse)(nil),               // 40: jennahapi.auth.v1.InviteMemberResponse
+	(*ListInvitationsRequest)(nil),             // 41: jennahapi.auth.v1.ListInvitationsRequest
+	(*ListInvitationsResponse)(nil),            // 42: jennahapi.auth.v1.ListInvitationsResponse
+	(*RevokeInvitationRequest)(nil),            // 43: jennahapi.auth.v1.RevokeInvitationRequest
+	(*RevokeInvitationResponse)(nil),           // 44: jennahapi.auth.v1.RevokeInvitationResponse
+	(*AcceptInvitationRequest)(nil),            // 45: jennahapi.auth.v1.AcceptInvitationRequest
+	(*AcceptInvitationResponse)(nil),           // 46: jennahapi.auth.v1.AcceptInvitationResponse
+	(*ListMembersRequest)(nil),                 // 47: jennahapi.auth.v1.ListMembersRequest
+	(*ListMembersResponse)(nil),                // 48: jennahapi.auth.v1.ListMembersResponse
+	(*ChangeMemberRoleRequest)(nil),            // 49: jennahapi.auth.v1.ChangeMemberRoleRequest
+	(*ChangeMemberRoleResponse)(nil),           // 50: jennahapi.auth.v1.ChangeMemberRoleResponse
+	(*RemoveMemberRequest)(nil),                // 51: jennahapi.auth.v1.RemoveMemberRequest
+	(*RemoveMemberResponse)(nil),               // 52: jennahapi.auth.v1.RemoveMemberResponse
+	(*TransferRootRequest)(nil),                // 53: jennahapi.auth.v1.TransferRootRequest
+	(*TransferRootResponse)(nil),               // 54: jennahapi.auth.v1.TransferRootResponse
+	(*Enterprise)(nil),                         // 55: jennahapi.auth.v1.Enterprise
+	(*UpdateEnterpriseRequest)(nil),            // 56: jennahapi.auth.v1.UpdateEnterpriseRequest
+	(*UpdateEnterpriseResponse)(nil),           // 57: jennahapi.auth.v1.UpdateEnterpriseResponse
+	(*Permission)(nil),                         // 58: jennahapi.auth.v1.Permission
+	(*CustomRole)(nil),                         // 59: jennahapi.auth.v1.CustomRole
+	(*AgentSelectorList)(nil),                  // 60: jennahapi.auth.v1.AgentSelectorList
+	(*DatasetSelectorList)(nil),                // 61: jennahapi.auth.v1.DatasetSelectorList
+	(*SubjectSelectorList)(nil),                // 62: jennahapi.auth.v1.SubjectSelectorList
+	(*ListPermissionsRequest)(nil),             // 63: jennahapi.auth.v1.ListPermissionsRequest
+	(*ListPermissionsResponse)(nil),            // 64: jennahapi.auth.v1.ListPermissionsResponse
+	(*CreateRoleRequest)(nil),                  // 65: jennahapi.auth.v1.CreateRoleRequest
+	(*CreateRoleResponse)(nil),                 // 66: jennahapi.auth.v1.CreateRoleResponse
+	(*ListRolesRequest)(nil),                   // 67: jennahapi.auth.v1.ListRolesRequest
+	(*ListRolesResponse)(nil),                  // 68: jennahapi.auth.v1.ListRolesResponse
+	(*GetRoleRequest)(nil),                     // 69: jennahapi.auth.v1.GetRoleRequest
+	(*GetRoleResponse)(nil),                    // 70: jennahapi.auth.v1.GetRoleResponse
+	(*UpdateRoleRequest)(nil),                  // 71: jennahapi.auth.v1.UpdateRoleRequest
+	(*UpdateRoleResponse)(nil),                 // 72: jennahapi.auth.v1.UpdateRoleResponse
+	(*DeleteRoleRequest)(nil),                  // 73: jennahapi.auth.v1.DeleteRoleRequest
+	(*DeleteRoleResponse)(nil),                 // 74: jennahapi.auth.v1.DeleteRoleResponse
+	(*timestamppb.Timestamp)(nil),              // 75: google.protobuf.Timestamp
 }
 var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	3,  // 0: jennahapi.auth.v1.Membership.role:type_name -> jennahapi.auth.v1.Role
 	0,  // 1: jennahapi.auth.v1.Identity.provider:type_name -> jennahapi.auth.v1.Provider
 	0,  // 2: jennahapi.auth.v1.Identity.linked_providers:type_name -> jennahapi.auth.v1.Provider
-	6,  // 3: jennahapi.auth.v1.Identity.memberships:type_name -> jennahapi.auth.v1.Membership
-	70, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
-	7,  // 5: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	8,  // 6: jennahapi.auth.v1.WhoAmIResponse.entitlement:type_name -> jennahapi.auth.v1.Entitlement
+	7,  // 3: jennahapi.auth.v1.Identity.memberships:type_name -> jennahapi.auth.v1.Membership
+	75, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
+	8,  // 5: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	9,  // 6: jennahapi.auth.v1.WhoAmIResponse.entitlement:type_name -> jennahapi.auth.v1.Entitlement
 	0,  // 7: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
 	1,  // 8: jennahapi.auth.v1.StartLoginRequest.client_type:type_name -> jennahapi.auth.v1.ClientType
 	2,  // 9: jennahapi.auth.v1.StartLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
 	0,  // 10: jennahapi.auth.v1.CompleteLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	7,  // 11: jennahapi.auth.v1.CompleteLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	8,  // 11: jennahapi.auth.v1.CompleteLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
 	2,  // 12: jennahapi.auth.v1.CompleteLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
 	0,  // 13: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
 	5,  // 14: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
-	7,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	70, // 16: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
-	70, // 17: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
-	70, // 18: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
-	70, // 19: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
-	70, // 20: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	25, // 21: jennahapi.auth.v1.CreateApiKeyResponse.key:type_name -> jennahapi.auth.v1.ApiKey
-	25, // 22: jennahapi.auth.v1.ListApiKeysResponse.keys:type_name -> jennahapi.auth.v1.ApiKey
-	70, // 23: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
-	3,  // 24: jennahapi.auth.v1.Invitation.role:type_name -> jennahapi.auth.v1.Role
-	4,  // 25: jennahapi.auth.v1.Invitation.status:type_name -> jennahapi.auth.v1.InvitationStatus
-	70, // 26: jennahapi.auth.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	70, // 27: jennahapi.auth.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	3,  // 28: jennahapi.auth.v1.Member.role:type_name -> jennahapi.auth.v1.Role
-	70, // 29: jennahapi.auth.v1.Member.joined_at:type_name -> google.protobuf.Timestamp
-	3,  // 30: jennahapi.auth.v1.InviteMemberRequest.role:type_name -> jennahapi.auth.v1.Role
-	32, // 31: jennahapi.auth.v1.InviteMemberResponse.invitation:type_name -> jennahapi.auth.v1.Invitation
-	32, // 32: jennahapi.auth.v1.ListInvitationsResponse.invitations:type_name -> jennahapi.auth.v1.Invitation
-	3,  // 33: jennahapi.auth.v1.AcceptInvitationResponse.role:type_name -> jennahapi.auth.v1.Role
-	33, // 34: jennahapi.auth.v1.ListMembersResponse.members:type_name -> jennahapi.auth.v1.Member
-	3,  // 35: jennahapi.auth.v1.ChangeMemberRoleRequest.role:type_name -> jennahapi.auth.v1.Role
-	33, // 36: jennahapi.auth.v1.ChangeMemberRoleResponse.member:type_name -> jennahapi.auth.v1.Member
-	33, // 37: jennahapi.auth.v1.TransferRootResponse.new_root:type_name -> jennahapi.auth.v1.Member
-	33, // 38: jennahapi.auth.v1.TransferRootResponse.previous_root:type_name -> jennahapi.auth.v1.Member
-	50, // 39: jennahapi.auth.v1.UpdateEnterpriseResponse.enterprise:type_name -> jennahapi.auth.v1.Enterprise
-	70, // 40: jennahapi.auth.v1.CustomRole.created_at:type_name -> google.protobuf.Timestamp
-	70, // 41: jennahapi.auth.v1.CustomRole.updated_at:type_name -> google.protobuf.Timestamp
-	53, // 42: jennahapi.auth.v1.ListPermissionsResponse.permissions:type_name -> jennahapi.auth.v1.Permission
-	54, // 43: jennahapi.auth.v1.CreateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
-	54, // 44: jennahapi.auth.v1.ListRolesResponse.roles:type_name -> jennahapi.auth.v1.CustomRole
-	54, // 45: jennahapi.auth.v1.GetRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
-	55, // 46: jennahapi.auth.v1.UpdateRoleRequest.agent_selectors:type_name -> jennahapi.auth.v1.AgentSelectorList
-	56, // 47: jennahapi.auth.v1.UpdateRoleRequest.dataset_selectors:type_name -> jennahapi.auth.v1.DatasetSelectorList
-	57, // 48: jennahapi.auth.v1.UpdateRoleRequest.subject_selectors:type_name -> jennahapi.auth.v1.SubjectSelectorList
-	54, // 49: jennahapi.auth.v1.UpdateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
-	9,  // 50: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
-	11, // 51: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
-	13, // 52: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
-	15, // 53: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
-	17, // 54: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
-	19, // 55: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
-	21, // 56: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
-	23, // 57: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
-	26, // 58: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
-	28, // 59: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
-	30, // 60: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
-	34, // 61: jennahapi.auth.v1.AuthService.InviteMember:input_type -> jennahapi.auth.v1.InviteMemberRequest
-	36, // 62: jennahapi.auth.v1.AuthService.ListInvitations:input_type -> jennahapi.auth.v1.ListInvitationsRequest
-	38, // 63: jennahapi.auth.v1.AuthService.RevokeInvitation:input_type -> jennahapi.auth.v1.RevokeInvitationRequest
-	40, // 64: jennahapi.auth.v1.AuthService.AcceptInvitation:input_type -> jennahapi.auth.v1.AcceptInvitationRequest
-	42, // 65: jennahapi.auth.v1.AuthService.ListMembers:input_type -> jennahapi.auth.v1.ListMembersRequest
-	44, // 66: jennahapi.auth.v1.AuthService.ChangeMemberRole:input_type -> jennahapi.auth.v1.ChangeMemberRoleRequest
-	46, // 67: jennahapi.auth.v1.AuthService.RemoveMember:input_type -> jennahapi.auth.v1.RemoveMemberRequest
-	48, // 68: jennahapi.auth.v1.AuthService.TransferRoot:input_type -> jennahapi.auth.v1.TransferRootRequest
-	51, // 69: jennahapi.auth.v1.AuthService.UpdateEnterprise:input_type -> jennahapi.auth.v1.UpdateEnterpriseRequest
-	58, // 70: jennahapi.auth.v1.AuthService.ListPermissions:input_type -> jennahapi.auth.v1.ListPermissionsRequest
-	60, // 71: jennahapi.auth.v1.AuthService.CreateRole:input_type -> jennahapi.auth.v1.CreateRoleRequest
-	62, // 72: jennahapi.auth.v1.AuthService.ListRoles:input_type -> jennahapi.auth.v1.ListRolesRequest
-	64, // 73: jennahapi.auth.v1.AuthService.GetRole:input_type -> jennahapi.auth.v1.GetRoleRequest
-	66, // 74: jennahapi.auth.v1.AuthService.UpdateRole:input_type -> jennahapi.auth.v1.UpdateRoleRequest
-	68, // 75: jennahapi.auth.v1.AuthService.DeleteRole:input_type -> jennahapi.auth.v1.DeleteRoleRequest
-	10, // 76: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
-	12, // 77: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
-	14, // 78: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
-	16, // 79: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
-	18, // 80: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
-	20, // 81: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
-	22, // 82: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
-	24, // 83: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
-	27, // 84: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
-	29, // 85: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
-	31, // 86: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
-	35, // 87: jennahapi.auth.v1.AuthService.InviteMember:output_type -> jennahapi.auth.v1.InviteMemberResponse
-	37, // 88: jennahapi.auth.v1.AuthService.ListInvitations:output_type -> jennahapi.auth.v1.ListInvitationsResponse
-	39, // 89: jennahapi.auth.v1.AuthService.RevokeInvitation:output_type -> jennahapi.auth.v1.RevokeInvitationResponse
-	41, // 90: jennahapi.auth.v1.AuthService.AcceptInvitation:output_type -> jennahapi.auth.v1.AcceptInvitationResponse
-	43, // 91: jennahapi.auth.v1.AuthService.ListMembers:output_type -> jennahapi.auth.v1.ListMembersResponse
-	45, // 92: jennahapi.auth.v1.AuthService.ChangeMemberRole:output_type -> jennahapi.auth.v1.ChangeMemberRoleResponse
-	47, // 93: jennahapi.auth.v1.AuthService.RemoveMember:output_type -> jennahapi.auth.v1.RemoveMemberResponse
-	49, // 94: jennahapi.auth.v1.AuthService.TransferRoot:output_type -> jennahapi.auth.v1.TransferRootResponse
-	52, // 95: jennahapi.auth.v1.AuthService.UpdateEnterprise:output_type -> jennahapi.auth.v1.UpdateEnterpriseResponse
-	59, // 96: jennahapi.auth.v1.AuthService.ListPermissions:output_type -> jennahapi.auth.v1.ListPermissionsResponse
-	61, // 97: jennahapi.auth.v1.AuthService.CreateRole:output_type -> jennahapi.auth.v1.CreateRoleResponse
-	63, // 98: jennahapi.auth.v1.AuthService.ListRoles:output_type -> jennahapi.auth.v1.ListRolesResponse
-	65, // 99: jennahapi.auth.v1.AuthService.GetRole:output_type -> jennahapi.auth.v1.GetRoleResponse
-	67, // 100: jennahapi.auth.v1.AuthService.UpdateRole:output_type -> jennahapi.auth.v1.UpdateRoleResponse
-	69, // 101: jennahapi.auth.v1.AuthService.DeleteRole:output_type -> jennahapi.auth.v1.DeleteRoleResponse
-	76, // [76:102] is the sub-list for method output_type
-	50, // [50:76] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	8,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	2,  // 16: jennahapi.auth.v1.RipplePasswordLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	6,  // 17: jennahapi.auth.v1.RipplePasswordLoginResponse.challenge:type_name -> jennahapi.auth.v1.RipplePasswordLoginResponse.Challenge
+	8,  // 18: jennahapi.auth.v1.RipplePasswordLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	2,  // 19: jennahapi.auth.v1.RipplePasswordLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	75, // 20: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
+	75, // 21: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
+	75, // 22: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
+	75, // 23: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
+	75, // 24: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	30, // 25: jennahapi.auth.v1.CreateApiKeyResponse.key:type_name -> jennahapi.auth.v1.ApiKey
+	30, // 26: jennahapi.auth.v1.ListApiKeysResponse.keys:type_name -> jennahapi.auth.v1.ApiKey
+	75, // 27: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
+	3,  // 28: jennahapi.auth.v1.Invitation.role:type_name -> jennahapi.auth.v1.Role
+	4,  // 29: jennahapi.auth.v1.Invitation.status:type_name -> jennahapi.auth.v1.InvitationStatus
+	75, // 30: jennahapi.auth.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	75, // 31: jennahapi.auth.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 32: jennahapi.auth.v1.Member.role:type_name -> jennahapi.auth.v1.Role
+	75, // 33: jennahapi.auth.v1.Member.joined_at:type_name -> google.protobuf.Timestamp
+	3,  // 34: jennahapi.auth.v1.InviteMemberRequest.role:type_name -> jennahapi.auth.v1.Role
+	37, // 35: jennahapi.auth.v1.InviteMemberResponse.invitation:type_name -> jennahapi.auth.v1.Invitation
+	37, // 36: jennahapi.auth.v1.ListInvitationsResponse.invitations:type_name -> jennahapi.auth.v1.Invitation
+	3,  // 37: jennahapi.auth.v1.AcceptInvitationResponse.role:type_name -> jennahapi.auth.v1.Role
+	38, // 38: jennahapi.auth.v1.ListMembersResponse.members:type_name -> jennahapi.auth.v1.Member
+	3,  // 39: jennahapi.auth.v1.ChangeMemberRoleRequest.role:type_name -> jennahapi.auth.v1.Role
+	38, // 40: jennahapi.auth.v1.ChangeMemberRoleResponse.member:type_name -> jennahapi.auth.v1.Member
+	38, // 41: jennahapi.auth.v1.TransferRootResponse.new_root:type_name -> jennahapi.auth.v1.Member
+	38, // 42: jennahapi.auth.v1.TransferRootResponse.previous_root:type_name -> jennahapi.auth.v1.Member
+	55, // 43: jennahapi.auth.v1.UpdateEnterpriseResponse.enterprise:type_name -> jennahapi.auth.v1.Enterprise
+	75, // 44: jennahapi.auth.v1.CustomRole.created_at:type_name -> google.protobuf.Timestamp
+	75, // 45: jennahapi.auth.v1.CustomRole.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 46: jennahapi.auth.v1.ListPermissionsResponse.permissions:type_name -> jennahapi.auth.v1.Permission
+	59, // 47: jennahapi.auth.v1.CreateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	59, // 48: jennahapi.auth.v1.ListRolesResponse.roles:type_name -> jennahapi.auth.v1.CustomRole
+	59, // 49: jennahapi.auth.v1.GetRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	60, // 50: jennahapi.auth.v1.UpdateRoleRequest.agent_selectors:type_name -> jennahapi.auth.v1.AgentSelectorList
+	61, // 51: jennahapi.auth.v1.UpdateRoleRequest.dataset_selectors:type_name -> jennahapi.auth.v1.DatasetSelectorList
+	62, // 52: jennahapi.auth.v1.UpdateRoleRequest.subject_selectors:type_name -> jennahapi.auth.v1.SubjectSelectorList
+	59, // 53: jennahapi.auth.v1.UpdateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	10, // 54: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
+	12, // 55: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
+	14, // 56: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
+	16, // 57: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
+	18, // 58: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
+	20, // 59: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
+	22, // 60: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
+	24, // 61: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
+	26, // 62: jennahapi.auth.v1.AuthService.RipplePasswordLogin:input_type -> jennahapi.auth.v1.RipplePasswordLoginRequest
+	28, // 63: jennahapi.auth.v1.AuthService.RequestRippleEmailCode:input_type -> jennahapi.auth.v1.RequestRippleEmailCodeRequest
+	31, // 64: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
+	33, // 65: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
+	35, // 66: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
+	39, // 67: jennahapi.auth.v1.AuthService.InviteMember:input_type -> jennahapi.auth.v1.InviteMemberRequest
+	41, // 68: jennahapi.auth.v1.AuthService.ListInvitations:input_type -> jennahapi.auth.v1.ListInvitationsRequest
+	43, // 69: jennahapi.auth.v1.AuthService.RevokeInvitation:input_type -> jennahapi.auth.v1.RevokeInvitationRequest
+	45, // 70: jennahapi.auth.v1.AuthService.AcceptInvitation:input_type -> jennahapi.auth.v1.AcceptInvitationRequest
+	47, // 71: jennahapi.auth.v1.AuthService.ListMembers:input_type -> jennahapi.auth.v1.ListMembersRequest
+	49, // 72: jennahapi.auth.v1.AuthService.ChangeMemberRole:input_type -> jennahapi.auth.v1.ChangeMemberRoleRequest
+	51, // 73: jennahapi.auth.v1.AuthService.RemoveMember:input_type -> jennahapi.auth.v1.RemoveMemberRequest
+	53, // 74: jennahapi.auth.v1.AuthService.TransferRoot:input_type -> jennahapi.auth.v1.TransferRootRequest
+	56, // 75: jennahapi.auth.v1.AuthService.UpdateEnterprise:input_type -> jennahapi.auth.v1.UpdateEnterpriseRequest
+	63, // 76: jennahapi.auth.v1.AuthService.ListPermissions:input_type -> jennahapi.auth.v1.ListPermissionsRequest
+	65, // 77: jennahapi.auth.v1.AuthService.CreateRole:input_type -> jennahapi.auth.v1.CreateRoleRequest
+	67, // 78: jennahapi.auth.v1.AuthService.ListRoles:input_type -> jennahapi.auth.v1.ListRolesRequest
+	69, // 79: jennahapi.auth.v1.AuthService.GetRole:input_type -> jennahapi.auth.v1.GetRoleRequest
+	71, // 80: jennahapi.auth.v1.AuthService.UpdateRole:input_type -> jennahapi.auth.v1.UpdateRoleRequest
+	73, // 81: jennahapi.auth.v1.AuthService.DeleteRole:input_type -> jennahapi.auth.v1.DeleteRoleRequest
+	11, // 82: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
+	13, // 83: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
+	15, // 84: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
+	17, // 85: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
+	19, // 86: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
+	21, // 87: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
+	23, // 88: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
+	25, // 89: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
+	27, // 90: jennahapi.auth.v1.AuthService.RipplePasswordLogin:output_type -> jennahapi.auth.v1.RipplePasswordLoginResponse
+	29, // 91: jennahapi.auth.v1.AuthService.RequestRippleEmailCode:output_type -> jennahapi.auth.v1.RequestRippleEmailCodeResponse
+	32, // 92: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
+	34, // 93: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
+	36, // 94: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
+	40, // 95: jennahapi.auth.v1.AuthService.InviteMember:output_type -> jennahapi.auth.v1.InviteMemberResponse
+	42, // 96: jennahapi.auth.v1.AuthService.ListInvitations:output_type -> jennahapi.auth.v1.ListInvitationsResponse
+	44, // 97: jennahapi.auth.v1.AuthService.RevokeInvitation:output_type -> jennahapi.auth.v1.RevokeInvitationResponse
+	46, // 98: jennahapi.auth.v1.AuthService.AcceptInvitation:output_type -> jennahapi.auth.v1.AcceptInvitationResponse
+	48, // 99: jennahapi.auth.v1.AuthService.ListMembers:output_type -> jennahapi.auth.v1.ListMembersResponse
+	50, // 100: jennahapi.auth.v1.AuthService.ChangeMemberRole:output_type -> jennahapi.auth.v1.ChangeMemberRoleResponse
+	52, // 101: jennahapi.auth.v1.AuthService.RemoveMember:output_type -> jennahapi.auth.v1.RemoveMemberResponse
+	54, // 102: jennahapi.auth.v1.AuthService.TransferRoot:output_type -> jennahapi.auth.v1.TransferRootResponse
+	57, // 103: jennahapi.auth.v1.AuthService.UpdateEnterprise:output_type -> jennahapi.auth.v1.UpdateEnterpriseResponse
+	64, // 104: jennahapi.auth.v1.AuthService.ListPermissions:output_type -> jennahapi.auth.v1.ListPermissionsResponse
+	66, // 105: jennahapi.auth.v1.AuthService.CreateRole:output_type -> jennahapi.auth.v1.CreateRoleResponse
+	68, // 106: jennahapi.auth.v1.AuthService.ListRoles:output_type -> jennahapi.auth.v1.ListRolesResponse
+	70, // 107: jennahapi.auth.v1.AuthService.GetRole:output_type -> jennahapi.auth.v1.GetRoleResponse
+	72, // 108: jennahapi.auth.v1.AuthService.UpdateRole:output_type -> jennahapi.auth.v1.UpdateRoleResponse
+	74, // 109: jennahapi.auth.v1.AuthService.DeleteRole:output_type -> jennahapi.auth.v1.DeleteRoleResponse
+	82, // [82:110] is the sub-list for method output_type
+	54, // [54:82] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_jennah_auth_v1_auth_proto_init() }
@@ -4883,8 +5275,8 @@ func file_jennah_auth_v1_auth_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_auth_v1_auth_proto_rawDesc), len(file_jennah_auth_v1_auth_proto_rawDesc)),
-			NumEnums:      6,
-			NumMessages:   64,
+			NumEnums:      7,
+			NumMessages:   68,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

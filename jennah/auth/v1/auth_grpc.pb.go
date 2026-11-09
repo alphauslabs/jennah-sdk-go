@@ -19,32 +19,34 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_WhoAmI_FullMethodName           = "/jennahapi.auth.v1.AuthService/WhoAmI"
-	AuthService_StartLogin_FullMethodName       = "/jennahapi.auth.v1.AuthService/StartLogin"
-	AuthService_CompleteLogin_FullMethodName    = "/jennahapi.auth.v1.AuthService/CompleteLogin"
-	AuthService_ExchangeCode_FullMethodName     = "/jennahapi.auth.v1.AuthService/ExchangeCode"
-	AuthService_StartDeviceLogin_FullMethodName = "/jennahapi.auth.v1.AuthService/StartDeviceLogin"
-	AuthService_PollDeviceLogin_FullMethodName  = "/jennahapi.auth.v1.AuthService/PollDeviceLogin"
-	AuthService_RefreshToken_FullMethodName     = "/jennahapi.auth.v1.AuthService/RefreshToken"
-	AuthService_Logout_FullMethodName           = "/jennahapi.auth.v1.AuthService/Logout"
-	AuthService_CreateApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/CreateApiKey"
-	AuthService_ListApiKeys_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListApiKeys"
-	AuthService_RevokeApiKey_FullMethodName     = "/jennahapi.auth.v1.AuthService/RevokeApiKey"
-	AuthService_InviteMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/InviteMember"
-	AuthService_ListInvitations_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListInvitations"
-	AuthService_RevokeInvitation_FullMethodName = "/jennahapi.auth.v1.AuthService/RevokeInvitation"
-	AuthService_AcceptInvitation_FullMethodName = "/jennahapi.auth.v1.AuthService/AcceptInvitation"
-	AuthService_ListMembers_FullMethodName      = "/jennahapi.auth.v1.AuthService/ListMembers"
-	AuthService_ChangeMemberRole_FullMethodName = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
-	AuthService_RemoveMember_FullMethodName     = "/jennahapi.auth.v1.AuthService/RemoveMember"
-	AuthService_TransferRoot_FullMethodName     = "/jennahapi.auth.v1.AuthService/TransferRoot"
-	AuthService_UpdateEnterprise_FullMethodName = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
-	AuthService_ListPermissions_FullMethodName  = "/jennahapi.auth.v1.AuthService/ListPermissions"
-	AuthService_CreateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/CreateRole"
-	AuthService_ListRoles_FullMethodName        = "/jennahapi.auth.v1.AuthService/ListRoles"
-	AuthService_GetRole_FullMethodName          = "/jennahapi.auth.v1.AuthService/GetRole"
-	AuthService_UpdateRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/UpdateRole"
-	AuthService_DeleteRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/DeleteRole"
+	AuthService_WhoAmI_FullMethodName                 = "/jennahapi.auth.v1.AuthService/WhoAmI"
+	AuthService_StartLogin_FullMethodName             = "/jennahapi.auth.v1.AuthService/StartLogin"
+	AuthService_CompleteLogin_FullMethodName          = "/jennahapi.auth.v1.AuthService/CompleteLogin"
+	AuthService_ExchangeCode_FullMethodName           = "/jennahapi.auth.v1.AuthService/ExchangeCode"
+	AuthService_StartDeviceLogin_FullMethodName       = "/jennahapi.auth.v1.AuthService/StartDeviceLogin"
+	AuthService_PollDeviceLogin_FullMethodName        = "/jennahapi.auth.v1.AuthService/PollDeviceLogin"
+	AuthService_RefreshToken_FullMethodName           = "/jennahapi.auth.v1.AuthService/RefreshToken"
+	AuthService_Logout_FullMethodName                 = "/jennahapi.auth.v1.AuthService/Logout"
+	AuthService_RipplePasswordLogin_FullMethodName    = "/jennahapi.auth.v1.AuthService/RipplePasswordLogin"
+	AuthService_RequestRippleEmailCode_FullMethodName = "/jennahapi.auth.v1.AuthService/RequestRippleEmailCode"
+	AuthService_CreateApiKey_FullMethodName           = "/jennahapi.auth.v1.AuthService/CreateApiKey"
+	AuthService_ListApiKeys_FullMethodName            = "/jennahapi.auth.v1.AuthService/ListApiKeys"
+	AuthService_RevokeApiKey_FullMethodName           = "/jennahapi.auth.v1.AuthService/RevokeApiKey"
+	AuthService_InviteMember_FullMethodName           = "/jennahapi.auth.v1.AuthService/InviteMember"
+	AuthService_ListInvitations_FullMethodName        = "/jennahapi.auth.v1.AuthService/ListInvitations"
+	AuthService_RevokeInvitation_FullMethodName       = "/jennahapi.auth.v1.AuthService/RevokeInvitation"
+	AuthService_AcceptInvitation_FullMethodName       = "/jennahapi.auth.v1.AuthService/AcceptInvitation"
+	AuthService_ListMembers_FullMethodName            = "/jennahapi.auth.v1.AuthService/ListMembers"
+	AuthService_ChangeMemberRole_FullMethodName       = "/jennahapi.auth.v1.AuthService/ChangeMemberRole"
+	AuthService_RemoveMember_FullMethodName           = "/jennahapi.auth.v1.AuthService/RemoveMember"
+	AuthService_TransferRoot_FullMethodName           = "/jennahapi.auth.v1.AuthService/TransferRoot"
+	AuthService_UpdateEnterprise_FullMethodName       = "/jennahapi.auth.v1.AuthService/UpdateEnterprise"
+	AuthService_ListPermissions_FullMethodName        = "/jennahapi.auth.v1.AuthService/ListPermissions"
+	AuthService_CreateRole_FullMethodName             = "/jennahapi.auth.v1.AuthService/CreateRole"
+	AuthService_ListRoles_FullMethodName              = "/jennahapi.auth.v1.AuthService/ListRoles"
+	AuthService_GetRole_FullMethodName                = "/jennahapi.auth.v1.AuthService/GetRole"
+	AuthService_UpdateRole_FullMethodName             = "/jennahapi.auth.v1.AuthService/UpdateRole"
+	AuthService_DeleteRole_FullMethodName             = "/jennahapi.auth.v1.AuthService/DeleteRole"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -80,6 +82,18 @@ type AuthServiceClient interface {
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	// Revokes the session behind a refresh token. Authenticated.
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
+	// Signs in a Ripple user with their Ripple username and password. The backend
+	// relays the credentials to Ripple's login service with jennah's own Ripple
+	// client, verifies the returned Ripple token, discards it, and mints jennah
+	// tokens. When Ripple requires a second factor, the response carries a
+	// challenge and no tokens; the caller resubmits every field plus the code.
+	// Failed attempts are throttled per username and per client address before
+	// Ripple is contacted. Unauthenticated (allowlist).
+	RipplePasswordLogin(ctx context.Context, in *RipplePasswordLoginRequest, opts ...grpc.CallOption) (*RipplePasswordLoginResponse, error)
+	// Asks Ripple to email a one-time sign-in code to a Ripple user, for the
+	// EMAIL challenge of RipplePasswordLogin. The response is identical whether
+	// or not the username exists. Unauthenticated (allowlist).
+	RequestRippleEmailCode(ctx context.Context, in *RequestRippleEmailCodeRequest, opts ...grpc.CallOption) (*RequestRippleEmailCodeResponse, error)
 	// Mints a new API key for the caller's active enterprise. External (gateway)
 	// RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN, checked against the
 	// caller's current role (never trusted from a claim). The plaintext secret is
@@ -273,6 +287,26 @@ func (c *authServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LogoutResponse)
 	err := c.cc.Invoke(ctx, AuthService_Logout_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RipplePasswordLogin(ctx context.Context, in *RipplePasswordLoginRequest, opts ...grpc.CallOption) (*RipplePasswordLoginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RipplePasswordLoginResponse)
+	err := c.cc.Invoke(ctx, AuthService_RipplePasswordLogin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RequestRippleEmailCode(ctx context.Context, in *RequestRippleEmailCodeRequest, opts ...grpc.CallOption) (*RequestRippleEmailCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RequestRippleEmailCodeResponse)
+	err := c.cc.Invoke(ctx, AuthService_RequestRippleEmailCode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -492,6 +526,18 @@ type AuthServiceServer interface {
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	// Revokes the session behind a refresh token. Authenticated.
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
+	// Signs in a Ripple user with their Ripple username and password. The backend
+	// relays the credentials to Ripple's login service with jennah's own Ripple
+	// client, verifies the returned Ripple token, discards it, and mints jennah
+	// tokens. When Ripple requires a second factor, the response carries a
+	// challenge and no tokens; the caller resubmits every field plus the code.
+	// Failed attempts are throttled per username and per client address before
+	// Ripple is contacted. Unauthenticated (allowlist).
+	RipplePasswordLogin(context.Context, *RipplePasswordLoginRequest) (*RipplePasswordLoginResponse, error)
+	// Asks Ripple to email a one-time sign-in code to a Ripple user, for the
+	// EMAIL challenge of RipplePasswordLogin. The response is identical whether
+	// or not the username exists. Unauthenticated (allowlist).
+	RequestRippleEmailCode(context.Context, *RequestRippleEmailCodeRequest) (*RequestRippleEmailCodeResponse, error)
 	// Mints a new API key for the caller's active enterprise. External (gateway)
 	// RPC. Authenticated AND gated to ROLE_ROOT/ROLE_ADMIN, checked against the
 	// caller's current role (never trusted from a claim). The plaintext secret is
@@ -634,6 +680,12 @@ func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshToke
 }
 func (UnimplementedAuthServiceServer) Logout(context.Context, *LogoutRequest) (*LogoutResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Logout not implemented")
+}
+func (UnimplementedAuthServiceServer) RipplePasswordLogin(context.Context, *RipplePasswordLoginRequest) (*RipplePasswordLoginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RipplePasswordLogin not implemented")
+}
+func (UnimplementedAuthServiceServer) RequestRippleEmailCode(context.Context, *RequestRippleEmailCodeRequest) (*RequestRippleEmailCodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RequestRippleEmailCode not implemented")
 }
 func (UnimplementedAuthServiceServer) CreateApiKey(context.Context, *CreateApiKeyRequest) (*CreateApiKeyResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateApiKey not implemented")
@@ -850,6 +902,42 @@ func _AuthService_Logout_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).Logout(ctx, req.(*LogoutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RipplePasswordLogin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RipplePasswordLoginRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RipplePasswordLogin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RipplePasswordLogin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RipplePasswordLogin(ctx, req.(*RipplePasswordLoginRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RequestRippleEmailCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestRippleEmailCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RequestRippleEmailCode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RequestRippleEmailCode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RequestRippleEmailCode(ctx, req.(*RequestRippleEmailCodeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1216,6 +1304,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Logout",
 			Handler:    _AuthService_Logout_Handler,
+		},
+		{
+			MethodName: "RipplePasswordLogin",
+			Handler:    _AuthService_RipplePasswordLogin_Handler,
+		},
+		{
+			MethodName: "RequestRippleEmailCode",
+			Handler:    _AuthService_RequestRippleEmailCode_Handler,
 		},
 		{
 			MethodName: "CreateApiKey",
