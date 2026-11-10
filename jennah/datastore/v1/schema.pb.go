@@ -400,8 +400,18 @@ type TableDeclaration struct {
 	// platform additionally scopes every key to the dataset, outside the
 	// declaration: that cannot be overridden, and it is what makes access across
 	// datasets structurally impossible rather than merely denied.
-	PrimaryKey    []string            `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
-	Indexes       []*IndexDeclaration `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
+	PrimaryKey []string            `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
+	Indexes    []*IndexDeclaration `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
+	// Optional row retention: rows whose retention column is older than `days`
+	// are removed by the platform in the background.
+	//
+	// UNSET keeps what the table has: no retention for a new table, the current
+	// one for an existing table. A client that predates this field therefore
+	// never removes a retention by re-declaring. `days` 1 to 3650 sets it, and
+	// `days` 0 removes it from an existing table. Setting or shortening a
+	// retention also removes existing rows already past the new limit; the
+	// response's TableStatus.retention_change says so.
+	Retention     *RowRetention `protobuf:"bytes,5,opt,name=retention,proto3" json:"retention,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -464,6 +474,136 @@ func (x *TableDeclaration) GetIndexes() []*IndexDeclaration {
 	return nil
 }
 
+func (x *TableDeclaration) GetRetention() *RowRetention {
+	if x != nil {
+		return x.Retention
+	}
+	return nil
+}
+
+// A table's row retention.
+type RowRetention struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Logical name of a TIMESTAMP column of the same table. A row whose value in
+	// this column is NULL is never removed by retention.
+	Column string `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
+	// Whole days, 1 to 3650; 0 removes the retention (declarations only).
+	//
+	// Retention is a lower bound: a row is never removed before it expires, and
+	// it may stay readable for some time after, typically up to three days,
+	// until the background deletion reaches it.
+	Days          int32 `protobuf:"varint,2,opt,name=days,proto3" json:"days,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RowRetention) Reset() {
+	*x = RowRetention{}
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RowRetention) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RowRetention) ProtoMessage() {}
+
+func (x *RowRetention) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RowRetention.ProtoReflect.Descriptor instead.
+func (*RowRetention) Descriptor() ([]byte, []int) {
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *RowRetention) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *RowRetention) GetDays() int32 {
+	if x != nil {
+		return x.Days
+	}
+	return 0
+}
+
+// What a declaration did to a table's retention.
+type RetentionChange struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	From  *RowRetention          `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"` // unset when the table had none
+	To    *RowRetention          `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`     // unset when the declaration removed it
+	// True when the change removes existing rows: a retention added, its column
+	// changed, or its days shortened.
+	RemovesRows   bool `protobuf:"varint,3,opt,name=removes_rows,json=removesRows,proto3" json:"removes_rows,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetentionChange) Reset() {
+	*x = RetentionChange{}
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetentionChange) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetentionChange) ProtoMessage() {}
+
+func (x *RetentionChange) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetentionChange.ProtoReflect.Descriptor instead.
+func (*RetentionChange) Descriptor() ([]byte, []int) {
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RetentionChange) GetFrom() *RowRetention {
+	if x != nil {
+		return x.From
+	}
+	return nil
+}
+
+func (x *RetentionChange) GetTo() *RowRetention {
+	if x != nil {
+		return x.To
+	}
+	return nil
+}
+
+func (x *RetentionChange) GetRemovesRows() bool {
+	if x != nil {
+		return x.RemovesRows
+	}
+	return false
+}
+
 // Request message for the SchemaService.DeclareTables rpc.
 type DeclareTablesRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
@@ -477,7 +617,7 @@ type DeclareTablesRequest struct {
 
 func (x *DeclareTablesRequest) Reset() {
 	*x = DeclareTablesRequest{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[4]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -489,7 +629,7 @@ func (x *DeclareTablesRequest) String() string {
 func (*DeclareTablesRequest) ProtoMessage() {}
 
 func (x *DeclareTablesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[4]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -502,7 +642,7 @@ func (x *DeclareTablesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclareTablesRequest.ProtoReflect.Descriptor instead.
 func (*DeclareTablesRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{4}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *DeclareTablesRequest) GetDatasetId() string {
@@ -525,14 +665,16 @@ type TableStatus struct {
 	Name   string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // logical table name
 	Status SchemaStatus           `protobuf:"varint,2,opt,name=status,proto3,enum=jennahapi.datastore.v1.SchemaStatus" json:"status,omitempty"`
 	// Human-readable detail for a PENDING or FAILED status. Empty for READY.
-	StatusDetail  string `protobuf:"bytes,3,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	StatusDetail string `protobuf:"bytes,3,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
+	// Set only when this declaration changed the table's retention.
+	RetentionChange *RetentionChange `protobuf:"bytes,4,opt,name=retention_change,json=retentionChange,proto3" json:"retention_change,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *TableStatus) Reset() {
 	*x = TableStatus{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[5]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +686,7 @@ func (x *TableStatus) String() string {
 func (*TableStatus) ProtoMessage() {}
 
 func (x *TableStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[5]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +699,7 @@ func (x *TableStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableStatus.ProtoReflect.Descriptor instead.
 func (*TableStatus) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{5}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TableStatus) GetName() string {
@@ -581,6 +723,13 @@ func (x *TableStatus) GetStatusDetail() string {
 	return ""
 }
 
+func (x *TableStatus) GetRetentionChange() *RetentionChange {
+	if x != nil {
+		return x.RetentionChange
+	}
+	return nil
+}
+
 // Response message for the SchemaService.DeclareTables rpc.
 type DeclareTablesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -594,7 +743,7 @@ type DeclareTablesResponse struct {
 
 func (x *DeclareTablesResponse) Reset() {
 	*x = DeclareTablesResponse{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[6]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -606,7 +755,7 @@ func (x *DeclareTablesResponse) String() string {
 func (*DeclareTablesResponse) ProtoMessage() {}
 
 func (x *DeclareTablesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[6]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -619,7 +768,7 @@ func (x *DeclareTablesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeclareTablesResponse.ProtoReflect.Descriptor instead.
 func (*DeclareTablesResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{6}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeclareTablesResponse) GetTables() []*TableStatus {
@@ -639,7 +788,7 @@ type GetSchemaRequest struct {
 
 func (x *GetSchemaRequest) Reset() {
 	*x = GetSchemaRequest{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[7]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -651,7 +800,7 @@ func (x *GetSchemaRequest) String() string {
 func (*GetSchemaRequest) ProtoMessage() {}
 
 func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[7]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -664,7 +813,7 @@ func (x *GetSchemaRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSchemaRequest.ProtoReflect.Descriptor instead.
 func (*GetSchemaRequest) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{7}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetSchemaRequest) GetDatasetId() string {
@@ -697,7 +846,7 @@ type ColumnSchema struct {
 
 func (x *ColumnSchema) Reset() {
 	*x = ColumnSchema{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[8]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -709,7 +858,7 @@ func (x *ColumnSchema) String() string {
 func (*ColumnSchema) ProtoMessage() {}
 
 func (x *ColumnSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[8]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -722,7 +871,7 @@ func (x *ColumnSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnSchema.ProtoReflect.Descriptor instead.
 func (*ColumnSchema) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{8}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ColumnSchema) GetName() string {
@@ -768,19 +917,22 @@ type TableSchema struct {
 	// Logical primary-key columns AS DECLARED. The platform's own scoping of the
 	// key to the dataset is not listed: it is not something a caller declares or
 	// can change.
-	PrimaryKey    []string               `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
-	Indexes       []*IndexDeclaration    `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
-	Status        SchemaStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.datastore.v1.SchemaStatus" json:"status,omitempty"`
-	StatusDetail  string                 `protobuf:"bytes,6,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // last successful schema change
+	PrimaryKey   []string               `protobuf:"bytes,3,rep,name=primary_key,json=primaryKey,proto3" json:"primary_key,omitempty"`
+	Indexes      []*IndexDeclaration    `protobuf:"bytes,4,rep,name=indexes,proto3" json:"indexes,omitempty"`
+	Status       SchemaStatus           `protobuf:"varint,5,opt,name=status,proto3,enum=jennahapi.datastore.v1.SchemaStatus" json:"status,omitempty"`
+	StatusDetail string                 `protobuf:"bytes,6,opt,name=status_detail,json=statusDetail,proto3" json:"status_detail,omitempty"`
+	CreatedAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt    *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"` // last successful schema change
+	// The retention in force, unset when the table has none. A retention whose
+	// schema change is still applying is not reported until it has applied.
+	Retention     *RowRetention `protobuf:"bytes,9,opt,name=retention,proto3" json:"retention,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TableSchema) Reset() {
 	*x = TableSchema{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[9]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -792,7 +944,7 @@ func (x *TableSchema) String() string {
 func (*TableSchema) ProtoMessage() {}
 
 func (x *TableSchema) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[9]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -805,7 +957,7 @@ func (x *TableSchema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableSchema.ProtoReflect.Descriptor instead.
 func (*TableSchema) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{9}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TableSchema) GetName() string {
@@ -864,6 +1016,13 @@ func (x *TableSchema) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *TableSchema) GetRetention() *RowRetention {
+	if x != nil {
+		return x.Retention
+	}
+	return nil
+}
+
 // A dataset's usage against its tier's schema ceilings, so a caller can see how
 // much room is left before a declaration is refused rather than discovering the
 // ceiling by hitting it.
@@ -887,7 +1046,7 @@ type SchemaUsage struct {
 
 func (x *SchemaUsage) Reset() {
 	*x = SchemaUsage{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[10]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -899,7 +1058,7 @@ func (x *SchemaUsage) String() string {
 func (*SchemaUsage) ProtoMessage() {}
 
 func (x *SchemaUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[10]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -912,7 +1071,7 @@ func (x *SchemaUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SchemaUsage.ProtoReflect.Descriptor instead.
 func (*SchemaUsage) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{10}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SchemaUsage) GetTables() int64 {
@@ -961,7 +1120,7 @@ type GetSchemaResponse struct {
 
 func (x *GetSchemaResponse) Reset() {
 	*x = GetSchemaResponse{}
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[11]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -973,7 +1132,7 @@ func (x *GetSchemaResponse) String() string {
 func (*GetSchemaResponse) ProtoMessage() {}
 
 func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[11]
+	mi := &file_jennah_datastore_v1_schema_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -986,7 +1145,7 @@ func (x *GetSchemaResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSchemaResponse.ProtoReflect.Descriptor instead.
 func (*GetSchemaResponse) Descriptor() ([]byte, []int) {
-	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{11}
+	return file_jennah_datastore_v1_schema_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetSchemaResponse) GetTables() []*TableSchema {
@@ -1022,21 +1181,30 @@ const file_jennah_datastore_v1_schema_proto_rawDesc = "" +
 	"\x10IndexDeclaration\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acolumns\x18\x02 \x03(\tR\acolumns\x12\x16\n" +
-	"\x06unique\x18\x03 \x01(\bR\x06unique\"\xd0\x01\n" +
+	"\x06unique\x18\x03 \x01(\bR\x06unique\"\x94\x02\n" +
 	"\x10TableDeclaration\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12C\n" +
 	"\acolumns\x18\x02 \x03(\v2).jennahapi.datastore.v1.ColumnDeclarationR\acolumns\x12\x1f\n" +
 	"\vprimary_key\x18\x03 \x03(\tR\n" +
 	"primaryKey\x12B\n" +
-	"\aindexes\x18\x04 \x03(\v2(.jennahapi.datastore.v1.IndexDeclarationR\aindexes\"w\n" +
+	"\aindexes\x18\x04 \x03(\v2(.jennahapi.datastore.v1.IndexDeclarationR\aindexes\x12B\n" +
+	"\tretention\x18\x05 \x01(\v2$.jennahapi.datastore.v1.RowRetentionR\tretention\":\n" +
+	"\fRowRetention\x12\x16\n" +
+	"\x06column\x18\x01 \x01(\tR\x06column\x12\x12\n" +
+	"\x04days\x18\x02 \x01(\x05R\x04days\"\xa4\x01\n" +
+	"\x0fRetentionChange\x128\n" +
+	"\x04from\x18\x01 \x01(\v2$.jennahapi.datastore.v1.RowRetentionR\x04from\x124\n" +
+	"\x02to\x18\x02 \x01(\v2$.jennahapi.datastore.v1.RowRetentionR\x02to\x12!\n" +
+	"\fremoves_rows\x18\x03 \x01(\bR\vremovesRows\"w\n" +
 	"\x14DeclareTablesRequest\x12\x1d\n" +
 	"\n" +
 	"dataset_id\x18\x01 \x01(\tR\tdatasetId\x12@\n" +
-	"\x06tables\x18\x02 \x03(\v2(.jennahapi.datastore.v1.TableDeclarationR\x06tables\"\x84\x01\n" +
+	"\x06tables\x18\x02 \x03(\v2(.jennahapi.datastore.v1.TableDeclarationR\x06tables\"\xd8\x01\n" +
 	"\vTableStatus\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12<\n" +
 	"\x06status\x18\x02 \x01(\x0e2$.jennahapi.datastore.v1.SchemaStatusR\x06status\x12#\n" +
-	"\rstatus_detail\x18\x03 \x01(\tR\fstatusDetail\"T\n" +
+	"\rstatus_detail\x18\x03 \x01(\tR\fstatusDetail\x12R\n" +
+	"\x10retention_change\x18\x04 \x01(\v2'.jennahapi.datastore.v1.RetentionChangeR\x0fretentionChange\"T\n" +
 	"\x15DeclareTablesResponse\x12;\n" +
 	"\x06tables\x18\x01 \x03(\v2#.jennahapi.datastore.v1.TableStatusR\x06tables\"1\n" +
 	"\x10GetSchemaRequest\x12\x1d\n" +
@@ -1047,7 +1215,7 @@ const file_jennah_datastore_v1_schema_proto_rawDesc = "" +
 	"\x04type\x18\x02 \x01(\x0e2\".jennahapi.datastore.v1.ColumnTypeR\x04type\x12\x1a\n" +
 	"\bnullable\x18\x03 \x01(\bR\bnullable\x12=\n" +
 	"\x06vector\x18\x04 \x01(\v2%.jennahapi.datastore.v1.VectorOptionsR\x06vector\x12\x18\n" +
-	"\amanaged\x18\x05 \x01(\bR\amanaged\"\x9f\x03\n" +
+	"\amanaged\x18\x05 \x01(\bR\amanaged\"\xe3\x03\n" +
 	"\vTableSchema\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12>\n" +
 	"\acolumns\x18\x02 \x03(\v2$.jennahapi.datastore.v1.ColumnSchemaR\acolumns\x12\x1f\n" +
@@ -1059,7 +1227,8 @@ const file_jennah_datastore_v1_schema_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb2\x01\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12B\n" +
+	"\tretention\x18\t \x01(\v2$.jennahapi.datastore.v1.RowRetentionR\tretention\"\xb2\x01\n" +
 	"\vSchemaUsage\x12\x16\n" +
 	"\x06tables\x18\x01 \x01(\x03R\x06tables\x12\x1d\n" +
 	"\n" +
@@ -1105,7 +1274,7 @@ func file_jennah_datastore_v1_schema_proto_rawDescGZIP() []byte {
 }
 
 var file_jennah_datastore_v1_schema_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_jennah_datastore_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_jennah_datastore_v1_schema_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_jennah_datastore_v1_schema_proto_goTypes = []any{
 	(SchemaStatus)(0),             // 0: jennahapi.datastore.v1.SchemaStatus
 	(ColumnType)(0),               // 1: jennahapi.datastore.v1.ColumnType
@@ -1113,42 +1282,49 @@ var file_jennah_datastore_v1_schema_proto_goTypes = []any{
 	(*ColumnDeclaration)(nil),     // 3: jennahapi.datastore.v1.ColumnDeclaration
 	(*IndexDeclaration)(nil),      // 4: jennahapi.datastore.v1.IndexDeclaration
 	(*TableDeclaration)(nil),      // 5: jennahapi.datastore.v1.TableDeclaration
-	(*DeclareTablesRequest)(nil),  // 6: jennahapi.datastore.v1.DeclareTablesRequest
-	(*TableStatus)(nil),           // 7: jennahapi.datastore.v1.TableStatus
-	(*DeclareTablesResponse)(nil), // 8: jennahapi.datastore.v1.DeclareTablesResponse
-	(*GetSchemaRequest)(nil),      // 9: jennahapi.datastore.v1.GetSchemaRequest
-	(*ColumnSchema)(nil),          // 10: jennahapi.datastore.v1.ColumnSchema
-	(*TableSchema)(nil),           // 11: jennahapi.datastore.v1.TableSchema
-	(*SchemaUsage)(nil),           // 12: jennahapi.datastore.v1.SchemaUsage
-	(*GetSchemaResponse)(nil),     // 13: jennahapi.datastore.v1.GetSchemaResponse
-	(*timestamppb.Timestamp)(nil), // 14: google.protobuf.Timestamp
+	(*RowRetention)(nil),          // 6: jennahapi.datastore.v1.RowRetention
+	(*RetentionChange)(nil),       // 7: jennahapi.datastore.v1.RetentionChange
+	(*DeclareTablesRequest)(nil),  // 8: jennahapi.datastore.v1.DeclareTablesRequest
+	(*TableStatus)(nil),           // 9: jennahapi.datastore.v1.TableStatus
+	(*DeclareTablesResponse)(nil), // 10: jennahapi.datastore.v1.DeclareTablesResponse
+	(*GetSchemaRequest)(nil),      // 11: jennahapi.datastore.v1.GetSchemaRequest
+	(*ColumnSchema)(nil),          // 12: jennahapi.datastore.v1.ColumnSchema
+	(*TableSchema)(nil),           // 13: jennahapi.datastore.v1.TableSchema
+	(*SchemaUsage)(nil),           // 14: jennahapi.datastore.v1.SchemaUsage
+	(*GetSchemaResponse)(nil),     // 15: jennahapi.datastore.v1.GetSchemaResponse
+	(*timestamppb.Timestamp)(nil), // 16: google.protobuf.Timestamp
 }
 var file_jennah_datastore_v1_schema_proto_depIdxs = []int32{
 	1,  // 0: jennahapi.datastore.v1.ColumnDeclaration.type:type_name -> jennahapi.datastore.v1.ColumnType
 	2,  // 1: jennahapi.datastore.v1.ColumnDeclaration.vector:type_name -> jennahapi.datastore.v1.VectorOptions
 	3,  // 2: jennahapi.datastore.v1.TableDeclaration.columns:type_name -> jennahapi.datastore.v1.ColumnDeclaration
 	4,  // 3: jennahapi.datastore.v1.TableDeclaration.indexes:type_name -> jennahapi.datastore.v1.IndexDeclaration
-	5,  // 4: jennahapi.datastore.v1.DeclareTablesRequest.tables:type_name -> jennahapi.datastore.v1.TableDeclaration
-	0,  // 5: jennahapi.datastore.v1.TableStatus.status:type_name -> jennahapi.datastore.v1.SchemaStatus
-	7,  // 6: jennahapi.datastore.v1.DeclareTablesResponse.tables:type_name -> jennahapi.datastore.v1.TableStatus
-	1,  // 7: jennahapi.datastore.v1.ColumnSchema.type:type_name -> jennahapi.datastore.v1.ColumnType
-	2,  // 8: jennahapi.datastore.v1.ColumnSchema.vector:type_name -> jennahapi.datastore.v1.VectorOptions
-	10, // 9: jennahapi.datastore.v1.TableSchema.columns:type_name -> jennahapi.datastore.v1.ColumnSchema
-	4,  // 10: jennahapi.datastore.v1.TableSchema.indexes:type_name -> jennahapi.datastore.v1.IndexDeclaration
-	0,  // 11: jennahapi.datastore.v1.TableSchema.status:type_name -> jennahapi.datastore.v1.SchemaStatus
-	14, // 12: jennahapi.datastore.v1.TableSchema.created_at:type_name -> google.protobuf.Timestamp
-	14, // 13: jennahapi.datastore.v1.TableSchema.updated_at:type_name -> google.protobuf.Timestamp
-	11, // 14: jennahapi.datastore.v1.GetSchemaResponse.tables:type_name -> jennahapi.datastore.v1.TableSchema
-	12, // 15: jennahapi.datastore.v1.GetSchemaResponse.usage:type_name -> jennahapi.datastore.v1.SchemaUsage
-	6,  // 16: jennahapi.datastore.v1.SchemaService.DeclareTables:input_type -> jennahapi.datastore.v1.DeclareTablesRequest
-	9,  // 17: jennahapi.datastore.v1.SchemaService.GetSchema:input_type -> jennahapi.datastore.v1.GetSchemaRequest
-	8,  // 18: jennahapi.datastore.v1.SchemaService.DeclareTables:output_type -> jennahapi.datastore.v1.DeclareTablesResponse
-	13, // 19: jennahapi.datastore.v1.SchemaService.GetSchema:output_type -> jennahapi.datastore.v1.GetSchemaResponse
-	18, // [18:20] is the sub-list for method output_type
-	16, // [16:18] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	6,  // 4: jennahapi.datastore.v1.TableDeclaration.retention:type_name -> jennahapi.datastore.v1.RowRetention
+	6,  // 5: jennahapi.datastore.v1.RetentionChange.from:type_name -> jennahapi.datastore.v1.RowRetention
+	6,  // 6: jennahapi.datastore.v1.RetentionChange.to:type_name -> jennahapi.datastore.v1.RowRetention
+	5,  // 7: jennahapi.datastore.v1.DeclareTablesRequest.tables:type_name -> jennahapi.datastore.v1.TableDeclaration
+	0,  // 8: jennahapi.datastore.v1.TableStatus.status:type_name -> jennahapi.datastore.v1.SchemaStatus
+	7,  // 9: jennahapi.datastore.v1.TableStatus.retention_change:type_name -> jennahapi.datastore.v1.RetentionChange
+	9,  // 10: jennahapi.datastore.v1.DeclareTablesResponse.tables:type_name -> jennahapi.datastore.v1.TableStatus
+	1,  // 11: jennahapi.datastore.v1.ColumnSchema.type:type_name -> jennahapi.datastore.v1.ColumnType
+	2,  // 12: jennahapi.datastore.v1.ColumnSchema.vector:type_name -> jennahapi.datastore.v1.VectorOptions
+	12, // 13: jennahapi.datastore.v1.TableSchema.columns:type_name -> jennahapi.datastore.v1.ColumnSchema
+	4,  // 14: jennahapi.datastore.v1.TableSchema.indexes:type_name -> jennahapi.datastore.v1.IndexDeclaration
+	0,  // 15: jennahapi.datastore.v1.TableSchema.status:type_name -> jennahapi.datastore.v1.SchemaStatus
+	16, // 16: jennahapi.datastore.v1.TableSchema.created_at:type_name -> google.protobuf.Timestamp
+	16, // 17: jennahapi.datastore.v1.TableSchema.updated_at:type_name -> google.protobuf.Timestamp
+	6,  // 18: jennahapi.datastore.v1.TableSchema.retention:type_name -> jennahapi.datastore.v1.RowRetention
+	13, // 19: jennahapi.datastore.v1.GetSchemaResponse.tables:type_name -> jennahapi.datastore.v1.TableSchema
+	14, // 20: jennahapi.datastore.v1.GetSchemaResponse.usage:type_name -> jennahapi.datastore.v1.SchemaUsage
+	8,  // 21: jennahapi.datastore.v1.SchemaService.DeclareTables:input_type -> jennahapi.datastore.v1.DeclareTablesRequest
+	11, // 22: jennahapi.datastore.v1.SchemaService.GetSchema:input_type -> jennahapi.datastore.v1.GetSchemaRequest
+	10, // 23: jennahapi.datastore.v1.SchemaService.DeclareTables:output_type -> jennahapi.datastore.v1.DeclareTablesResponse
+	15, // 24: jennahapi.datastore.v1.SchemaService.GetSchema:output_type -> jennahapi.datastore.v1.GetSchemaResponse
+	23, // [23:25] is the sub-list for method output_type
+	21, // [21:23] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_jennah_datastore_v1_schema_proto_init() }
@@ -1162,7 +1338,7 @@ func file_jennah_datastore_v1_schema_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_datastore_v1_schema_proto_rawDesc), len(file_jennah_datastore_v1_schema_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   12,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
