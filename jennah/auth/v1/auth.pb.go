@@ -711,7 +711,12 @@ type WhoAmIResponse struct {
 	// token. Each is a concrete "group.resource:action" catalog grant. Empty when
 	// auth/RBAC is not configured. A client uses this to enable/disable admin
 	// controls precisely, instead of inferring capability from the built-in role.
-	Permissions   []string `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	Permissions []string `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	// The API key the caller authenticated with: its metadata, never its secret,
+	// with all of its own selectors. Set only for an API-key caller; unset for a
+	// user token, and left unset if the key's record can't be read. A key with no
+	// expires_at here never expires; a missing api_key means unknown.
+	ApiKey        *ApiKey `protobuf:"bytes,4,opt,name=api_key,json=apiKey,proto3" json:"api_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -763,6 +768,13 @@ func (x *WhoAmIResponse) GetEntitlement() *Entitlement {
 func (x *WhoAmIResponse) GetPermissions() []string {
 	if x != nil {
 		return x.Permissions
+	}
+	return nil
+}
+
+func (x *WhoAmIResponse) GetApiKey() *ApiKey {
+	if x != nil {
+		return x.ApiKey
 	}
 	return nil
 }
@@ -4706,11 +4718,12 @@ const file_jennah_auth_v1_auth_proto_rawDesc = "" +
 	"\x04tier\x18\x01 \x01(\tR\x04tier\x12>\n" +
 	"\rtrial_ends_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vtrialEndsAt\x12!\n" +
 	"\ftrial_active\x18\x03 \x01(\bR\vtrialActive\"\x0f\n" +
-	"\rWhoAmIRequest\"\xad\x01\n" +
+	"\rWhoAmIRequest\"\xe1\x01\n" +
 	"\x0eWhoAmIResponse\x127\n" +
 	"\bidentity\x18\x01 \x01(\v2\x1b.jennahapi.auth.v1.IdentityR\bidentity\x12@\n" +
 	"\ventitlement\x18\x02 \x01(\v2\x1e.jennahapi.auth.v1.EntitlementR\ventitlement\x12 \n" +
-	"\vpermissions\x18\x03 \x03(\tR\vpermissions\"\xf5\x01\n" +
+	"\vpermissions\x18\x03 \x03(\tR\vpermissions\x122\n" +
+	"\aapi_key\x18\x04 \x01(\v2\x19.jennahapi.auth.v1.ApiKeyR\x06apiKey\"\xf5\x01\n" +
 	"\x11StartLoginRequest\x127\n" +
 	"\bprovider\x18\x01 \x01(\x0e2\x1b.jennahapi.auth.v1.ProviderR\bprovider\x12>\n" +
 	"\vclient_type\x18\x02 \x01(\x0e2\x1d.jennahapi.auth.v1.ClientTypeR\n" +
@@ -5155,114 +5168,115 @@ var file_jennah_auth_v1_auth_proto_depIdxs = []int32{
 	75, // 4: jennahapi.auth.v1.Entitlement.trial_ends_at:type_name -> google.protobuf.Timestamp
 	8,  // 5: jennahapi.auth.v1.WhoAmIResponse.identity:type_name -> jennahapi.auth.v1.Identity
 	9,  // 6: jennahapi.auth.v1.WhoAmIResponse.entitlement:type_name -> jennahapi.auth.v1.Entitlement
-	0,  // 7: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	1,  // 8: jennahapi.auth.v1.StartLoginRequest.client_type:type_name -> jennahapi.auth.v1.ClientType
-	2,  // 9: jennahapi.auth.v1.StartLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
-	0,  // 10: jennahapi.auth.v1.CompleteLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	8,  // 11: jennahapi.auth.v1.CompleteLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	2,  // 12: jennahapi.auth.v1.CompleteLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
-	0,  // 13: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
-	5,  // 14: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
-	8,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	2,  // 16: jennahapi.auth.v1.RipplePasswordLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
-	6,  // 17: jennahapi.auth.v1.RipplePasswordLoginResponse.challenge:type_name -> jennahapi.auth.v1.RipplePasswordLoginResponse.Challenge
-	8,  // 18: jennahapi.auth.v1.RipplePasswordLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
-	2,  // 19: jennahapi.auth.v1.RipplePasswordLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
-	75, // 20: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
-	75, // 21: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
-	75, // 22: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
-	75, // 23: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
-	75, // 24: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	30, // 25: jennahapi.auth.v1.CreateApiKeyResponse.key:type_name -> jennahapi.auth.v1.ApiKey
-	30, // 26: jennahapi.auth.v1.ListApiKeysResponse.keys:type_name -> jennahapi.auth.v1.ApiKey
-	75, // 27: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
-	3,  // 28: jennahapi.auth.v1.Invitation.role:type_name -> jennahapi.auth.v1.Role
-	4,  // 29: jennahapi.auth.v1.Invitation.status:type_name -> jennahapi.auth.v1.InvitationStatus
-	75, // 30: jennahapi.auth.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
-	75, // 31: jennahapi.auth.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
-	3,  // 32: jennahapi.auth.v1.Member.role:type_name -> jennahapi.auth.v1.Role
-	75, // 33: jennahapi.auth.v1.Member.joined_at:type_name -> google.protobuf.Timestamp
-	3,  // 34: jennahapi.auth.v1.InviteMemberRequest.role:type_name -> jennahapi.auth.v1.Role
-	37, // 35: jennahapi.auth.v1.InviteMemberResponse.invitation:type_name -> jennahapi.auth.v1.Invitation
-	37, // 36: jennahapi.auth.v1.ListInvitationsResponse.invitations:type_name -> jennahapi.auth.v1.Invitation
-	3,  // 37: jennahapi.auth.v1.AcceptInvitationResponse.role:type_name -> jennahapi.auth.v1.Role
-	38, // 38: jennahapi.auth.v1.ListMembersResponse.members:type_name -> jennahapi.auth.v1.Member
-	3,  // 39: jennahapi.auth.v1.ChangeMemberRoleRequest.role:type_name -> jennahapi.auth.v1.Role
-	38, // 40: jennahapi.auth.v1.ChangeMemberRoleResponse.member:type_name -> jennahapi.auth.v1.Member
-	38, // 41: jennahapi.auth.v1.TransferRootResponse.new_root:type_name -> jennahapi.auth.v1.Member
-	38, // 42: jennahapi.auth.v1.TransferRootResponse.previous_root:type_name -> jennahapi.auth.v1.Member
-	55, // 43: jennahapi.auth.v1.UpdateEnterpriseResponse.enterprise:type_name -> jennahapi.auth.v1.Enterprise
-	75, // 44: jennahapi.auth.v1.CustomRole.created_at:type_name -> google.protobuf.Timestamp
-	75, // 45: jennahapi.auth.v1.CustomRole.updated_at:type_name -> google.protobuf.Timestamp
-	58, // 46: jennahapi.auth.v1.ListPermissionsResponse.permissions:type_name -> jennahapi.auth.v1.Permission
-	59, // 47: jennahapi.auth.v1.CreateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
-	59, // 48: jennahapi.auth.v1.ListRolesResponse.roles:type_name -> jennahapi.auth.v1.CustomRole
-	59, // 49: jennahapi.auth.v1.GetRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
-	60, // 50: jennahapi.auth.v1.UpdateRoleRequest.agent_selectors:type_name -> jennahapi.auth.v1.AgentSelectorList
-	61, // 51: jennahapi.auth.v1.UpdateRoleRequest.dataset_selectors:type_name -> jennahapi.auth.v1.DatasetSelectorList
-	62, // 52: jennahapi.auth.v1.UpdateRoleRequest.subject_selectors:type_name -> jennahapi.auth.v1.SubjectSelectorList
-	59, // 53: jennahapi.auth.v1.UpdateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
-	10, // 54: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
-	12, // 55: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
-	14, // 56: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
-	16, // 57: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
-	18, // 58: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
-	20, // 59: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
-	22, // 60: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
-	24, // 61: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
-	26, // 62: jennahapi.auth.v1.AuthService.RipplePasswordLogin:input_type -> jennahapi.auth.v1.RipplePasswordLoginRequest
-	28, // 63: jennahapi.auth.v1.AuthService.RequestRippleEmailCode:input_type -> jennahapi.auth.v1.RequestRippleEmailCodeRequest
-	31, // 64: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
-	33, // 65: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
-	35, // 66: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
-	39, // 67: jennahapi.auth.v1.AuthService.InviteMember:input_type -> jennahapi.auth.v1.InviteMemberRequest
-	41, // 68: jennahapi.auth.v1.AuthService.ListInvitations:input_type -> jennahapi.auth.v1.ListInvitationsRequest
-	43, // 69: jennahapi.auth.v1.AuthService.RevokeInvitation:input_type -> jennahapi.auth.v1.RevokeInvitationRequest
-	45, // 70: jennahapi.auth.v1.AuthService.AcceptInvitation:input_type -> jennahapi.auth.v1.AcceptInvitationRequest
-	47, // 71: jennahapi.auth.v1.AuthService.ListMembers:input_type -> jennahapi.auth.v1.ListMembersRequest
-	49, // 72: jennahapi.auth.v1.AuthService.ChangeMemberRole:input_type -> jennahapi.auth.v1.ChangeMemberRoleRequest
-	51, // 73: jennahapi.auth.v1.AuthService.RemoveMember:input_type -> jennahapi.auth.v1.RemoveMemberRequest
-	53, // 74: jennahapi.auth.v1.AuthService.TransferRoot:input_type -> jennahapi.auth.v1.TransferRootRequest
-	56, // 75: jennahapi.auth.v1.AuthService.UpdateEnterprise:input_type -> jennahapi.auth.v1.UpdateEnterpriseRequest
-	63, // 76: jennahapi.auth.v1.AuthService.ListPermissions:input_type -> jennahapi.auth.v1.ListPermissionsRequest
-	65, // 77: jennahapi.auth.v1.AuthService.CreateRole:input_type -> jennahapi.auth.v1.CreateRoleRequest
-	67, // 78: jennahapi.auth.v1.AuthService.ListRoles:input_type -> jennahapi.auth.v1.ListRolesRequest
-	69, // 79: jennahapi.auth.v1.AuthService.GetRole:input_type -> jennahapi.auth.v1.GetRoleRequest
-	71, // 80: jennahapi.auth.v1.AuthService.UpdateRole:input_type -> jennahapi.auth.v1.UpdateRoleRequest
-	73, // 81: jennahapi.auth.v1.AuthService.DeleteRole:input_type -> jennahapi.auth.v1.DeleteRoleRequest
-	11, // 82: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
-	13, // 83: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
-	15, // 84: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
-	17, // 85: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
-	19, // 86: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
-	21, // 87: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
-	23, // 88: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
-	25, // 89: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
-	27, // 90: jennahapi.auth.v1.AuthService.RipplePasswordLogin:output_type -> jennahapi.auth.v1.RipplePasswordLoginResponse
-	29, // 91: jennahapi.auth.v1.AuthService.RequestRippleEmailCode:output_type -> jennahapi.auth.v1.RequestRippleEmailCodeResponse
-	32, // 92: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
-	34, // 93: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
-	36, // 94: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
-	40, // 95: jennahapi.auth.v1.AuthService.InviteMember:output_type -> jennahapi.auth.v1.InviteMemberResponse
-	42, // 96: jennahapi.auth.v1.AuthService.ListInvitations:output_type -> jennahapi.auth.v1.ListInvitationsResponse
-	44, // 97: jennahapi.auth.v1.AuthService.RevokeInvitation:output_type -> jennahapi.auth.v1.RevokeInvitationResponse
-	46, // 98: jennahapi.auth.v1.AuthService.AcceptInvitation:output_type -> jennahapi.auth.v1.AcceptInvitationResponse
-	48, // 99: jennahapi.auth.v1.AuthService.ListMembers:output_type -> jennahapi.auth.v1.ListMembersResponse
-	50, // 100: jennahapi.auth.v1.AuthService.ChangeMemberRole:output_type -> jennahapi.auth.v1.ChangeMemberRoleResponse
-	52, // 101: jennahapi.auth.v1.AuthService.RemoveMember:output_type -> jennahapi.auth.v1.RemoveMemberResponse
-	54, // 102: jennahapi.auth.v1.AuthService.TransferRoot:output_type -> jennahapi.auth.v1.TransferRootResponse
-	57, // 103: jennahapi.auth.v1.AuthService.UpdateEnterprise:output_type -> jennahapi.auth.v1.UpdateEnterpriseResponse
-	64, // 104: jennahapi.auth.v1.AuthService.ListPermissions:output_type -> jennahapi.auth.v1.ListPermissionsResponse
-	66, // 105: jennahapi.auth.v1.AuthService.CreateRole:output_type -> jennahapi.auth.v1.CreateRoleResponse
-	68, // 106: jennahapi.auth.v1.AuthService.ListRoles:output_type -> jennahapi.auth.v1.ListRolesResponse
-	70, // 107: jennahapi.auth.v1.AuthService.GetRole:output_type -> jennahapi.auth.v1.GetRoleResponse
-	72, // 108: jennahapi.auth.v1.AuthService.UpdateRole:output_type -> jennahapi.auth.v1.UpdateRoleResponse
-	74, // 109: jennahapi.auth.v1.AuthService.DeleteRole:output_type -> jennahapi.auth.v1.DeleteRoleResponse
-	82, // [82:110] is the sub-list for method output_type
-	54, // [54:82] is the sub-list for method input_type
-	54, // [54:54] is the sub-list for extension type_name
-	54, // [54:54] is the sub-list for extension extendee
-	0,  // [0:54] is the sub-list for field type_name
+	30, // 7: jennahapi.auth.v1.WhoAmIResponse.api_key:type_name -> jennahapi.auth.v1.ApiKey
+	0,  // 8: jennahapi.auth.v1.StartLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
+	1,  // 9: jennahapi.auth.v1.StartLoginRequest.client_type:type_name -> jennahapi.auth.v1.ClientType
+	2,  // 10: jennahapi.auth.v1.StartLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	0,  // 11: jennahapi.auth.v1.CompleteLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
+	8,  // 12: jennahapi.auth.v1.CompleteLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	2,  // 13: jennahapi.auth.v1.CompleteLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	0,  // 14: jennahapi.auth.v1.StartDeviceLoginRequest.provider:type_name -> jennahapi.auth.v1.Provider
+	5,  // 15: jennahapi.auth.v1.PollDeviceLoginResponse.status:type_name -> jennahapi.auth.v1.PollDeviceLoginResponse.Status
+	8,  // 16: jennahapi.auth.v1.PollDeviceLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	2,  // 17: jennahapi.auth.v1.RipplePasswordLoginRequest.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	6,  // 18: jennahapi.auth.v1.RipplePasswordLoginResponse.challenge:type_name -> jennahapi.auth.v1.RipplePasswordLoginResponse.Challenge
+	8,  // 19: jennahapi.auth.v1.RipplePasswordLoginResponse.identity:type_name -> jennahapi.auth.v1.Identity
+	2,  // 20: jennahapi.auth.v1.RipplePasswordLoginResponse.response_mode:type_name -> jennahapi.auth.v1.ResponseMode
+	75, // 21: jennahapi.auth.v1.ApiKey.created_at:type_name -> google.protobuf.Timestamp
+	75, // 22: jennahapi.auth.v1.ApiKey.last_used_at:type_name -> google.protobuf.Timestamp
+	75, // 23: jennahapi.auth.v1.ApiKey.expires_at:type_name -> google.protobuf.Timestamp
+	75, // 24: jennahapi.auth.v1.ApiKey.revoked_at:type_name -> google.protobuf.Timestamp
+	75, // 25: jennahapi.auth.v1.CreateApiKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	30, // 26: jennahapi.auth.v1.CreateApiKeyResponse.key:type_name -> jennahapi.auth.v1.ApiKey
+	30, // 27: jennahapi.auth.v1.ListApiKeysResponse.keys:type_name -> jennahapi.auth.v1.ApiKey
+	75, // 28: jennahapi.auth.v1.RevokeApiKeyResponse.revoked_at:type_name -> google.protobuf.Timestamp
+	3,  // 29: jennahapi.auth.v1.Invitation.role:type_name -> jennahapi.auth.v1.Role
+	4,  // 30: jennahapi.auth.v1.Invitation.status:type_name -> jennahapi.auth.v1.InvitationStatus
+	75, // 31: jennahapi.auth.v1.Invitation.created_at:type_name -> google.protobuf.Timestamp
+	75, // 32: jennahapi.auth.v1.Invitation.expires_at:type_name -> google.protobuf.Timestamp
+	3,  // 33: jennahapi.auth.v1.Member.role:type_name -> jennahapi.auth.v1.Role
+	75, // 34: jennahapi.auth.v1.Member.joined_at:type_name -> google.protobuf.Timestamp
+	3,  // 35: jennahapi.auth.v1.InviteMemberRequest.role:type_name -> jennahapi.auth.v1.Role
+	37, // 36: jennahapi.auth.v1.InviteMemberResponse.invitation:type_name -> jennahapi.auth.v1.Invitation
+	37, // 37: jennahapi.auth.v1.ListInvitationsResponse.invitations:type_name -> jennahapi.auth.v1.Invitation
+	3,  // 38: jennahapi.auth.v1.AcceptInvitationResponse.role:type_name -> jennahapi.auth.v1.Role
+	38, // 39: jennahapi.auth.v1.ListMembersResponse.members:type_name -> jennahapi.auth.v1.Member
+	3,  // 40: jennahapi.auth.v1.ChangeMemberRoleRequest.role:type_name -> jennahapi.auth.v1.Role
+	38, // 41: jennahapi.auth.v1.ChangeMemberRoleResponse.member:type_name -> jennahapi.auth.v1.Member
+	38, // 42: jennahapi.auth.v1.TransferRootResponse.new_root:type_name -> jennahapi.auth.v1.Member
+	38, // 43: jennahapi.auth.v1.TransferRootResponse.previous_root:type_name -> jennahapi.auth.v1.Member
+	55, // 44: jennahapi.auth.v1.UpdateEnterpriseResponse.enterprise:type_name -> jennahapi.auth.v1.Enterprise
+	75, // 45: jennahapi.auth.v1.CustomRole.created_at:type_name -> google.protobuf.Timestamp
+	75, // 46: jennahapi.auth.v1.CustomRole.updated_at:type_name -> google.protobuf.Timestamp
+	58, // 47: jennahapi.auth.v1.ListPermissionsResponse.permissions:type_name -> jennahapi.auth.v1.Permission
+	59, // 48: jennahapi.auth.v1.CreateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	59, // 49: jennahapi.auth.v1.ListRolesResponse.roles:type_name -> jennahapi.auth.v1.CustomRole
+	59, // 50: jennahapi.auth.v1.GetRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	60, // 51: jennahapi.auth.v1.UpdateRoleRequest.agent_selectors:type_name -> jennahapi.auth.v1.AgentSelectorList
+	61, // 52: jennahapi.auth.v1.UpdateRoleRequest.dataset_selectors:type_name -> jennahapi.auth.v1.DatasetSelectorList
+	62, // 53: jennahapi.auth.v1.UpdateRoleRequest.subject_selectors:type_name -> jennahapi.auth.v1.SubjectSelectorList
+	59, // 54: jennahapi.auth.v1.UpdateRoleResponse.role:type_name -> jennahapi.auth.v1.CustomRole
+	10, // 55: jennahapi.auth.v1.AuthService.WhoAmI:input_type -> jennahapi.auth.v1.WhoAmIRequest
+	12, // 56: jennahapi.auth.v1.AuthService.StartLogin:input_type -> jennahapi.auth.v1.StartLoginRequest
+	14, // 57: jennahapi.auth.v1.AuthService.CompleteLogin:input_type -> jennahapi.auth.v1.CompleteLoginRequest
+	16, // 58: jennahapi.auth.v1.AuthService.ExchangeCode:input_type -> jennahapi.auth.v1.ExchangeCodeRequest
+	18, // 59: jennahapi.auth.v1.AuthService.StartDeviceLogin:input_type -> jennahapi.auth.v1.StartDeviceLoginRequest
+	20, // 60: jennahapi.auth.v1.AuthService.PollDeviceLogin:input_type -> jennahapi.auth.v1.PollDeviceLoginRequest
+	22, // 61: jennahapi.auth.v1.AuthService.RefreshToken:input_type -> jennahapi.auth.v1.RefreshTokenRequest
+	24, // 62: jennahapi.auth.v1.AuthService.Logout:input_type -> jennahapi.auth.v1.LogoutRequest
+	26, // 63: jennahapi.auth.v1.AuthService.RipplePasswordLogin:input_type -> jennahapi.auth.v1.RipplePasswordLoginRequest
+	28, // 64: jennahapi.auth.v1.AuthService.RequestRippleEmailCode:input_type -> jennahapi.auth.v1.RequestRippleEmailCodeRequest
+	31, // 65: jennahapi.auth.v1.AuthService.CreateApiKey:input_type -> jennahapi.auth.v1.CreateApiKeyRequest
+	33, // 66: jennahapi.auth.v1.AuthService.ListApiKeys:input_type -> jennahapi.auth.v1.ListApiKeysRequest
+	35, // 67: jennahapi.auth.v1.AuthService.RevokeApiKey:input_type -> jennahapi.auth.v1.RevokeApiKeyRequest
+	39, // 68: jennahapi.auth.v1.AuthService.InviteMember:input_type -> jennahapi.auth.v1.InviteMemberRequest
+	41, // 69: jennahapi.auth.v1.AuthService.ListInvitations:input_type -> jennahapi.auth.v1.ListInvitationsRequest
+	43, // 70: jennahapi.auth.v1.AuthService.RevokeInvitation:input_type -> jennahapi.auth.v1.RevokeInvitationRequest
+	45, // 71: jennahapi.auth.v1.AuthService.AcceptInvitation:input_type -> jennahapi.auth.v1.AcceptInvitationRequest
+	47, // 72: jennahapi.auth.v1.AuthService.ListMembers:input_type -> jennahapi.auth.v1.ListMembersRequest
+	49, // 73: jennahapi.auth.v1.AuthService.ChangeMemberRole:input_type -> jennahapi.auth.v1.ChangeMemberRoleRequest
+	51, // 74: jennahapi.auth.v1.AuthService.RemoveMember:input_type -> jennahapi.auth.v1.RemoveMemberRequest
+	53, // 75: jennahapi.auth.v1.AuthService.TransferRoot:input_type -> jennahapi.auth.v1.TransferRootRequest
+	56, // 76: jennahapi.auth.v1.AuthService.UpdateEnterprise:input_type -> jennahapi.auth.v1.UpdateEnterpriseRequest
+	63, // 77: jennahapi.auth.v1.AuthService.ListPermissions:input_type -> jennahapi.auth.v1.ListPermissionsRequest
+	65, // 78: jennahapi.auth.v1.AuthService.CreateRole:input_type -> jennahapi.auth.v1.CreateRoleRequest
+	67, // 79: jennahapi.auth.v1.AuthService.ListRoles:input_type -> jennahapi.auth.v1.ListRolesRequest
+	69, // 80: jennahapi.auth.v1.AuthService.GetRole:input_type -> jennahapi.auth.v1.GetRoleRequest
+	71, // 81: jennahapi.auth.v1.AuthService.UpdateRole:input_type -> jennahapi.auth.v1.UpdateRoleRequest
+	73, // 82: jennahapi.auth.v1.AuthService.DeleteRole:input_type -> jennahapi.auth.v1.DeleteRoleRequest
+	11, // 83: jennahapi.auth.v1.AuthService.WhoAmI:output_type -> jennahapi.auth.v1.WhoAmIResponse
+	13, // 84: jennahapi.auth.v1.AuthService.StartLogin:output_type -> jennahapi.auth.v1.StartLoginResponse
+	15, // 85: jennahapi.auth.v1.AuthService.CompleteLogin:output_type -> jennahapi.auth.v1.CompleteLoginResponse
+	17, // 86: jennahapi.auth.v1.AuthService.ExchangeCode:output_type -> jennahapi.auth.v1.ExchangeCodeResponse
+	19, // 87: jennahapi.auth.v1.AuthService.StartDeviceLogin:output_type -> jennahapi.auth.v1.StartDeviceLoginResponse
+	21, // 88: jennahapi.auth.v1.AuthService.PollDeviceLogin:output_type -> jennahapi.auth.v1.PollDeviceLoginResponse
+	23, // 89: jennahapi.auth.v1.AuthService.RefreshToken:output_type -> jennahapi.auth.v1.RefreshTokenResponse
+	25, // 90: jennahapi.auth.v1.AuthService.Logout:output_type -> jennahapi.auth.v1.LogoutResponse
+	27, // 91: jennahapi.auth.v1.AuthService.RipplePasswordLogin:output_type -> jennahapi.auth.v1.RipplePasswordLoginResponse
+	29, // 92: jennahapi.auth.v1.AuthService.RequestRippleEmailCode:output_type -> jennahapi.auth.v1.RequestRippleEmailCodeResponse
+	32, // 93: jennahapi.auth.v1.AuthService.CreateApiKey:output_type -> jennahapi.auth.v1.CreateApiKeyResponse
+	34, // 94: jennahapi.auth.v1.AuthService.ListApiKeys:output_type -> jennahapi.auth.v1.ListApiKeysResponse
+	36, // 95: jennahapi.auth.v1.AuthService.RevokeApiKey:output_type -> jennahapi.auth.v1.RevokeApiKeyResponse
+	40, // 96: jennahapi.auth.v1.AuthService.InviteMember:output_type -> jennahapi.auth.v1.InviteMemberResponse
+	42, // 97: jennahapi.auth.v1.AuthService.ListInvitations:output_type -> jennahapi.auth.v1.ListInvitationsResponse
+	44, // 98: jennahapi.auth.v1.AuthService.RevokeInvitation:output_type -> jennahapi.auth.v1.RevokeInvitationResponse
+	46, // 99: jennahapi.auth.v1.AuthService.AcceptInvitation:output_type -> jennahapi.auth.v1.AcceptInvitationResponse
+	48, // 100: jennahapi.auth.v1.AuthService.ListMembers:output_type -> jennahapi.auth.v1.ListMembersResponse
+	50, // 101: jennahapi.auth.v1.AuthService.ChangeMemberRole:output_type -> jennahapi.auth.v1.ChangeMemberRoleResponse
+	52, // 102: jennahapi.auth.v1.AuthService.RemoveMember:output_type -> jennahapi.auth.v1.RemoveMemberResponse
+	54, // 103: jennahapi.auth.v1.AuthService.TransferRoot:output_type -> jennahapi.auth.v1.TransferRootResponse
+	57, // 104: jennahapi.auth.v1.AuthService.UpdateEnterprise:output_type -> jennahapi.auth.v1.UpdateEnterpriseResponse
+	64, // 105: jennahapi.auth.v1.AuthService.ListPermissions:output_type -> jennahapi.auth.v1.ListPermissionsResponse
+	66, // 106: jennahapi.auth.v1.AuthService.CreateRole:output_type -> jennahapi.auth.v1.CreateRoleResponse
+	68, // 107: jennahapi.auth.v1.AuthService.ListRoles:output_type -> jennahapi.auth.v1.ListRolesResponse
+	70, // 108: jennahapi.auth.v1.AuthService.GetRole:output_type -> jennahapi.auth.v1.GetRoleResponse
+	72, // 109: jennahapi.auth.v1.AuthService.UpdateRole:output_type -> jennahapi.auth.v1.UpdateRoleResponse
+	74, // 110: jennahapi.auth.v1.AuthService.DeleteRole:output_type -> jennahapi.auth.v1.DeleteRoleResponse
+	83, // [83:111] is the sub-list for method output_type
+	55, // [55:83] is the sub-list for method input_type
+	55, // [55:55] is the sub-list for extension type_name
+	55, // [55:55] is the sub-list for extension extendee
+	0,  // [0:55] is the sub-list for field type_name
 }
 
 func init() { file_jennah_auth_v1_auth_proto_init() }
