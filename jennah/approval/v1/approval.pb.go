@@ -1779,8 +1779,22 @@ type ListApprovalsRequest struct {
 	// addressed to the caller. Meaningless for a key-authenticated caller, which
 	// can never be an approver.
 	OnlyAwaitingMe bool `protobuf:"varint,5,opt,name=only_awaiting_me,json=onlyAwaitingMe,proto3" json:"only_awaiting_me,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Optional: only approvals whose request_key starts with this string,
+	// compared byte for byte and case-sensitively. Empty means no filter. Longer
+	// than the maximum request_key length is refused as INVALID_ARGUMENT.
+	RequestKeyPrefix string `protobuf:"bytes,6,opt,name=request_key_prefix,json=requestKeyPrefix,proto3" json:"request_key_prefix,omitempty"`
+	// Optional settlement cursor. When set, the listing switches to settlement
+	// order: only approvals in a terminal status whose settlement was recorded
+	// strictly after this time, oldest settlement first, then by approval_id.
+	// Pending approvals never appear in this order, and a status filter of
+	// PENDING with this field is refused as INVALID_ARGUMENT. An approval that
+	// expires appears once its expiry is recorded (normally within a minute of
+	// the deadline), at the time of that recording, not at the deadline.
+	// Ignored when page_token carries a settlement-order position, which then
+	// governs.
+	DecidedAfter  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=decided_after,json=decidedAfter,proto3" json:"decided_after,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListApprovalsRequest) Reset() {
@@ -1848,11 +1862,31 @@ func (x *ListApprovalsRequest) GetOnlyAwaitingMe() bool {
 	return false
 }
 
+func (x *ListApprovalsRequest) GetRequestKeyPrefix() string {
+	if x != nil {
+		return x.RequestKeyPrefix
+	}
+	return ""
+}
+
+func (x *ListApprovalsRequest) GetDecidedAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DecidedAfter
+	}
+	return nil
+}
+
 // Response message for the ApprovalService.ListApprovals rpc.
 type ListApprovalsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Approvals     []*Approval            `protobuf:"bytes,1,rep,name=approvals,proto3" json:"approvals,omitempty"`
 	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"` // empty when there are no more pages
+	// Set on every settlement-order response (see decided_after), including the
+	// last page and an empty one; unset in newest-first order. Pass it back as
+	// page_token on the next poll to continue after the last approval the walk
+	// has reached. It is the only state a poller needs to keep. When
+	// next_page_token is set, the two are equal.
+	ResumeToken   string `protobuf:"bytes,3,opt,name=resume_token,json=resumeToken,proto3" json:"resume_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1897,6 +1931,13 @@ func (x *ListApprovalsResponse) GetApprovals() []*Approval {
 func (x *ListApprovalsResponse) GetNextPageToken() string {
 	if x != nil {
 		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *ListApprovalsResponse) GetResumeToken() string {
+	if x != nil {
+		return x.ResumeToken
 	}
 	return ""
 }
@@ -3036,17 +3077,20 @@ const file_jennah_approval_v1_approval_proto_rawDesc = "" +
 	"approvalId\"\x99\x01\n" +
 	"\x13GetApprovalResponse\x12;\n" +
 	"\bapproval\x18\x01 \x01(\v2\x1f.jennahapi.approval.v1.ApprovalR\bapproval\x12E\n" +
-	"\tdecisions\x18\x02 \x03(\v2'.jennahapi.approval.v1.ApprovalDecisionR\tdecisions\"\xd6\x01\n" +
+	"\tdecisions\x18\x02 \x03(\v2'.jennahapi.approval.v1.ApprovalDecisionR\tdecisions\"\xc5\x02\n" +
 	"\x14ListApprovalsRequest\x12\x1b\n" +
 	"\tpage_size\x18\x01 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
 	"page_token\x18\x02 \x01(\tR\tpageToken\x12=\n" +
 	"\x06status\x18\x03 \x01(\x0e2%.jennahapi.approval.v1.ApprovalStatusR\x06status\x12\x19\n" +
 	"\bagent_id\x18\x04 \x01(\tR\aagentId\x12(\n" +
-	"\x10only_awaiting_me\x18\x05 \x01(\bR\x0eonlyAwaitingMe\"~\n" +
+	"\x10only_awaiting_me\x18\x05 \x01(\bR\x0eonlyAwaitingMe\x12,\n" +
+	"\x12request_key_prefix\x18\x06 \x01(\tR\x10requestKeyPrefix\x12?\n" +
+	"\rdecided_after\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\fdecidedAfter\"\xa1\x01\n" +
 	"\x15ListApprovalsResponse\x12=\n" +
 	"\tapprovals\x18\x01 \x03(\v2\x1f.jennahapi.approval.v1.ApprovalR\tapprovals\x12&\n" +
-	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"8\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12!\n" +
+	"\fresume_token\x18\x03 \x01(\tR\vresumeToken\"8\n" +
 	"\x15CancelApprovalRequest\x12\x1f\n" +
 	"\vapproval_id\x18\x01 \x01(\tR\n" +
 	"approvalId\"U\n" +
@@ -3262,52 +3306,53 @@ var file_jennah_approval_v1_approval_proto_depIdxs = []int32{
 	13, // 29: jennahapi.approval.v1.GetApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
 	14, // 30: jennahapi.approval.v1.GetApprovalResponse.decisions:type_name -> jennahapi.approval.v1.ApprovalDecision
 	2,  // 31: jennahapi.approval.v1.ListApprovalsRequest.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	13, // 32: jennahapi.approval.v1.ListApprovalsResponse.approvals:type_name -> jennahapi.approval.v1.Approval
-	13, // 33: jennahapi.approval.v1.CancelApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
-	13, // 34: jennahapi.approval.v1.WaitApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
-	11, // 35: jennahapi.approval.v1.ResendApprovalNotificationResponse.approvers:type_name -> jennahapi.approval.v1.Approver
-	39, // 36: jennahapi.approval.v1.DescribeApprovalByTokenResponse.payload:type_name -> google.protobuf.Struct
-	2,  // 37: jennahapi.approval.v1.DescribeApprovalByTokenResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	38, // 38: jennahapi.approval.v1.DescribeApprovalByTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
-	38, // 39: jennahapi.approval.v1.DescribeApprovalByTokenResponse.decided_at:type_name -> google.protobuf.Timestamp
-	1,  // 40: jennahapi.approval.v1.DescribeApprovalByTokenResponse.kind:type_name -> jennahapi.approval.v1.ApprovalKind
-	9,  // 41: jennahapi.approval.v1.DescribeApprovalByTokenResponse.question:type_name -> jennahapi.approval.v1.Question
-	10, // 42: jennahapi.approval.v1.DescribeApprovalByTokenResponse.answer:type_name -> jennahapi.approval.v1.Answer
-	6,  // 43: jennahapi.approval.v1.SubmitApprovalDecisionRequest.decision:type_name -> jennahapi.approval.v1.DecisionValue
-	10, // 44: jennahapi.approval.v1.SubmitApprovalDecisionRequest.answer:type_name -> jennahapi.approval.v1.Answer
-	2,  // 45: jennahapi.approval.v1.SubmitApprovalDecisionResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
-	38, // 46: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decided_at:type_name -> google.protobuf.Timestamp
-	14, // 47: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decision:type_name -> jennahapi.approval.v1.ApprovalDecision
-	15, // 48: jennahapi.approval.v1.ListApproversResponse.entries:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
-	7,  // 49: jennahapi.approval.v1.AddApproverRequest.kind:type_name -> jennahapi.approval.v1.AllowlistKind
-	15, // 50: jennahapi.approval.v1.AddApproverResponse.entry:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
-	16, // 51: jennahapi.approval.v1.ApprovalService.CreateApproval:input_type -> jennahapi.approval.v1.CreateApprovalRequest
-	18, // 52: jennahapi.approval.v1.ApprovalService.GetApproval:input_type -> jennahapi.approval.v1.GetApprovalRequest
-	20, // 53: jennahapi.approval.v1.ApprovalService.ListApprovals:input_type -> jennahapi.approval.v1.ListApprovalsRequest
-	22, // 54: jennahapi.approval.v1.ApprovalService.CancelApproval:input_type -> jennahapi.approval.v1.CancelApprovalRequest
-	24, // 55: jennahapi.approval.v1.ApprovalService.WaitApproval:input_type -> jennahapi.approval.v1.WaitApprovalRequest
-	26, // 56: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:input_type -> jennahapi.approval.v1.ResendApprovalNotificationRequest
-	28, // 57: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:input_type -> jennahapi.approval.v1.DescribeApprovalByTokenRequest
-	30, // 58: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:input_type -> jennahapi.approval.v1.SubmitApprovalDecisionRequest
-	32, // 59: jennahapi.approval.v1.ApprovalService.ListApprovers:input_type -> jennahapi.approval.v1.ListApproversRequest
-	34, // 60: jennahapi.approval.v1.ApprovalService.AddApprover:input_type -> jennahapi.approval.v1.AddApproverRequest
-	36, // 61: jennahapi.approval.v1.ApprovalService.RemoveApprover:input_type -> jennahapi.approval.v1.RemoveApproverRequest
-	17, // 62: jennahapi.approval.v1.ApprovalService.CreateApproval:output_type -> jennahapi.approval.v1.CreateApprovalResponse
-	19, // 63: jennahapi.approval.v1.ApprovalService.GetApproval:output_type -> jennahapi.approval.v1.GetApprovalResponse
-	21, // 64: jennahapi.approval.v1.ApprovalService.ListApprovals:output_type -> jennahapi.approval.v1.ListApprovalsResponse
-	23, // 65: jennahapi.approval.v1.ApprovalService.CancelApproval:output_type -> jennahapi.approval.v1.CancelApprovalResponse
-	25, // 66: jennahapi.approval.v1.ApprovalService.WaitApproval:output_type -> jennahapi.approval.v1.WaitApprovalResponse
-	27, // 67: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:output_type -> jennahapi.approval.v1.ResendApprovalNotificationResponse
-	29, // 68: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:output_type -> jennahapi.approval.v1.DescribeApprovalByTokenResponse
-	31, // 69: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:output_type -> jennahapi.approval.v1.SubmitApprovalDecisionResponse
-	33, // 70: jennahapi.approval.v1.ApprovalService.ListApprovers:output_type -> jennahapi.approval.v1.ListApproversResponse
-	35, // 71: jennahapi.approval.v1.ApprovalService.AddApprover:output_type -> jennahapi.approval.v1.AddApproverResponse
-	37, // 72: jennahapi.approval.v1.ApprovalService.RemoveApprover:output_type -> jennahapi.approval.v1.RemoveApproverResponse
-	62, // [62:73] is the sub-list for method output_type
-	51, // [51:62] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	38, // 32: jennahapi.approval.v1.ListApprovalsRequest.decided_after:type_name -> google.protobuf.Timestamp
+	13, // 33: jennahapi.approval.v1.ListApprovalsResponse.approvals:type_name -> jennahapi.approval.v1.Approval
+	13, // 34: jennahapi.approval.v1.CancelApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
+	13, // 35: jennahapi.approval.v1.WaitApprovalResponse.approval:type_name -> jennahapi.approval.v1.Approval
+	11, // 36: jennahapi.approval.v1.ResendApprovalNotificationResponse.approvers:type_name -> jennahapi.approval.v1.Approver
+	39, // 37: jennahapi.approval.v1.DescribeApprovalByTokenResponse.payload:type_name -> google.protobuf.Struct
+	2,  // 38: jennahapi.approval.v1.DescribeApprovalByTokenResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
+	38, // 39: jennahapi.approval.v1.DescribeApprovalByTokenResponse.expires_at:type_name -> google.protobuf.Timestamp
+	38, // 40: jennahapi.approval.v1.DescribeApprovalByTokenResponse.decided_at:type_name -> google.protobuf.Timestamp
+	1,  // 41: jennahapi.approval.v1.DescribeApprovalByTokenResponse.kind:type_name -> jennahapi.approval.v1.ApprovalKind
+	9,  // 42: jennahapi.approval.v1.DescribeApprovalByTokenResponse.question:type_name -> jennahapi.approval.v1.Question
+	10, // 43: jennahapi.approval.v1.DescribeApprovalByTokenResponse.answer:type_name -> jennahapi.approval.v1.Answer
+	6,  // 44: jennahapi.approval.v1.SubmitApprovalDecisionRequest.decision:type_name -> jennahapi.approval.v1.DecisionValue
+	10, // 45: jennahapi.approval.v1.SubmitApprovalDecisionRequest.answer:type_name -> jennahapi.approval.v1.Answer
+	2,  // 46: jennahapi.approval.v1.SubmitApprovalDecisionResponse.status:type_name -> jennahapi.approval.v1.ApprovalStatus
+	38, // 47: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decided_at:type_name -> google.protobuf.Timestamp
+	14, // 48: jennahapi.approval.v1.SubmitApprovalDecisionResponse.decision:type_name -> jennahapi.approval.v1.ApprovalDecision
+	15, // 49: jennahapi.approval.v1.ListApproversResponse.entries:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
+	7,  // 50: jennahapi.approval.v1.AddApproverRequest.kind:type_name -> jennahapi.approval.v1.AllowlistKind
+	15, // 51: jennahapi.approval.v1.AddApproverResponse.entry:type_name -> jennahapi.approval.v1.ApproverAllowlistEntry
+	16, // 52: jennahapi.approval.v1.ApprovalService.CreateApproval:input_type -> jennahapi.approval.v1.CreateApprovalRequest
+	18, // 53: jennahapi.approval.v1.ApprovalService.GetApproval:input_type -> jennahapi.approval.v1.GetApprovalRequest
+	20, // 54: jennahapi.approval.v1.ApprovalService.ListApprovals:input_type -> jennahapi.approval.v1.ListApprovalsRequest
+	22, // 55: jennahapi.approval.v1.ApprovalService.CancelApproval:input_type -> jennahapi.approval.v1.CancelApprovalRequest
+	24, // 56: jennahapi.approval.v1.ApprovalService.WaitApproval:input_type -> jennahapi.approval.v1.WaitApprovalRequest
+	26, // 57: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:input_type -> jennahapi.approval.v1.ResendApprovalNotificationRequest
+	28, // 58: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:input_type -> jennahapi.approval.v1.DescribeApprovalByTokenRequest
+	30, // 59: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:input_type -> jennahapi.approval.v1.SubmitApprovalDecisionRequest
+	32, // 60: jennahapi.approval.v1.ApprovalService.ListApprovers:input_type -> jennahapi.approval.v1.ListApproversRequest
+	34, // 61: jennahapi.approval.v1.ApprovalService.AddApprover:input_type -> jennahapi.approval.v1.AddApproverRequest
+	36, // 62: jennahapi.approval.v1.ApprovalService.RemoveApprover:input_type -> jennahapi.approval.v1.RemoveApproverRequest
+	17, // 63: jennahapi.approval.v1.ApprovalService.CreateApproval:output_type -> jennahapi.approval.v1.CreateApprovalResponse
+	19, // 64: jennahapi.approval.v1.ApprovalService.GetApproval:output_type -> jennahapi.approval.v1.GetApprovalResponse
+	21, // 65: jennahapi.approval.v1.ApprovalService.ListApprovals:output_type -> jennahapi.approval.v1.ListApprovalsResponse
+	23, // 66: jennahapi.approval.v1.ApprovalService.CancelApproval:output_type -> jennahapi.approval.v1.CancelApprovalResponse
+	25, // 67: jennahapi.approval.v1.ApprovalService.WaitApproval:output_type -> jennahapi.approval.v1.WaitApprovalResponse
+	27, // 68: jennahapi.approval.v1.ApprovalService.ResendApprovalNotification:output_type -> jennahapi.approval.v1.ResendApprovalNotificationResponse
+	29, // 69: jennahapi.approval.v1.ApprovalService.DescribeApprovalByToken:output_type -> jennahapi.approval.v1.DescribeApprovalByTokenResponse
+	31, // 70: jennahapi.approval.v1.ApprovalService.SubmitApprovalDecision:output_type -> jennahapi.approval.v1.SubmitApprovalDecisionResponse
+	33, // 71: jennahapi.approval.v1.ApprovalService.ListApprovers:output_type -> jennahapi.approval.v1.ListApproversResponse
+	35, // 72: jennahapi.approval.v1.ApprovalService.AddApprover:output_type -> jennahapi.approval.v1.AddApproverResponse
+	37, // 73: jennahapi.approval.v1.ApprovalService.RemoveApprover:output_type -> jennahapi.approval.v1.RemoveApproverResponse
+	63, // [63:74] is the sub-list for method output_type
+	52, // [52:63] is the sub-list for method input_type
+	52, // [52:52] is the sub-list for extension type_name
+	52, // [52:52] is the sub-list for extension extendee
+	0,  // [0:52] is the sub-list for field type_name
 }
 
 func init() { file_jennah_approval_v1_approval_proto_init() }
